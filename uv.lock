@@ -8,24 +8,14 @@ resolution-markers = [
 
 [[package]]
 name = "aspalchemy"
-version = "0.3.0"
-source = { editable = "../aspalchemy" }
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "clingo" },
 ]
-
-[package.metadata]
-requires-dist = [{ name = "clingo", specifier = ">=5.8.0,<6" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = ">=2.1" },
-    { name = "pre-commit", specifier = ">=4.6" },
-    { name = "pyright", specifier = ">=1.1.411" },
-    { name = "pytest", specifier = ">=9.1" },
-    { name = "pytest-cov", specifier = ">=7.1.0" },
-    { name = "ruff", specifier = ">=0.15" },
-    { name = "ty", specifier = ">=0.0.56" },
+sdist = { url = "https://files.pythonhosted.org/packages/68/73/0537b40c51b4cdeed3ce657011a90baf01a464044683cac0a1f863443439/aspalchemy-1.0.0.tar.gz", hash = "sha256:6469efc6a51e9bb14017b4bc4f76237bfb46126e99a67214d083b93762736cb8", size = 111102, upload-time = "2026-07-12T01:27:40.372Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/38/fe67050b975f2e1244f9016fa158258d58fc1348ba009d26af62093eff2b/aspalchemy-1.0.0-py3-none-any.whl", hash = "sha256:c8615954a9ec3ffb4c9cbdfafc4575d5a0313855a519d96e4bb6cc3c6fc264be", size = 122957, upload-time = "2026-07-12T01:27:38.989Z" },
 ]
 
 [[package]]
@@ -47,7 +37,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "aspalchemy", editable = "../aspalchemy" }]
+requires-dist = [{ name = "aspalchemy", specifier = ">=1.0" }]
 
 [package.metadata.requires-dev]
 dev = [
