@@ -1,0 +1,23 @@
+{
+  "puzzle_type": "Starbattle",
+  "grid_type": "RectangularGrid",
+  "grid": [
+    "aabbb",
+    "caaad",
+    "cccdd",
+    "eeedd",
+    "eeeee"
+  ],
+  "star_count": 1,
+  "solutions": [
+    {
+      "star": [
+        "star(loc=cell(row=1, col=5))",
+        "star(loc=cell(row=2, col=3))",
+        "star(loc=cell(row=3, col=1))",
+        "star(loc=cell(row=4, col=4))",
+        "star(loc=cell(row=5, col=2))"
+      ]
+    }
+  ]
+}

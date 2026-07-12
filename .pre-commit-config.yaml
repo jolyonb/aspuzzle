@@ -1,0 +1,56 @@
+repos:
+  - repo: local
+    hooks:
+      # Run the ruff linter
+      - id: ruff
+        name: ruff (linter)
+        description: "Run 'ruff' for extremely fast Python linting"
+        entry: uv run ruff check
+        language: system
+        types: [python]
+        args: [--fix]
+
+      # Run the ruff formatter
+      - id: ruff-format
+        name: ruff (formatter)
+        description: "Run 'ruff format' for extremely fast Python formatting"
+        entry: uv run ruff format
+        language: system
+        types: [python]
+
+      # Run mypy once over the pyproject file list: passing filenames fans
+      # out into parallel batched invocations that thrash the shared cache
+      - id: mypy
+        name: mypy
+        description: "Run 'mypy' to get static type checking"
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      # Run pyright once over the pyproject include list (same reasoning)
+      - id: pyright
+        name: pyright
+        description: "Run 'pyright' to get static type checking"
+        entry: uv run pyright
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      # Solve the puzzle corpus end to end
+      - id: pytest
+        name: pytest
+        description: "Run the aspuzzle test suite"
+        entry: uv run pytest
+        language: system
+        pass_filenames: false
+        args: ["-x", "tests/"]
+
+  # Verify that the pre-commit configuration is valid
+  - repo: local
+    hooks:
+      - id: validate-manifest
+        name: validate pre-commit config
+        entry: uv run pre-commit validate-config
+        language: system
+        pass_filenames: false

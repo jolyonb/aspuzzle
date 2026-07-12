@@ -1,0 +1,40 @@
+{
+  "puzzle_type": "Stitches",
+  "grid_type": "RectangularGrid",
+  "grid": [
+    "accdd",
+    "abccd",
+    "abbcd",
+    "eeeed",
+    "eeeed"
+  ],
+  "stitch_count": 1,
+  "row_clues": [
+    4,
+    3,
+    4,
+    3,
+    2
+  ],
+  "column_clues": [
+    4,
+    4,
+    3,
+    4,
+    1
+  ],
+  "solutions": [
+    {
+      "stitch": [
+        "stitch(loc1=cell(row=1, col=1), loc2=cell(row=1, col=2))",
+        "stitch(loc1=cell(row=1, col=3), loc2=cell(row=1, col=4))",
+        "stitch(loc1=cell(row=2, col=1), loc2=cell(row=2, col=2))",
+        "stitch(loc1=cell(row=3, col=1), loc2=cell(row=4, col=1))",
+        "stitch(loc1=cell(row=3, col=2), loc2=cell(row=4, col=2))",
+        "stitch(loc1=cell(row=3, col=3), loc2=cell(row=2, col=3))",
+        "stitch(loc1=cell(row=3, col=4), loc2=cell(row=4, col=4))",
+        "stitch(loc1=cell(row=5, col=5), loc2=cell(row=5, col=4))"
+      ]
+    }
+  ]
+}

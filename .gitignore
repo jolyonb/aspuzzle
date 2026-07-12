@@ -1,0 +1,15 @@
+.idea/
+*.DS_Store
+*__pycache__/
+.claude/
+.venv/
+dist/
+
+# Working notes, audit reports, triage docs — never committed
+temp/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
