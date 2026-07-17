@@ -1,6 +1,6 @@
 from typing import Any
 
-from aspalchemy import Choice, ConditionType, Count, Field, Predicate, Term, V
+from aspalchemy import ANY, Choice, ConditionType, Count, Field, Predicate, Term, V
 from aspuzzle.grids.base import Grid, GridCell
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.puzzle import Module, Puzzle, cached_predicate
@@ -38,6 +38,11 @@ class ConnectedRegionless(Predicate, show=False):
     loc: Field[GridCell]
 
 
+class PossibleRegion(Predicate, show=False):
+    loc: Field[GridCell]
+    anchor: Field[GridCell]
+
+
 class RegionConstructor(Module):
     """
     Module for constructing regions in grid-based puzzles.
@@ -63,6 +68,7 @@ class RegionConstructor(Module):
         min_region_size: int | None = None,
         max_region_size: int | None = None,
         rectangular_regions: bool = False,
+        region_domain: list[Term] | None = None,
     ):
         """
         Initialize a RegionConstructor module.
@@ -84,6 +90,23 @@ class RegionConstructor(Module):
             min_region_size: The global minimum region size allowed
             max_region_size: The global maximum region size allowed
             rectangular_regions: Whether to force regions to be rectangular (grid-dependent meaning)
+            region_domain: Optional extra conditions bounding which (cell, anchor) pairs can
+                           belong to the same region, written against the canonical terms
+                           grid.cell() (the member cell) and grid.cell(suffix="anchor") (the
+                           anchor cell). Conditions may join the caller's own predicates.
+                           MUST overapproximate: every (cell, anchor) pair realized in any
+                           valid solution must satisfy the conditions — then solutions are
+                           preserved exactly and grounding shrinks to the possible domain.
+                           For size-bounded regions, grid.distance_bound(cell, anchor) is
+                           the building block (see the Nurikabe solver's per-clue bound).
+                           With dynamic anchors, being an anchor is a solve-time choice, so
+                           the domain enumerates every cell as a potential anchor and the
+                           conditions read "IF this cell anchors a region, that cell could
+                           belong to it"; pairs whose anchor never materializes are inert,
+                           since the domain only ever restricts propagation. That enumeration
+                           is cells^2, but it is a single filter pass emitting only the
+                           surviving pairs, and without it the whole downstream program
+                           grounds at cells^2 scale — the pruning it enables is worth the pass.
         """
         super().__init__(puzzle, name, primary_namespace)
         self.grid = grid
@@ -99,6 +122,7 @@ class RegionConstructor(Module):
         self.min_region_size = min_region_size
         self.max_region_size = max_region_size
         self.rectangular_regions = rectangular_regions
+        self.region_domain = region_domain
 
     @property
     @cached_predicate
@@ -207,16 +231,40 @@ class RegionConstructor(Module):
 
         # Section 3: Region Propagation
         self.section("Region Propagation")
+
+        # Optional membership domain: an overapproximation of which (cell, anchor)
+        # pairs can share a region, from caller-supplied region_domain conditions.
+        # Guarding the propagation rule with it shrinks the grounding of
+        # everything built on Region — including the recursive connection rules —
+        # from cells x anchors down to the possible domain.
+        domain_conditions: list[Term] = list(self.region_domain or [])
+        anchor_cell = self.grid.cell(suffix="anchor")
+
+        Possible: type[PossibleRegion] | None = None
+        if domain_conditions:
+            Possible = PossibleRegion.in_namespace(self.namespace)
+            # For fixed anchors the domain enumerates real anchors only; for
+            # dynamic anchors any cell may anchor, so the cell atom is the domain
+            anchor_domain = anchor_cell if self.dynamic_anchors else self.Anchor(loc=anchor_cell)
+            self.when(cell, anchor_domain, *domain_conditions).derive(Possible(loc=cell, anchor=anchor_cell))
+
         # Anchors define their own region
         self.when(self.Anchor(loc=C)).derive(self.Region(loc=C, anchor=C))
         # Regions propagate through connections
-        self.when(self.ConnectsTo(loc1=N, loc2=C), self.Region(loc=C, anchor=A)).derive(self.Region(loc=N, anchor=A))
-        # Orthogonal cells in the same region must be connected
+        propagation: list[Term] = [self.ConnectsTo(loc1=N, loc2=C), self.Region(loc=C, anchor=A)]
+        if Possible is not None:
+            propagation.append(Possible(loc=N, anchor=A))
+        self.when(*propagation).derive(self.Region(loc=N, anchor=A))
+        # Orthogonal cells in the same region must be connected. Stated as a
+        # requirement, not a derivation: deriving ConnectsTo here would place
+        # this three-way join inside the recursive Region/ConnectsTo component,
+        # where gringo re-evaluates it across the whole fixpoint; the requirement
+        # grounds in one pass after the recursion, with the same models.
         self.when(
             self.grid.Orthogonal(cell1=C, cell2=N),
             self.Region(loc=C, anchor=A),
             self.Region(loc=N, anchor=A),
-        ).derive(self.ConnectsTo(loc1=C, loc2=N))
+        ).require(self.ConnectsTo(loc1=C, loc2=N))
 
         # Section 4: Integrity Constraints
         self.section("Integrity Constraints")
@@ -308,12 +356,12 @@ class RegionConstructor(Module):
         if self.min_region_size or self.max_region_size:
             self.section("Min/Max region sizes")
             if self.min_region_size == self.max_region_size:
-                self.when(self.RegionSize(anchor=A, size=N)).require(N == self.min_region_size)
+                self.when(self.RegionSize(anchor=ANY, size=N)).require(N == self.min_region_size)
             else:
                 if self.min_region_size:
-                    self.when(self.RegionSize(anchor=A, size=N)).require(N >= self.min_region_size)
+                    self.when(self.RegionSize(anchor=ANY, size=N)).require(N >= self.min_region_size)
                 if self.max_region_size:
-                    self.when(self.RegionSize(anchor=A, size=N)).require(N <= self.max_region_size)
+                    self.when(self.RegionSize(anchor=ANY, size=N)).require(N <= self.max_region_size)
 
         # Rectangular regions
         if self.rectangular_regions:

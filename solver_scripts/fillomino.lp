@@ -60,7 +60,7 @@ connects_to(N, C) :- connects_to(C, N).
 % Region Propagation
 region(C, C) :- anchor(C).
 region(N, A) :- connects_to(N, C), region(C, A).
-connects_to(C, N) :- orthogonal(C, N), region(C, A), region(N, A).
+:- orthogonal(C, N), region(C, A), region(N, A), not connects_to(C, N).
 
 % Integrity Constraints
 :- cell(R, C), #count{ A : region(cell(R, C), A) } != 1.

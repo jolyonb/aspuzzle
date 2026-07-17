@@ -48,9 +48,10 @@ connected(C) :- anchor(C).
 connects_to(N, C) :- connects_to(C, N).
 
 % Region Propagation
+possible_region(cell(R, C), cell(R_anchor, C_anchor)) :- cell(R, C), anchor(cell(R_anchor, C_anchor)), clue(cell(R_anchor, C_anchor), S), |R - R_anchor| + |C - C_anchor| < S.
 region(C, C) :- anchor(C).
-region(N, A) :- connects_to(N, C), region(C, A).
-connects_to(C, N) :- orthogonal(C, N), region(C, A), region(N, A).
+region(N, A) :- connects_to(N, C), region(C, A), possible_region(N, A).
+:- orthogonal(C, N), region(C, A), region(N, A), not connects_to(C, N).
 
 % Integrity Constraints
 :- cell(R, C), not regionless(cell(R, C)), #count{ A : region(cell(R, C), A) } != 1.

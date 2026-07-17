@@ -5,6 +5,7 @@ from aspalchemy import (
     ANY,
     ConditionalLiteral,
     ExplicitPool,
+    Expression,
     Field,
     Predicate,
     PredicateArg,
@@ -21,10 +22,12 @@ type GridCellData = tuple[tuple[int, ...], int | str]
 
 class GridCell(Predicate, show=False):
     """
-    The static base for every grid's dynamic Cell class: grids create their
-    Cell via GridCell.define(...), whose fields depend on the grid type. This
-    base exists so cell-valued fields can be typed Field[GridCell] — "must be
-    a grid cell" — even though no static class knows the cell's shape.
+    The base for every grid's Cell class. Concrete grids declare a typed
+    subclass (e.g. RectangularCell with row/col fields, named "cell") and
+    clone it per instance via in_namespace(), so cells are statically typed
+    wherever the grid type is known. This base exists so cell-valued fields
+    in grid-agnostic code can be typed Field[GridCell] — "must be a grid
+    cell" — without knowing any particular grid's shape.
     """
 
     def __init__(self, *args: PredicateArg, **kwargs: PredicateArg) -> None:
@@ -119,15 +122,6 @@ class Grid(Module, ABC):
             List of (loc, value) tuples for non-empty cells
         """
         pass
-
-    @property
-    def cell_schema(self) -> dict[str, type | None]:
-        """
-        The Cell predicate's fields with their ground types where known
-        (None = untyped). Grids that know their coordinate types override
-        this; the default leaves every field untyped.
-        """
-        return dict.fromkeys(self.cell_fields)
 
     @property
     @abstractmethod
@@ -395,6 +389,15 @@ class Grid(Module, ABC):
     def outside_grid(self, suffix: str = "") -> Predicate:
         """Get an outside_grid predicate for this grid with variable values."""
         return self.OutsideGrid(self.cell(suffix=suffix))
+
+    def distance_bound(self, cell1: GridCell, cell2: GridCell) -> Expression | None:
+        """
+        A lower bound on the graph distance (orthogonal steps) between two
+        cells, as an ASP arithmetic expression — or None if this grid has no
+        usable metric. Used to prune rule domains: cells provably further
+        apart than some limit can be excluded during grounding.
+        """
+        return None
 
     def direction(self, name_suffix: str = "", vector_suffix: str = "vec") -> Predicate:
         """Get a direction predicate including names and vectors."""

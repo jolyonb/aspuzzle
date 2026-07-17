@@ -127,13 +127,27 @@ class Galaxies(Solver):
             ]
         )
 
-        # Divide the grid into regions using the first cell in each clue as an anchor
+        # Divide the grid into regions using the first cell in each clue as an anchor.
+        # Membership domain: a cell can only belong to a center whose mirror image of
+        # that cell stays on the board — the symmetry rule forces the mirror into the
+        # same galaxy, so an off-board mirror rules the pairing out entirely.
+        cell, anchor = grid.cell(), grid.cell(suffix="anchor")
+        R2, C2 = V.R2, V.C2
+        mirror_row = anchor.row + R2 - cell.row
+        mirror_col = anchor.col + C2 - cell.col
         region_constructor = RegionConstructor(
             puzzle=puzzle,
             grid=grid,
             anchor_predicate=Center,
             anchor_fields={"loc2": ANY, "id": ANY},
             allow_regionless=False,
+            region_domain=[
+                Center(loc=anchor, loc2=grid.Cell(row=R2, col=C2), id=ANY),
+                mirror_row >= 1,
+                mirror_row <= grid.rows,
+                mirror_col >= 1,
+                mirror_col <= grid.cols,
+            ],
         )
 
         # Impose the symmetry constraint

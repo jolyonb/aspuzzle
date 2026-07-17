@@ -1,13 +1,21 @@
 import dataclasses
 from typing import TYPE_CHECKING, Any
 
-from aspalchemy import Field, Predicate, RangePool, Segment, V
+from aspalchemy import Expression, Field, Predicate, RangePool, Segment, V
 from aspuzzle.grids.base import Grid, GridCell, GridCellData
 from aspuzzle.grids.rendering import RenderItem, RenderSymbol, colorize
 from aspuzzle.puzzle import Puzzle, cached_predicate
 
 if TYPE_CHECKING:
     from aspalchemy import PredicateArg
+
+
+class RectangularCell(GridCell, name="cell", show=False):
+    """A rectangular grid position, statically typed: solvers on a
+    RectangularGrid read .row/.col directly."""
+
+    row: Field[int]
+    col: Field[int]
 
 
 class OutsideGrid(Predicate, show=False):
@@ -57,11 +65,6 @@ class RectangularGrid(Grid):
     def cell_fields(self) -> list[str]:
         """Returns the list of field names associated with the Cell predicate for this grid"""
         return ["row", "col"]
-
-    @property
-    def cell_schema(self) -> dict[str, type | None]:
-        """Rectangular coordinates are integers."""
-        return {"row": int, "col": int}
 
     @property
     def cell_var_names(self) -> list[str]:
@@ -146,9 +149,9 @@ class RectangularGrid(Grid):
 
     @property
     @cached_predicate
-    def Cell(self) -> type[GridCell]:
+    def Cell(self) -> type[RectangularCell]:
         """Get the Cell predicate for this grid."""
-        Cell = GridCell.define("cell", self.cell_schema, namespace=self.namespace, show=False)
+        Cell = RectangularCell.in_namespace(self.namespace)
 
         R, C = V.R, V.C
 
@@ -157,6 +160,12 @@ class RectangularGrid(Grid):
         self.when(R.in_(RangePool(1, self.rows)), C.in_(RangePool(1, self.cols))).derive(Cell(R, C))
 
         return Cell
+
+    def cell(self, suffix: str = "") -> RectangularCell:
+        """Get a cell predicate for this grid with variable values."""
+        cell = super().cell(suffix)
+        assert isinstance(cell, RectangularCell)
+        return cell
 
     @property
     @cached_predicate
@@ -349,14 +358,18 @@ class RectangularGrid(Grid):
 
     def add_vector_to_cell(self, cell_pred: GridCell, vector_pred: GridCell) -> GridCell:
         """Add a vector to a cell in rectangular coordinates."""
-        # Extract coordinates
-        row = cell_pred["row"]
-        col = cell_pred["col"]
-        dr = vector_pred["row"]
-        dc = vector_pred["col"]
+        assert isinstance(cell_pred, RectangularCell)
+        assert isinstance(vector_pred, RectangularCell)
+        return self.Cell(row=cell_pred.row + vector_pred.row, col=cell_pred.col + vector_pred.col)
 
-        # Create new cell with added coordinates
-        return self.Cell(row=row + dr, col=col + dc)
+    def distance_bound(self, cell1: GridCell, cell2: GridCell) -> Expression:
+        """Manhattan distance — exact graph distance under orthogonal adjacency."""
+        # Bracket access (the Term view) on purpose: these cells hold rule
+        # variables, and attribute reads are statically typed by the ground
+        # schema (int), which cannot build a typed Expression
+        row_distance: Expression = abs(cell1["row"] - cell2["row"])
+        col_distance: Expression = abs(cell1["col"] - cell2["col"])
+        return row_distance + col_distance
 
     def forbid_2x2_blocks(
         self,
@@ -511,8 +524,9 @@ class RectangularGrid(Grid):
         for item in all_render_items:
             # Extract row/col from the location predicate, adjusting for 1-based indexing
             loc = item.loc
-            grid_row = loc["row"].value - 1
-            grid_col = loc["col"].value - 1
+            assert isinstance(loc, RectangularCell)
+            grid_row = loc.row - 1
+            grid_col = loc.col - 1
 
             # Skip if outside grid bounds
             if grid_row < 0 or grid_row >= self.rows or grid_col < 0 or grid_col >= self.cols:

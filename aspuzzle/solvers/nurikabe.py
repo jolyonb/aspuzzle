@@ -1,6 +1,6 @@
 from typing import Any
 
-from aspalchemy import ANY, Field, Predicate, V
+from aspalchemy import ANY, Field, Predicate, Term, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rendering import BgColor, Color, RenderSymbol
 from aspuzzle.regionconstructor import RegionConstructor
@@ -37,6 +37,12 @@ class Nurikabe(Solver):
 
         # Create the region constructor for islands, anchored on the clues
         # This handles a LOT of the rules!
+        # Membership domain: an island of size S cannot reach cells at distance >= S
+        # from its clue, so each island's grounding is bounded by its own clue size
+        cell, anchor = grid.cell(), grid.cell(suffix="anchor")
+        region_domain: list[Term] | None = None
+        if (distance := grid.distance_bound(cell, anchor)) is not None:
+            region_domain = [Clue(loc=anchor, size=V.S), distance < V.S]
         region_constructor = RegionConstructor(
             puzzle=puzzle,
             grid=grid,
@@ -46,6 +52,7 @@ class Nurikabe(Solver):
             forbid_regionless_pools=True,  # No 2x2 pools of stream
             contiguous_regionless=True,  # Stream must be contiguous
             non_adjacent_regions=True,  # Each island must be isolated
+            region_domain=region_domain,
         )
 
         puzzle.section("Each island must have the correct size")
