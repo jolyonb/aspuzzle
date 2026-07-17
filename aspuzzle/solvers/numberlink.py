@@ -66,9 +66,10 @@ class Numberlink(Solver):
             grid.OrthogonalDir(cell1=Cell1, cell2=Cell2, direction=D),
         ).derive(PropagatedSymbol(loc=Cell2, sym=Sym))
 
-        # Rule 6: Each symbol cannot have another symbol propagated to it
-        puzzle.section("Symbols cannot be connected to different symbols")
-        puzzle.when(Symbol(Cell, ANY)).require(Count(Sym, condition=PropagatedSymbol(loc=Cell, sym=Sym)) == 1)
+        # Rule 6: Every cell sees exactly one symbol. Scoping this to every cell (not just
+        # symbol cells) also rejects stray closed loops, which carry no symbol at all.
+        puzzle.section("Every cell sees exactly one symbol: no stray loops, no joined symbols")
+        puzzle.when(cell).require(Count(Sym, condition=PropagatedSymbol(loc=cell, sym=Sym)) == 1)
 
         # Rule 7: Orthogonal cells with the same propagated symbol must be connected via path
         puzzle.section("Define connected relationship")

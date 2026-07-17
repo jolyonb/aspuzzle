@@ -75,8 +75,8 @@ path(Cell2, OppD) :- path(Cell1, D), orthogonal_dir(Cell1, D, Cell2), opposite(D
 propagated_symbol(Cell, Sym) :- symbol(Cell, Sym).
 propagated_symbol(Cell2, Sym) :- propagated_symbol(Cell1, Sym), path(Cell1, D), orthogonal_dir(Cell1, D, Cell2).
 
-% Symbols cannot be connected to different symbols
-:- symbol(Cell, _), #count{ Sym : propagated_symbol(Cell, Sym) } != 1.
+% Every cell sees exactly one symbol: no stray loops, no joined symbols
+:- cell(R, C), #count{ Sym : propagated_symbol(cell(R, C), Sym) } != 1.
 
 % Define connected relationship
 connected(Cell1, Cell2) :- path(Cell1, D), orthogonal_dir(Cell1, D, Cell2).
