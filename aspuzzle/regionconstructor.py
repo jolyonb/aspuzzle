@@ -1,6 +1,6 @@
 from typing import Any
 
-from aspalchemy import ANY, Choice, ConditionType, Count, Field, Predicate, Term, V
+from aspalchemy import Choice, ConditionType, Count, Field, Predicate, Term, V
 from aspuzzle.grids.base import Grid, GridCell
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.puzzle import Module, Puzzle, cached_predicate
@@ -221,25 +221,17 @@ class RegionConstructor(Module):
         # Section 4: Integrity Constraints
         self.section("Integrity Constraints")
 
-        if not self.dynamic_anchors:
-            # These constraints enforce a single region per cell, but do so more cheaply than using a count aggregate
-            # Connected cells must have at least one anchor
-            self.when(self.Connected(loc=C)).require(self.Region(loc=C, anchor=ANY))
-            # Cells cannot belong to multiple different regions
-            self.when(self.Region(loc=C, anchor=A[1]), self.Region(loc=C, anchor=A[2])).require(A[1] == A[2])
-        else:
-            # Dynamic anchors. This can lead to a complexity explosion, so we use #count aggregates instead of the
-            # local rules.
-            # All cells must have exactly one anchor
-            conditions = [cell, N == Count(A, condition=self.Region(loc=cell, anchor=A))]
-            if self.allow_regionless:
-                conditions.append(~self.Regionless(loc=cell))
-            self.when(*conditions).require(N == 1)
+        # Every in-region cell must have exactly one anchor.
+        conditions = [cell]
+        if self.allow_regionless:
+            conditions.append(~self.Regionless(loc=cell))
+        if self.grid.has_outside_border:
+            conditions.append(~self.grid.outside_grid())
+        self.when(*conditions).require(Count(A, condition=self.Region(loc=cell, anchor=A)) == 1)
 
+        if self.dynamic_anchors:
             # Anchor must be the lexicographically smallest cell in its region
             self.when(self.Region(loc=C, anchor=A)).require(C >= A)
-            # TODO: if this works, then finding an anchor cell in Grid is probably a lot easier than what I'm
-            #       currently doing! Update: this DOES seem to work, which is impressive!
 
         # Optional rules
 

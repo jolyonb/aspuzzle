@@ -63,7 +63,7 @@ region(N, A) :- connects_to(N, C), region(C, A).
 connects_to(C, N) :- orthogonal(C, N), region(C, A), region(N, A).
 
 % Integrity Constraints
-:- cell(R, C), N = #count{ A : region(cell(R, C), A) }, N != 1.
+:- cell(R, C), #count{ A : region(cell(R, C), A) } != 1.
 :- region(C, A), C < A.
 
 % Region Size Calculation

@@ -96,8 +96,7 @@ region(N, A) :- connects_to(N, C), region(C, A).
 connects_to(C, N) :- orthogonal(C, N), region(C, A), region(N, A).
 
 % Integrity Constraints
-:- connected(C), not region(C, _).
-:- region(C, A_1), region(C, A_2), A_1 != A_2.
+:- cell(R, C), #count{ A : region(cell(R, C), A) } != 1.
 
 
 % ===== Rules =====

@@ -60,7 +60,7 @@ number(cell(9, 8), 3).
 % ===== symbols =====
 
 % Find anchor cell for cave
-cave_anchor(Cmin) :- Cmin = #min{ Cell : cave(Cell) }.
+cave_anchor(Cell) :- cave(Cell), Cell <= Other : cave(Other).
 
 % Contiguity for cave
 connected_cave(cell(R, C)) :- cave_anchor(cell(R, C)).

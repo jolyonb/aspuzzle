@@ -6,7 +6,6 @@ from aspalchemy import (
     ConditionalLiteral,
     ExplicitPool,
     Field,
-    Min,
     Predicate,
     PredicateArg,
     Segment,
@@ -373,11 +372,17 @@ class Grid(Module, ABC):
             anchor_name, {cell_field: GridCell, **dict.fromkeys(anchor_fields)}, namespace=self.namespace, show=False
         )
 
-        # Construct the anchor cell
-        Cmin, Cell = V.Cmin, V.Cell
+        Cell, Other = V.Cell, V.Other
+        anchor_kwargs = {k: v for k, v in condition_fields.items() if k in anchor_fields}
+
+        def candidate(loc: PredicateArg) -> Predicate:
+            return condition_predicate(**{cell_field: loc}, **condition_fields)
+
+        # The anchor is the condition cell that compares <= every condition cell
         segment.when(
-            Cmin == Min(Cell, condition=condition_predicate(**{cell_field: Cell}, **condition_fields)),
-        ).derive(AnchorPred(**{cell_field: Cmin}, **{k: v for k, v in condition_fields.items() if k in anchor_fields}))
+            candidate(Cell),
+            ConditionalLiteral(Cell <= Other, candidate(Other)),
+        ).derive(AnchorPred(**{cell_field: Cell}, **anchor_kwargs))
 
         return AnchorPred
 

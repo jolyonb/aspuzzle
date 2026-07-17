@@ -48,7 +48,7 @@ clue(cell(5, 2), 2).
 % ===== symbols =====
 
 % Find anchor cell for inside
-inside_anchor(Cmin) :- Cmin = #min{ Cell : inside(Cell) }.
+inside_anchor(Cell) :- inside(Cell), Cell <= Other : inside(Other).
 
 % Contiguity for inside
 connected_inside(cell(R, C)) :- inside_anchor(cell(R, C)).

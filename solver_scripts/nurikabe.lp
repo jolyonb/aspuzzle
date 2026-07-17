@@ -53,8 +53,7 @@ region(N, A) :- connects_to(N, C), region(C, A).
 connects_to(C, N) :- orthogonal(C, N), region(C, A), region(N, A).
 
 % Integrity Constraints
-:- connected(C), not region(C, _).
-:- region(C, A_1), region(C, A_2), A_1 != A_2.
+:- cell(R, C), not regionless(cell(R, C)), #count{ A : region(cell(R, C), A) } != 1.
 
 % Region Size Calculation
 region_size(Anchor, Size) :- anchor(Anchor), Size = #count{ Cell : region(Cell, Anchor) }.
@@ -68,7 +67,7 @@ region_size(Anchor, Size) :- anchor(Anchor), Size = #count{ Cell : region(Cell, 
 :- region(C_1, A), orthogonal(C_1, C_2), not region(C_2, A), not regionless(C_2).
 
 % Find anchor cell for regionless
-regionless_anchor(Cmin) :- Cmin = #min{ Cell : regionless(Cell) }.
+regionless_anchor(Cell) :- regionless(Cell), Cell <= Other : regionless(Other).
 
 % Contiguity for regionless cells
 connected_regionless(cell(R, C)) :- regionless_anchor(cell(R, C)).

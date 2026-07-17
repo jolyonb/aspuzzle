@@ -72,7 +72,7 @@ value(cell(5, 5), 2).
 % ===== symbols =====
 
 % Find anchor cell for white
-white_anchor(Cmin) :- Cmin = #min{ Cell : white(Cell) }.
+white_anchor(Cell) :- white(Cell), Cell <= Other : white(Other).
 
 % Contiguity for white
 connected_white(cell(R, C)) :- white_anchor(cell(R, C)).
