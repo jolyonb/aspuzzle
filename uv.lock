@@ -8,14 +8,14 @@ resolution-markers = [
 
 [[package]]
 name = "aspalchemy"
-version = "1.0.0"
+version = "1.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "clingo" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/68/73/0537b40c51b4cdeed3ce657011a90baf01a464044683cac0a1f863443439/aspalchemy-1.0.0.tar.gz", hash = "sha256:6469efc6a51e9bb14017b4bc4f76237bfb46126e99a67214d083b93762736cb8", size = 111102, upload-time = "2026-07-12T01:27:40.372Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/12/1c1fbf2bc61c1da2fade7d2e4518b5b11dd3620edc3cef03f8e74cb7a52c/aspalchemy-1.4.2.tar.gz", hash = "sha256:984bb1c286b448ff41eee100b117a6b11cc027e285aeedb1d16be448ca8ff489", size = 124746, upload-time = "2026-07-16T07:00:54.855Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/38/fe67050b975f2e1244f9016fa158258d58fc1348ba009d26af62093eff2b/aspalchemy-1.0.0-py3-none-any.whl", hash = "sha256:c8615954a9ec3ffb4c9cbdfafc4575d5a0313855a519d96e4bb6cc3c6fc264be", size = 122957, upload-time = "2026-07-12T01:27:38.989Z" },
+    { url = "https://files.pythonhosted.org/packages/15/66/3d73f9b6ab5cd84d9a7f684e23e223446ad42228b9ef56e1a9554a201700/aspalchemy-1.4.2-py3-none-any.whl", hash = "sha256:04ae158ad532472ce50f93a88ae71ef25cdf9d24f4ab3db4074b2a1b2f504fbd", size = 136316, upload-time = "2026-07-16T07:00:53.526Z" },
 ]
 
 [[package]]
@@ -37,7 +37,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "aspalchemy", specifier = ">=1.0" }]
+requires-dist = [{ name = "aspalchemy", specifier = ">=1.4.2" }]
 
 [package.metadata.requires-dev]
 dev = [

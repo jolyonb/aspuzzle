@@ -80,10 +80,9 @@ class Stitches(Solver):
         puzzle.section("Cells can participate in at most one stitch")
         # For each cell that is in a stitch, count the number of other cells
         # that it is connected to via a stitch. We enforce that this must be one.
-        count_expr = N == Count(element=cell, condition=Stitch(loc1=A, loc2=cell)).add(
-            element=cell, condition=Stitch(loc1=cell, loc2=A)
-        )
-        puzzle.when(CellInStitch(loc=A), count_expr).require(N == 1)
+        cell_stitches = Count(element=cell, condition=Stitch(loc1=A, loc2=cell))
+        cell_stitches.add(element=cell, condition=Stitch(loc1=cell, loc2=A))
+        puzzle.when(CellInStitch(loc=A), N == cell_stitches).require(N == 1)
 
         # Rule 4: Count stitches per line (row/column/etc)
         puzzle.section("Count stitches in each major line")

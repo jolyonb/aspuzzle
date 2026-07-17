@@ -7,7 +7,7 @@ from aspuzzle.grids.rendering import RenderItem, RenderSymbol, colorize
 from aspuzzle.puzzle import Puzzle, cached_predicate
 
 if TYPE_CHECKING:
-    from aspalchemy import PredicateField
+    from aspalchemy import PredicateArg
 
 
 class OutsideGrid(Predicate, show=False):
@@ -362,7 +362,7 @@ class RectangularGrid(Grid):
         self,
         symbol_predicate: type[Predicate],
         segment: Segment,
-        fixed_fields: dict[str, PredicateField] | None = None,
+        fixed_fields: dict[str, PredicateArg] | None = None,
     ) -> None:
         """
         Forbid 2x2 blocks of a specific symbol/predicate in a rectangular grid.
@@ -404,7 +404,7 @@ class RectangularGrid(Grid):
         self,
         symbol_predicate: type[Predicate],
         segment: Segment,
-        fixed_fields: dict[str, PredicateField] | None = None,
+        fixed_fields: dict[str, PredicateArg] | None = None,
     ) -> None:
         """
         Forbids a 2x2 block checkerboard pattern of a given predicate in a rectangular grid.

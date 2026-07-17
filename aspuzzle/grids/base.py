@@ -8,7 +8,7 @@ from aspalchemy import (
     Field,
     Min,
     Predicate,
-    PredicateField,
+    PredicateArg,
     Segment,
     V,
     Variable,
@@ -28,7 +28,7 @@ class GridCell(Predicate, show=False):
     a grid cell" — even though no static class knows the cell's shape.
     """
 
-    def __init__(self, *args: PredicateField, **kwargs: PredicateField) -> None:
+    def __init__(self, *args: PredicateArg, **kwargs: PredicateArg) -> None:
         # Like Predicate's own stub: checkers cannot know a dynamic Cell's
         # fields, and without this they would use the zero-field init
         # synthesized for this (fieldless) base

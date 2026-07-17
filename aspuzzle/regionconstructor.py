@@ -167,7 +167,7 @@ class RegionConstructor(Module):
             choice.add(self.Regionless(loc=cell))
         if self.dynamic_anchors:
             choice.add(self.Anchor(loc=cell))
-        choice.exactly(1)
+        choice = choice.exactly(1)
         # Apply the choice rule for each valid cell
         conditions: list[Term] = [cell]
         if self.grid.has_outside_border:
@@ -198,7 +198,7 @@ class RegionConstructor(Module):
         choice = Choice(self.ConnectsTo(loc1=C, loc2=N), condition=choice_conditions)
         if self.dynamic_anchors:
             # Dynamic anchors: connected cells must have at least one connection (as they're not anchors)
-            choice.at_least(1)
+            choice = choice.at_least(1)
             # For fixed anchors, no minimum constraint is needed, as connected cells can also be anchors
         self.when(self.Connected(loc=C)).derive(choice)
 

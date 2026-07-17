@@ -156,10 +156,7 @@ class SymbolSet(Module):
             choice.add(choice_pred, condition)
 
         # Set cardinality constraints
-        if self.fill_all_squares:
-            choice.exactly(1)
-        else:
-            choice.at_least(0).at_most(1)
+        choice = choice.exactly(1) if self.fill_all_squares else choice.at_least(0).at_most(1)
 
         # Add the condition that the cell is not excluded
         conditions: list[Predicate | DefaultNegation] = [cell]

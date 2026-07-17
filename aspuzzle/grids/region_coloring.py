@@ -1,7 +1,7 @@
 from itertools import islice
 from typing import Any, TypeVar
 
-from aspalchemy import ANY, Choice, Predicate, PredicateField, V
+from aspalchemy import ANY, Choice, Field, Predicate, PredicateArg, V
 from aspuzzle.grids.base import Grid
 from aspuzzle.grids.rendering import BgColor
 from aspuzzle.puzzle import Puzzle
@@ -10,18 +10,18 @@ T = TypeVar("T")  # For region ID type
 
 
 class Region(Predicate, show=False):
-    loc: PredicateField
-    id: PredicateField
+    loc: Field[PredicateArg]
+    id: Field[PredicateArg]
 
 
 class Adjacent(Predicate, show=False):
-    id1: PredicateField
-    id2: PredicateField
+    id1: Field[PredicateArg]
+    id2: Field[PredicateArg]
 
 
 class RegionColor(Predicate):
-    id: PredicateField
-    color_id: PredicateField
+    id: Field[PredicateArg]
+    color_id: Field[PredicateArg]
 
 
 class RegionColoring:
