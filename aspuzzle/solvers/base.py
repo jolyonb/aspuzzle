@@ -127,9 +127,13 @@ class Solver(ABC):
         return self.puzzle, self.grid, self.config, self.grid_data
 
     def validate(self) -> None:
-        """Validate the puzzle configuration."""
-        self.validate_grid_symbols()
+        """
+        Validate the puzzle configuration. Config validation runs first:
+        it may adjust supported_symbols (or remap grid symbols) based on
+        the configuration, e.g. widening the digit range for large Sudokus.
+        """
         self.validate_config()
+        self.validate_grid_symbols()
 
     def validate_grid_symbols(self) -> None:
         """Validate that the grid contains only supported symbols."""

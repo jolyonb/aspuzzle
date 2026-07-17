@@ -74,6 +74,16 @@ class Sudoku(Solver):
         # Update supported symbols depending on grid size
         self.supported_symbols = (*range(1, grid_size + 1), ".")
 
+        # Values above 9 cannot appear as single digit characters in the grid;
+        # they are written as letters (10 -> "A"), matching the renderer's output.
+        # Remap any letter clues to their integer values.
+        if grid_size > 9:
+            letters = {chr(ord("A") + value - 10): value for value in range(10, grid_size + 1)}
+            self._grid_data = [
+                (loc, letters[value]) if isinstance(value, str) and value in letters else (loc, value)
+                for loc, value in self.grid_data
+            ]
+
     def construct_puzzle(self) -> None:
         """Construct the Sudoku puzzle rules."""
         puzzle, grid, _config, grid_data = self.unpack_data()
