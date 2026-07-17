@@ -1,8 +1,33 @@
 from typing import Any
 
-from aspalchemy import ANY, Choice, Count, Predicate, V
+from aspalchemy import ANY, Choice, Count, Field, Predicate, V
+from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rendering import Color, RenderSymbol
 from aspuzzle.solvers.base import Solver
+
+
+class Tree(Predicate, show=False):
+    loc: Field[GridCell]
+
+
+class Tent(Predicate):
+    loc: Field[GridCell]
+
+
+class Tie(Predicate, show=False):
+    tree_loc: Field[GridCell]
+    dir: Field[str]
+
+
+class TieDestination(Predicate, show=False):
+    tree_loc: Field[GridCell]
+    tent_loc: Field[GridCell]
+
+
+class ExpectedCounts(Predicate, name="expected_count", show=False):
+    dir: Field[str]
+    index: Field[int]
+    count: Field[int]
 
 
 class Tents(Solver):
@@ -12,13 +37,6 @@ class Tents(Solver):
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
         puzzle, grid, config, grid_data = self.unpack_data()
-
-        # Define predicates
-        Tree = Predicate.define("tree", ["loc"], show=False)
-        Tent = Predicate.define("tent", ["loc"], show=True)
-        Tie = Predicate.define("tie", ["tree_loc", "dir"], show=False)
-        TieDestination = Predicate.define("tie_destination", ["tree_loc", "tent_loc"], show=False)
-        ExpectedCounts = Predicate.define("expected_count", ["dir", "index", "count"], show=False)
 
         # Create variables
         C, D, A, B = V.C, V.D, V.A, V.B

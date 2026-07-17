@@ -1,11 +1,23 @@
 from typing import Any
 
-from aspalchemy import ANY, Count, Predicate, V
-from aspuzzle.grids.base import do_not_show_outside
+from aspalchemy import ANY, Count, Field, Predicate, V
+from aspuzzle.grids.base import GridCell, do_not_show_outside
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.grids.rendering import BgColor, Color, RenderSymbol
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
+
+
+class Number(Predicate, show=False):
+    loc: Field[GridCell]
+    value: Field[int]
+
+
+class CanSee(Predicate, show=False):
+    from_loc: Field[GridCell]
+    dir: Field[str]
+    index: Field[int]
+    position: Field[int]
 
 
 class Cave(Solver):
@@ -15,11 +27,7 @@ class Cave(Solver):
 
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
-        puzzle, grid, _config, grid_data = self.unpack_data()
-
-        # Define predicates
-        Number = Predicate.define("number", ["loc", "value"], show=False)
-        CanSee = Predicate.define("can_see", ["from_loc", "dir", "index", "position"], show=False)
+        puzzle, grid, _config, _grid_data = self.unpack_data()
 
         # Create variables
         C, Dir, Pos, Idx = V.C, V.Dir, V.Pos, V.Idx
@@ -29,7 +37,7 @@ class Cave(Solver):
         # Define numbers from the input grid
         clues = puzzle.add_segment("Clues")
         clues.section("Define numbered cells")
-        clues.fact(*[Number(loc=grid.Cell(*loc), value=value) for loc, value in grid_data])
+        clues.fact(*[Number(loc=grid.Cell(*loc), value=value) for loc, value in self.int_grid_data])
 
         # Define cave/wall cells using a symbol set
         symbols = SymbolSet(grid, fill_all_squares=True).add_symbol("cave").add_symbol("wall")

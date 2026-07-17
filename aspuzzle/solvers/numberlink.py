@@ -1,8 +1,46 @@
 from typing import Any
 
-from aspalchemy import ANY, Choice, Count, Predicate, V
+from aspalchemy import ANY, Choice, Count, Field, Predicate, PredicateArg, V
+from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rendering import Color, RenderSymbol
 from aspuzzle.solvers.base import Solver
+
+
+class Symbol(Predicate, show=False):
+    """A numbered endpoint clue; sym is an opaque label (int or str)."""
+
+    loc: Field[GridCell]
+    sym: Field[PredicateArg]
+
+
+class HasSymbol(Predicate, show=False):
+    loc: Field[GridCell]
+
+
+class PathDegree(Predicate, show=False):
+    loc: Field[GridCell]
+    degree: Field[int]
+
+
+class Path(Predicate, show=False):
+    loc: Field[GridCell]
+    direction: Field[str]
+
+
+class PropagatedSymbol(Predicate, show=False):
+    loc: Field[GridCell]
+    sym: Field[PredicateArg]
+
+
+class Connected(Predicate, show=False):
+    loc1: Field[GridCell]
+    loc2: Field[GridCell]
+
+
+class CellDirections(Predicate):
+    loc: Field[GridCell]
+    dir1: Field[str]
+    dir2: Field[str]
 
 
 class Numberlink(Solver):
@@ -17,26 +55,22 @@ class Numberlink(Solver):
         D, Sym = V.D, V.Sym
 
         # Clues
-        Symbol = Predicate.define("symbol", ["loc", "sym"], show=False)
         clues = puzzle.add_segment("Clues")
         clues.section("Define numbered endpoints")
         clues.fact(*[Symbol(loc=grid.Cell(*loc), sym=sym) for loc, sym in grid_data])
 
         # Define which cells have symbols
         puzzle.section("Identify cells with symbols")
-        HasSymbol = Predicate.define("has_symbol", ["loc"], show=False)
         puzzle.when(Symbol(loc=Cell, sym=ANY)).derive(HasSymbol(loc=Cell))
 
         # Rule 1: Define how many paths each cell should have
         puzzle.section("Path degree requirements")
         cell = grid.cell()
-        PathDegree = Predicate.define("path_degree", ["loc", "degree"], show=False)
         puzzle.when(HasSymbol(loc=Cell)).derive(PathDegree(loc=Cell, degree=1))
         puzzle.when(cell, ~HasSymbol(loc=cell)).derive(PathDegree(loc=cell, degree=2))
 
         # Rule 2: Choose path directions for each cell
         puzzle.section("Path choice constraints")
-        Path = Predicate.define("path", ["loc", "direction"], show=False)
         puzzle.when(
             PathDegree(loc=cell, degree=V.N),
         ).choose(
@@ -56,7 +90,6 @@ class Numberlink(Solver):
 
         # Rule 4: Cells with symbols propagate their symbol
         puzzle.section("Symbol propagation")
-        PropagatedSymbol = Predicate.define("propagated_symbol", ["loc", "sym"], show=False)
         puzzle.when(Symbol(loc=Cell, sym=Sym)).derive(PropagatedSymbol(loc=Cell, sym=Sym))
 
         # Rule 5: Symbols propagate through connected paths
@@ -73,7 +106,6 @@ class Numberlink(Solver):
 
         # Rule 7: Orthogonal cells with the same propagated symbol must be connected via path
         puzzle.section("Define connected relationship")
-        Connected = Predicate.define("connected", ["loc1", "loc2"], show=False)
         puzzle.when(
             Path(loc=Cell1, direction=D),
             grid.OrthogonalDir(cell1=Cell1, cell2=Cell2, direction=D),
@@ -88,7 +120,6 @@ class Numberlink(Solver):
 
         # Rule 8: Solution extraction - compute the two directions for each non-symbol cell
         puzzle.section("Solution extraction")
-        CellDirections = Predicate.define("cell_directions", ["loc", "dir1", "dir2"], show=True)
         D1, D2 = V.D1, V.D2
 
         # D1 < D2 ensures canonical ordering to avoid duplicates
@@ -107,25 +138,27 @@ class Numberlink(Solver):
         Returns:
             Dictionary with rendering configuration for Numberlink
         """
-        # Colors for numbers 1-9, cycling for higher numbers
+        # Symbols are opaque labels (numbers or strings); color them in
+        # first-appearance order, cycling the palette
         colors = [
-            Color.BLUE,  # 1
-            Color.GREEN,  # 2
-            Color.RED,  # 3
-            Color.MAGENTA,  # 4
-            Color.CYAN,  # 5
-            Color.YELLOW,  # 6
-            Color.BRIGHT_BLUE,  # 7
-            Color.BRIGHT_GREEN,  # 8
-            Color.BRIGHT_RED,  # 9
+            Color.BLUE,
+            Color.GREEN,
+            Color.RED,
+            Color.MAGENTA,
+            Color.CYAN,
+            Color.YELLOW,
+            Color.BRIGHT_BLUE,
+            Color.BRIGHT_GREEN,
+            Color.BRIGHT_RED,
         ]
 
+        clue_symbols: list[int | str] = []
+        for _loc, sym in self.grid_data:
+            if sym not in clue_symbols:
+                clue_symbols.append(sym)
+
         puzzle_symbols = {
-            i: RenderSymbol(
-                symbol=str(i) if i <= 9 else "#",
-                color=colors[(i - 1) % len(colors)],
-            )
-            for i in range(1, 100)
+            sym: RenderSymbol(symbol=str(sym), color=colors[i % len(colors)]) for i, sym in enumerate(clue_symbols)
         }
 
         return {

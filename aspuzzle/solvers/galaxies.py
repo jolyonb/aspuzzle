@@ -1,11 +1,23 @@
 from typing import Any
 
-from aspalchemy import ANY, Predicate, V
+from aspalchemy import ANY, Field, Predicate, V
+from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.grids.region_coloring import assign_region_colors_from_predicates
 from aspuzzle.grids.rendering import BgColor, Color, RenderItem, RenderSymbol
 from aspuzzle.regionconstructor import RegionConstructor
 from aspuzzle.solvers.base import Solver
+
+
+class Center(Predicate, show=False):
+    loc: Field[GridCell]
+    loc2: Field[GridCell]
+    id: Field[int]
+
+
+class Galaxy(Predicate):
+    loc: Field[GridCell]
+    id: Field[int]
 
 
 class Galaxies(Solver):
@@ -106,9 +118,6 @@ class Galaxies(Solver):
         puzzle, grid, _config, _grid_data = self.unpack_data()
         assert isinstance(grid, RectangularGrid)
 
-        # Define predicates
-        Center = Predicate.define("center", ["loc", "loc2", "id"], show=False)
-
         # Define clues - the clues contain cells on either side of the center
         clues = puzzle.add_segment("Clues")
         clues.fact(
@@ -139,7 +148,6 @@ class Galaxies(Solver):
 
         # Define a predicate to extract the regions from the puzzle for solution display purposes
         puzzle.section("Solution extraction")
-        Galaxy = Predicate.define("galaxy", ["loc", "id"], show=True)
         puzzle.when(
             region_constructor.Region(loc=V.Loc, anchor=V.A),
             Center(loc=V.A, loc2=ANY, id=V.Id),

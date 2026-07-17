@@ -62,7 +62,7 @@ region_size(Anchor, Size) :- anchor(Anchor), Size = #count{ Cell : region(Cell, 
 % Forbid regionless pools
 
 % Forbid 2x2 blocks of regionless
-:- cell(R, C), cell(R + 1, C + 1), regionless(cell(R, C)), regionless(cell(R, C + 1)), regionless(cell(R + 1, C)), regionless(cell(R + 1, C + 1)).
+:- regionless(cell(R, C)), regionless(cell(R, C + 1)), regionless(cell(R + 1, C)), regionless(cell(R + 1, C + 1)), cell(R, C), cell(R + 1, C + 1).
 
 % Regions cannot touch
 :- region(C_1, A), orthogonal(C_1, C_2), not region(C_2, A), not regionless(C_2).

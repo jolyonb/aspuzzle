@@ -1,9 +1,23 @@
 from typing import Any
 
-from aspalchemy import ANY, Predicate, V
+from aspalchemy import ANY, Field, Predicate, V
+from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rendering import BgColor, Color, RenderSymbol
 from aspuzzle.regionconstructor import RegionConstructor
 from aspuzzle.solvers.base import Solver
+
+
+class Clue(Predicate, show=False):
+    loc: Field[GridCell]
+    size: Field[int]
+
+
+class Stream(Predicate):
+    loc: Field[GridCell]
+
+
+class Island(Predicate):
+    loc: Field[GridCell]
 
 
 class Nurikabe(Solver):
@@ -14,14 +28,11 @@ class Nurikabe(Solver):
         """Construct the rules of the puzzle."""
         puzzle, grid, _config, grid_data = self.unpack_data()
 
-        # Define predicates
-        Clue = Predicate.define("clue", ["loc", "size"], show=False)
-
         # Define island clues from the input grid
         clues = puzzle.add_segment("Clues")
         clues.section("Define numbered islands")
         clues.fact(
-            *[Clue(loc=grid.Cell(*loc), size=size) for loc, size in grid_data],
+            *[Clue(loc=grid.Cell(*loc), size=size) for loc, size in self.int_grid_data],
         )
 
         # Create the region constructor for islands, anchored on the clues
@@ -49,8 +60,6 @@ class Nurikabe(Solver):
             ).derive(region_constructor.Regionless(loc=C["adj"]))
 
         puzzle.section("Solution readout")
-        Stream = Predicate.define("stream", ["loc"], show=True)
-        Island = Predicate.define("island", ["loc"], show=True)
         puzzle.when(region_constructor.Regionless(loc=C)).derive(Stream(loc=C))
         puzzle.when(region_constructor.Region(loc=C, anchor=ANY)).derive(Island(loc=C))
 

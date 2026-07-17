@@ -1,10 +1,16 @@
 from typing import Any, ClassVar
 
-from aspalchemy import ANY, Count, Predicate, V
+from aspalchemy import ANY, Count, Field, Predicate, V
+from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.region_coloring import assign_region_colors
 from aspuzzle.grids.rendering import BgColor, Color, RenderSymbol
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
+
+
+class Region(Predicate, show=False):
+    loc: Field[GridCell]
+    id: Field[int]
 
 
 class Starbattle(Solver):
@@ -15,19 +21,17 @@ class Starbattle(Solver):
 
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
-        puzzle, grid, config, grid_data = self.unpack_data()
+        puzzle, grid, config, _grid_data = self.unpack_data()
 
         star_count = puzzle.define_constant("star_count", config["star_count"])
 
-        # Define predicates
-        Region = Predicate.define("region", ["loc", "id"], show=False)
         N = V.N
         cell = grid.cell()
         cell_adj = grid.cell(suffix="adj")
 
         # Define regions
         regions = puzzle.add_segment("Regions")
-        regions.fact(*[Region(loc=grid.Cell(*loc), id=region_id) for loc, region_id in grid_data])
+        regions.fact(*[Region(loc=grid.Cell(*loc), id=region_id) for loc, region_id in self.int_grid_data])
 
         # Define star placement
         symbols = SymbolSet(grid).add_symbol("star")

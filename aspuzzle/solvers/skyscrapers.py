@@ -1,10 +1,28 @@
 from typing import Any
 
-from aspalchemy import ANY, Count, Predicate, RangePool, V
+from aspalchemy import ANY, Count, Field, Predicate, RangePool, V
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.grids.rendering import Color, RenderSymbol
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
+
+
+class Clue(Predicate, show=False):
+    dir: Field[str]
+    index: Field[int]
+    count: Field[int]
+
+
+class Blocked(Predicate, show=False):
+    dir: Field[str]
+    index: Field[int]
+    position: Field[int]
+
+
+class Visible(Predicate, show=False):
+    dir: Field[str]
+    index: Field[int]
+    position: Field[int]
 
 
 class Skyscrapers(Solver):
@@ -48,7 +66,6 @@ class Skyscrapers(Solver):
         # Clues
         clues_seg = puzzle.add_segment("Clues")
         clues_seg.section("Clue constraints")
-        Clue = Predicate.define("clue", ["dir", "index", "count"], show=False)
         clue_mapping: list[tuple[str, list[int]]] = [
             ("s", config["top_clues"]),  # Top clues look south (down)
             ("n", config["bottom_clues"]),  # Bottom clues look north (up)
@@ -86,7 +103,6 @@ class Skyscrapers(Solver):
         earlier_cell = grid.cell(suffix="prev")
 
         # Define blocking predicate: a building is blocked if there's a taller building at an earlier position
-        Blocked = Predicate.define("blocked", ["dir", "index", "position"], show=False)
         puzzle.when(
             grid.LineOfSight(direction=Dir, index=Idx, position=Pos, loc=cell),
             Height(loc=cell, value=H),
@@ -97,7 +113,6 @@ class Skyscrapers(Solver):
         ).derive(Blocked(dir=Dir, index=Idx, position=Pos))
 
         # Define visible predicate: a building is visible if it's not blocked
-        Visible = Predicate.define("visible", ["dir", "index", "position"], show=False)
         puzzle.when(
             grid.LineOfSight(direction=Dir, index=Idx, position=Pos, loc=ANY),
             ~Blocked(dir=Dir, index=Idx, position=Pos),

@@ -61,8 +61,8 @@ connected_outside(C_adj) :- connected_outside(C), outside(C_adj), orthogonal(C, 
 :- outside(C), not connected_outside(C).
 
 % Forbid disconnecting checkerboard pattern for inside
-:- cell(R, C), cell(R + 1, C + 1), inside(cell(R, C)), inside(cell(R + 1, C + 1)), not inside(cell(R, C + 1)), not inside(cell(R + 1, C)).
-:- cell(R, C), cell(R + 1, C + 1), inside(cell(R, C + 1)), inside(cell(R + 1, C)), not inside(cell(R, C)), not inside(cell(R + 1, C + 1)).
+:- inside(cell(R, C)), inside(cell(R + 1, C + 1)), not inside(cell(R, C + 1)), not inside(cell(R + 1, C)), cell(R, C), cell(R + 1, C + 1).
+:- inside(cell(R, C + 1)), inside(cell(R + 1, C)), not inside(cell(R, C)), not inside(cell(R + 1, C + 1)), cell(R, C), cell(R + 1, C + 1).
 
 % Place symbols in the grid
 { inside(cell(R, C)); outside(cell(R, C)) } = 1 :- cell(R, C), not outside_grid(cell(R, C)).

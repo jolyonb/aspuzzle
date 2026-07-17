@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Self
 
-from aspalchemy import Choice, Comparison, DefaultNegation, Pool, Predicate, Variable
+from aspalchemy import Choice, Comparison, DefaultNegation, Pool, Predicate, RangePool, Variable
 from aspuzzle.grids.base import Grid, GridCell
 from aspuzzle.puzzle import Module
 
@@ -78,8 +78,13 @@ class SymbolSet(Module):
         if name in self._symbols:
             raise ValueError(f"Symbol '{name}' already exists in this set")
 
-        # Define the predicate for this symbol type
-        symbol_pred = Predicate.define(name, {"loc": GridCell, type_name: None}, namespace=self.namespace, show=show)
+        # Define the predicate for this symbol type. A RangePool's values are
+        # ints by construction, so the value field can be typed; other pools
+        # may mix types, so their value slot stays polymorphic.
+        value_type = int if isinstance(pool, RangePool) else None
+        symbol_pred = Predicate.define(
+            name, {"loc": GridCell, type_name: value_type}, namespace=self.namespace, show=show
+        )
 
         self._symbols[name] = SymbolInfo(
             predicate=symbol_pred,
@@ -193,10 +198,11 @@ class SymbolSet(Module):
         fields = symbol_pred.field_names()
         value_field = {symbol.value_field: Variable("V")} if symbol.value_field else {}
 
-        # Create Connected predicate with same fields as the symbol predicate
+        # Create Connected predicate with same fields (and value typing) as the symbol predicate
+        value_type = int if isinstance(symbol.pool, RangePool) else None
         Connected = Predicate.define(
             f"connected_{symbol_name}",
-            {field: (GridCell if field == "loc" else None) for field in fields},
+            {field: (GridCell if field == "loc" else value_type) for field in fields},
             namespace=self.namespace,
             show=False,
         )

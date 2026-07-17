@@ -1,9 +1,25 @@
 from typing import Any
 
-from aspalchemy import Predicate, V
+from aspalchemy import Field, Predicate, V
+from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rendering import BgColor, Color, RenderItem, RenderSymbol
 from aspuzzle.regionconstructor import RegionConstructor
 from aspuzzle.solvers.base import Solver
+
+
+class Clue(Predicate, show=False):
+    loc: Field[GridCell]
+    size: Field[int]
+
+
+class Number(Predicate):
+    loc: Field[GridCell]
+    size: Field[int]
+
+
+class DifferentRegions(Predicate, show=False):
+    cell1: Field[GridCell]
+    cell2: Field[GridCell]
 
 
 class Fillomino(Solver):
@@ -14,14 +30,10 @@ class Fillomino(Solver):
         """Construct the rules of the puzzle."""
         puzzle, grid, _config, grid_data = self.unpack_data()
 
-        # Define predicates
-        Clue = Predicate.define("clue", ["loc", "size"], show=False)
-        Number = Predicate.define("number", ["loc", "size"], show=True)
-
         # Define clues from the input grid
         clues = puzzle.add_segment("Clues")
         clues.fact(
-            *[Clue(loc=grid.Cell(*loc), size=size) for loc, size in grid_data],
+            *[Clue(loc=grid.Cell(*loc), size=size) for loc, size in self.int_grid_data],
         )
 
         # Create variables for convenience
@@ -49,7 +61,6 @@ class Fillomino(Solver):
         # Rule 3: Ensure that adjacent regions have different sizes
         puzzle.section("Regions with same size cannot touch orthogonally")
         # Splitting off the separate predicate here is important for performance!
-        DifferentRegions = Predicate.define("different_regions", ["cell1", "cell2"], show=False)
         puzzle.when(
             grid.Orthogonal(cell1=C, cell2=C_adj),
             region_constructor.Region(loc=C, anchor=A),

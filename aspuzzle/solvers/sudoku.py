@@ -1,10 +1,16 @@
 from typing import Any, ClassVar
 
-from aspalchemy import Predicate, RangePool, V
+from aspalchemy import Field, Predicate, RangePool, V
+from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.grids.rendering import Color, RenderSymbol
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
+
+
+class Block(Predicate, show=False):
+    loc: Field[GridCell]
+    block_id: Field[int]
 
 
 class Sudoku(Solver):
@@ -109,7 +115,6 @@ class Sudoku(Solver):
 
         # Define blocks
         puzzle.section("Define block membership")
-        Block = Predicate.define("block", ["loc", "block_id"], show=False)
         block_rows, block_cols = self.block_rows, self.block_cols
         assert block_rows is not None and block_cols is not None  # resolved by validate_config
         puzzle.when(

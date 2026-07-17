@@ -107,6 +107,19 @@ class Solver(ABC):
         assert self._grid_data is not None
         return self._grid_data
 
+    @property
+    def int_grid_data(self) -> list[tuple[tuple[int, ...], int]]:
+        """
+        Grid data with values narrowed to int, for solvers whose grid values
+        are integers by construction (numeric clues validated by
+        supported_symbols, or map_grid_to_integers). Raises on any
+        non-integer value rather than answering quietly.
+        """
+        for loc, value in self.grid_data:
+            if not isinstance(value, int):
+                raise TypeError(f"Expected integer grid values, got {value!r} at position {loc}")
+        return [(loc, value) for loc, value in self.grid_data if isinstance(value, int)]
+
     def _preprocess_config(self) -> None:
         """
         Optional preprocessing step after config validation and grid data parsing.

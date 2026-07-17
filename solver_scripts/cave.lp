@@ -73,8 +73,8 @@ connected_wall(C_adj) :- connected_wall(C), wall(C_adj), orthogonal(C, C_adj).
 :- wall(C), not connected_wall(C).
 
 % Forbid disconnecting checkerboard pattern for cave
-:- cell(R, C), cell(R + 1, C + 1), cave(cell(R, C)), cave(cell(R + 1, C + 1)), not cave(cell(R, C + 1)), not cave(cell(R + 1, C)).
-:- cell(R, C), cell(R + 1, C + 1), cave(cell(R, C + 1)), cave(cell(R + 1, C)), not cave(cell(R, C)), not cave(cell(R + 1, C + 1)).
+:- cave(cell(R, C)), cave(cell(R + 1, C + 1)), not cave(cell(R, C + 1)), not cave(cell(R + 1, C)), cell(R, C), cell(R + 1, C + 1).
+:- cave(cell(R, C + 1)), cave(cell(R + 1, C)), not cave(cell(R, C)), not cave(cell(R + 1, C + 1)), cell(R, C), cell(R + 1, C + 1).
 
 % Place symbols in the grid
 { cave(cell(R, C)); wall(cell(R, C)) } = 1 :- cell(R, C), not outside_grid(cell(R, C)).

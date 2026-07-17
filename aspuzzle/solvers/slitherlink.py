@@ -1,11 +1,24 @@
 from typing import Any
 
-from aspalchemy import Count, Predicate, V
-from aspuzzle.grids.base import do_not_show_outside
+from aspalchemy import Count, Field, Predicate, V
+from aspuzzle.grids.base import GridCell, do_not_show_outside
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.grids.rendering import BgColor, Color, RenderSymbol
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
+
+
+class Clue(Predicate, show=False):
+    loc: Field[GridCell]
+    num: Field[int]
+
+
+class Sheep(Predicate, show=False):
+    loc: Field[GridCell]
+
+
+class Wolf(Predicate, show=False):
+    loc: Field[GridCell]
 
 
 class Slitherlink(Solver):
@@ -15,11 +28,6 @@ class Slitherlink(Solver):
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
         puzzle, grid, _config, grid_data = self.unpack_data()
-
-        # Define predicates
-        Clue = Predicate.define("clue", ["loc", "num"], show=False)
-        Sheep = Predicate.define("sheep", ["loc"], show=False)
-        Wolf = Predicate.define("wolf", ["loc"], show=False)
 
         # Create variables
         N, C = V.N, V.C

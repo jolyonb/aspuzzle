@@ -1,9 +1,35 @@
 from typing import Any, ClassVar
 
-from aspalchemy import ANY, Choice, Count, Predicate, V
+from aspalchemy import ANY, Choice, Count, Field, Predicate, V
+from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.region_coloring import assign_region_colors
 from aspuzzle.grids.rendering import BgColor, Color, RenderItem, RenderSymbol
 from aspuzzle.solvers.base import Solver
+
+
+class Region(Predicate, show=False):
+    loc: Field[GridCell]
+    id: Field[int]
+
+
+class AdjoiningRegion(Predicate, show=False):
+    id1: Field[int]
+    id2: Field[int]
+
+
+class Stitch(Predicate):
+    loc1: Field[GridCell]
+    loc2: Field[GridCell]
+
+
+class ExpectedCounts(Predicate, name="expected_count", show=False):
+    dir: Field[str]
+    index: Field[int]
+    count: Field[int]
+
+
+class CellInStitch(Predicate, show=False):
+    loc: Field[GridCell]
 
 
 class Stitches(Solver):
@@ -14,17 +40,10 @@ class Stitches(Solver):
 
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
-        puzzle, grid, config, grid_data = self.unpack_data()
+        puzzle, grid, config, _grid_data = self.unpack_data()
 
         # Register stitch count as a symbolic constant
         stitch_count = puzzle.define_constant("stitch_count", config["stitch_count"])
-
-        # Define predicates
-        Region = Predicate.define("region", ["loc", "id"], show=False)
-        AdjoiningRegion = Predicate.define("adjoining_region", ["id1", "id2"], show=False)
-        Stitch = Predicate.define("stitch", ["loc1", "loc2"], show=True)
-        ExpectedCounts = Predicate.define("expected_count", ["dir", "index", "count"], show=False)
-        CellInStitch = Predicate.define("cell_in_stitch", ["loc"], show=False)
 
         # Create variables
         N, A, B = V.N, V.A, V.B
@@ -36,7 +55,7 @@ class Stitches(Solver):
         regions.section("Define regions")
 
         # Create Region facts
-        regions.fact(*[Region(loc=grid.Cell(*loc), id=region_id) for loc, region_id in grid_data])
+        regions.fact(*[Region(loc=grid.Cell(*loc), id=region_id) for loc, region_id in self.int_grid_data])
 
         # Define expected line counts
         clues = puzzle.add_segment("Clues")

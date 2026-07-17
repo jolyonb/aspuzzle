@@ -1,9 +1,15 @@
 from typing import Any, ClassVar
 
-from aspalchemy import ANY, Count, Predicate, V
+from aspalchemy import ANY, Count, Field, Predicate, V
+from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rendering import Color, RenderSymbol
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
+
+
+class Number(Predicate, show=False):
+    loc: Field[GridCell]
+    num: Field[int]
 
 
 class Minesweeper(Solver):
@@ -13,16 +19,14 @@ class Minesweeper(Solver):
 
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
-        puzzle, grid, config, grid_data = self.unpack_data()
+        puzzle, grid, config, _grid_data = self.unpack_data()
 
-        # Define predicates
-        Number = Predicate.define("number", ["loc", "num"], show=False)
         cell = grid.cell()
         cell_adj = grid.cell(suffix="adj")
 
         # Define clues
         clues = puzzle.add_segment("Clues")
-        clues.fact(*[Number(loc=grid.Cell(*loc), num=num) for loc, num in grid_data])
+        clues.fact(*[Number(loc=grid.Cell(*loc), num=num) for loc, num in self.int_grid_data])
 
         # Define mine placement
         symbols = SymbolSet(grid).add_symbol("mine").excluded_symbol(Number(loc=cell, num=ANY))

@@ -1,9 +1,15 @@
 from typing import Any
 
-from aspalchemy import Predicate, V
+from aspalchemy import Field, Predicate, V
+from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rendering import BgColor, Color, RenderSymbol
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
+
+
+class Value(Predicate, show=False):
+    loc: Field[GridCell]
+    num: Field[int]
 
 
 class Hitori(Solver):
@@ -12,10 +18,9 @@ class Hitori(Solver):
 
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
-        puzzle, grid, _config, grid_data = self.unpack_data()
+        puzzle, grid, _config, _grid_data = self.unpack_data()
 
         # Define the predicate for the number in a cell
-        Value = Predicate.define("value", ["loc", "num"], show=False)
 
         # Variables for use
         C = V.C
@@ -26,7 +31,7 @@ class Hitori(Solver):
         puzzle.section("Define grid values")
         clues = puzzle.add_segment("Clues")
         clues.fact(
-            *[Value(loc=grid.Cell(*loc), num=v) for loc, v in grid_data],
+            *[Value(loc=grid.Cell(*loc), num=v) for loc, v in self.int_grid_data],
         )
 
         # Define shaded/unshaded cells using a symbol set

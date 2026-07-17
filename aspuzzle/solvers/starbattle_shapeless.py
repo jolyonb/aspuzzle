@@ -1,9 +1,14 @@
 from typing import Any, ClassVar
 
-from aspalchemy import ANY, Count, Predicate, V
+from aspalchemy import ANY, Count, Field, Predicate, V
+from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rendering import Color, RenderSymbol
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
+
+
+class Excluded(Predicate, show=False):
+    loc: Field[GridCell]
 
 
 class Starbattle_Shapeless(Solver):
@@ -17,8 +22,6 @@ class Starbattle_Shapeless(Solver):
 
         star_count = puzzle.define_constant("star_count", config["star_count"])
 
-        # Define predicates
-        Excluded = Predicate.define("excluded", ["loc"], show=False)
         cell = grid.cell()
         cell_adj = grid.cell(suffix="adj")
 
