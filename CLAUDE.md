@@ -46,7 +46,7 @@ The `aspalchemy` package (an object-oriented Python interface to ASP programming
 - **Configuration Loading**: Reads JSON puzzle files from `puzzles/` directory
 - **Dynamic Solver Creation**: Uses `Solver.from_config()` to instantiate appropriate solver
 - **ASP Generation**: Calls `construct_puzzle()` and renders complete ASP program
-- **File Management**: Automatically saves generated ASP to `solver_scripts/[puzzle].pl`
+- **File Management**: Automatically saves generated ASP to `solver_scripts/[puzzle].lp`
 - **Solving Pipeline**: Manages clingo execution with timeout/solution limits
 - **Rich Output**: Provides puzzle preview, ASCII visualization, statistics, and validation
 
@@ -69,7 +69,7 @@ python solveit.py nurikabe --quiet --no-viz
 1. Modify constraint logic in solver class
 2. Run `python solveit.py puzzle --stats` to get timing/grounding metrics
 3. Compare statistics to identify optimal rule formulations
-4. Check generated `.pl` files to verify rule efficiency
+4. Check generated `.lp` files to verify rule efficiency
 
 ## Critical Design Patterns
 
@@ -137,7 +137,7 @@ Given the project's maturity, these extensions are best accomplished by adapting
 ### ASP Program Size
 - **Grounding explosion**: Complex conditions can create enormous ground programs
 - **Mitigation**: Look at the clingo output and perform scaling analysis on the grounding size; O(N^2) is okay (N number of cells), but O(N^3) is not
-- **Debug**: Check generated `.pl` files in `solver_scripts/` for size, or
+- **Debug**: Check generated `.lp` files in `solver_scripts/` for size, or
   ask the grounding directly: `grounded.ground_text()` (readable ground
   rules) and `grounded.aspif()` (the exact solver input — the honest size
   measure, since pretty-printed text repeats shared aggregate elements)
@@ -154,7 +154,7 @@ Given the project's maturity, these extensions are best accomplished by adapting
 - **Examine constraints**: Look for overconstrained rules
 
 ### 2. No Solutions Found
-- **Check generated ASP**: Look at `.pl` files in `solver_scripts/`
+- **Check generated ASP**: Look at `.lp` files in `solver_scripts/`
 - **Remove constraints**: Comment out rules to find conflicting constraints
 - **Use smaller instances**: Test with minimal puzzle size first
 
@@ -181,7 +181,7 @@ python solveit.py large_puzzle --stats    # e.g., 15×15
 - If scaling > O(N²), you have grounding explosion
 
 **Step 3: Analyze Predicate Scaling**
-Look at the generated .pl file and analyze each predicate:
+Look at the generated .lp file and analyze each predicate:
 - Count variables per rule for each predicate type
 - Rules with many variables create expensive grounding
 - Example: `rule(X,Y,Z,W,V)` with 5 variables is much more expensive than `rule(X,Y)`
@@ -192,9 +192,9 @@ For fast debugging without Python overhead:
 # Generate ASP file once
 python solveit.py puzzle --render-only
 # Test modifications directly with clingo
-python -m clingo solver_scripts/puzzle.pl -n 0
+python -m clingo solver_scripts/puzzle.lp -n 0
 ```
-- Edit the .pl file directly to test rule modifications
+- Edit the .lp file directly to test rule modifications
 - Much faster iteration cycle for constraint optimization
 
 **Step 5: Constraint Optimization**

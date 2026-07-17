@@ -35,7 +35,7 @@ def solve(
         display_stats: Whether to display solver statistics
         visualize: Whether to visualize the solution as ASCII
         validate: Whether to validate solutions against expected solutions
-        output_file: File to write the ASP program to (defaults to solver_scripts/[puzzle_name].pl)
+        output_file: File to write the ASP program to (defaults to solver_scripts/[puzzle_name].lp)
         no_output_file: Don't write the ASP program to a file
         quiet: Suppress all output except errors
     """
@@ -76,12 +76,12 @@ def solve(
         if output_file:
             output_path = pathlib.Path(output_file)
             if not output_path.suffix:
-                output_path = output_path.with_suffix(".pl")
+                output_path = output_path.with_suffix(".lp")
         else:
             # Create default output path
             puzzle_name = pathlib.Path(filename).stem
             output_dir = pathlib.Path("solver_scripts")
-            output_path = output_dir / f"{puzzle_name}.pl"
+            output_path = output_dir / f"{puzzle_name}.lp"
 
         with open(output_path, "w") as f:
             f.write(asp_program)
@@ -125,7 +125,7 @@ def main() -> None:
         "--render-only", action="store_true", help="Only render the ASP program without solving"
     )
     render_group.add_argument(
-        "--output-file", "-o", help="Write the ASP program to this file (default: solver_scripts/[puzzle_name].pl)"
+        "--output-file", "-o", help="Write the ASP program to this file (default: solver_scripts/[puzzle_name].lp)"
     )
     render_group.add_argument("--no-output-file", action="store_true", help="Don't write the ASP program to a file")
 
