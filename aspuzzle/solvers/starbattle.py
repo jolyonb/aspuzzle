@@ -47,7 +47,7 @@ class Starbattle(Solver):
 
         # Rule 2: Stars cannot share a vertex or edge
         puzzle.section("Star adjacency constraints")
-        puzzle.forbid(symbols["star"](cell), symbols["star"](cell_adj), grid.vertex_sharing(suffix_2="adj"))
+        puzzle.when(grid.vertex_sharing(suffix_2="adj")).forbid(symbols["star"](cell), symbols["star"](cell_adj))
 
     def get_render_config(self) -> dict[str, Any]:
         """

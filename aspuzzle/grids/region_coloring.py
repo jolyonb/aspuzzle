@@ -126,7 +126,7 @@ class RegionColoring:
         ).derive(Adjacent(id1=R1, id2=R2))
 
         # Color assignment
-        puzzle.when(Region(loc=ANY, id=V.R)).derive(
+        puzzle.when(Region(loc=ANY, id=V.R)).choose(
             Choice(
                 element=RegionColor(id=V.R, color_id=C),
                 condition=C.in_(range(len(colors))),
@@ -134,7 +134,7 @@ class RegionColoring:
         )
 
         # Adjacency constraint
-        puzzle.forbid(Adjacent(id1=R1, id2=R2), RegionColor(id=R1, color_id=C), RegionColor(id=R2, color_id=C))
+        puzzle.when(Adjacent(id1=R1, id2=R2)).forbid(RegionColor(id=R1, color_id=C), RegionColor(id=R2, color_id=C))
 
         # Solve
         models = list(islice(puzzle.solve(), 1))

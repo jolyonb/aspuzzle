@@ -54,7 +54,7 @@ excluded(cell(6, 6)).
 :- line(Dir, N, _), #count{ cell(R, C) : star(cell(R, C)), line(Dir, N, cell(R, C)) } != star_count.
 
 % Star adjacency constraints
-:- star(cell(R, C)), star(cell(R_adj, C_adj)), vertex_sharing(cell(R, C), cell(R_adj, C_adj)).
+:- vertex_sharing(cell(R, C), cell(R_adj, C_adj)), star(cell(R, C)), star(cell(R_adj, C_adj)).
 
 #show.
 #show star/1.

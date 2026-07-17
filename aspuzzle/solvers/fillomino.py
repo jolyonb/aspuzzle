@@ -55,7 +55,7 @@ class Fillomino(Solver):
             region_constructor.Region(loc=C, anchor=A),
             ~region_constructor.Region(loc=C_adj, anchor=A),
         ).derive(DifferentRegions(cell1=C, cell2=C_adj))
-        puzzle.forbid(DifferentRegions(C, C_adj), Number(C, N), Number(C_adj, N))
+        puzzle.when(DifferentRegions(C, C_adj)).forbid(Number(C, N), Number(C_adj, N))
 
         # Solver helpers
         if any(size == 1 for _, size in grid_data):
@@ -70,13 +70,12 @@ class Fillomino(Solver):
         ).derive(region_constructor.ConnectsTo(loc1=C, loc2=C_adj))
 
         puzzle.section("Adjacent clues with different values must be in different regions")
-        puzzle.forbid(
+        puzzle.when(
             Clue(loc=C, size=S),
             Clue(loc=C_adj, size=V.S2),
             S != V.S2,
             grid.Orthogonal(cell1=C, cell2=C_adj),
-            region_constructor.ConnectsTo(loc1=C, loc2=C_adj),
-        )
+        ).forbid(region_constructor.ConnectsTo(loc1=C, loc2=C_adj))
 
         # These rules did not help the solver
 

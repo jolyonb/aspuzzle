@@ -67,12 +67,11 @@ class Slitherlink(Solver):
 
         puzzle.comment("Efficient handling for 0 clues")
         for t in ("inside", "outside"):
-            puzzle.forbid(
+            puzzle.when(
                 Clue(loc=C, num=0),
                 symbols[t](loc=C),
-                ~symbols[t](loc=C["adj"]),
                 grid.Orthogonal(C, C["adj"]),
-            )
+            ).require(symbols[t](loc=C["adj"]))
 
         puzzle.comment("General handling for 1/2/3 clues")
         # Count outside neighbors when the clue cell is inside

@@ -35,7 +35,7 @@ orthogonal(cell(R, C), cell(R + R_vec, C + C_vec)) :- cell(R, C), orthogonal_dir
 :- line(D, Idx, C_1), line(D, Idx, C_2), value(C_1, N), value(C_2, N), white(C_1), white(C_2), C_1 != C_2.
 
 % Rule 2: No adjacent black cells
-:- black(cell(R, C)), black(cell(R_adj, C_adj)), orthogonal(cell(R, C), cell(R_adj, C_adj)).
+:- orthogonal(cell(R, C), cell(R_adj, C_adj)), black(cell(R, C)), black(cell(R_adj, C_adj)).
 
 % Rule 3: All white cells must be connected
 

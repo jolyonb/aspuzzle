@@ -104,7 +104,7 @@ class Puzzle:
 
         Returns:
             A pending context completed by exactly one of
-            .derive/.require/.forbid/.penalize
+            .derive/.choose/.require/.forbid/.penalize
         """
         return self._program.when(*conditions)
 
@@ -117,13 +117,13 @@ class Puzzle:
         """
         self._program.forbid(*conditions)
 
-    def require(self, comparison: Comparison) -> None:
+    def require(self, target: Comparison | Predicate) -> None:
         """
-        Require that a comparison holds in every answer set. Takes exactly
-        one Comparison; syntactic sugar for a forbid constraint on the
-        inverse comparison. See Segment.require.
+        Require that a comparison or an atom holds in every answer set.
+        Takes exactly one target; syntactic sugar for a forbid constraint
+        on its flip. See Segment.require.
         """
-        self._program.require(comparison)
+        self._program.require(target)
 
     def add_segment(self, segment: str | Segment) -> Segment:
         """
@@ -299,7 +299,7 @@ class Module:
 
         Returns:
             A pending context completed by exactly one of
-            .derive/.require/.forbid/.penalize
+            .derive/.choose/.require/.forbid/.penalize
         """
         return self._segment.when(*conditions)
 
@@ -312,13 +312,13 @@ class Module:
         """
         self._segment.forbid(*conditions)
 
-    def require(self, comparison: Comparison) -> None:
+    def require(self, target: Comparison | Predicate) -> None:
         """
-        Require that a comparison holds, in this module's segment. Takes
-        exactly one Comparison; syntactic sugar for a forbid constraint on
-        the inverse comparison. See Segment.require.
+        Require that a comparison or an atom holds, in this module's
+        segment. Takes exactly one target; syntactic sugar for a forbid
+        constraint on its flip. See Segment.require.
         """
-        self._segment.require(comparison)
+        self._segment.require(target)
 
     def comment(self, text: str) -> None:
         """

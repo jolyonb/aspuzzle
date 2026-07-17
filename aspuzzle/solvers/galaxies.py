@@ -130,10 +130,11 @@ class Galaxies(Solver):
         # Impose the symmetry constraint
         puzzle.section("Symmetry rule")
         R, C = V.R, V.C  # R[1]/C[1] and R[2]/C[2] are the two cells flanking the center
-        puzzle.forbid(
+        puzzle.when(
             Center(loc=grid.Cell(R[1], C[1]), loc2=grid.Cell(R[2], C[2]), id=ANY),
             region_constructor.Region(loc=grid.Cell(R, C), anchor=grid.Cell(R[1], C[1])),
-            ~region_constructor.Region(loc=grid.Cell(R[1] + R[2] - R, C[1] + C[2] - C), anchor=grid.Cell(R[1], C[1])),
+        ).require(
+            region_constructor.Region(loc=grid.Cell(R[1] + R[2] - R, C[1] + C[2] - C), anchor=grid.Cell(R[1], C[1]))
         )
 
         # Define a predicate to extract the regions from the puzzle for solution display purposes

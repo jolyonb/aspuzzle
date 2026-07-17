@@ -39,7 +39,7 @@ class Numberlink(Solver):
         Path = Predicate.define("path", ["loc", "direction"], show=False)
         puzzle.when(
             PathDegree(loc=cell, degree=V.N),
-        ).derive(
+        ).choose(
             Choice(
                 element=Path(loc=cell, direction=D),
                 condition=grid.OrthogonalDir(cell1=cell, direction=D, cell2=ANY),
@@ -80,12 +80,11 @@ class Numberlink(Solver):
         ).derive(Connected(loc1=Cell1, loc2=Cell2))
 
         puzzle.section("No self-touch constraint")
-        puzzle.forbid(
+        puzzle.when(
             grid.OrthogonalDir(cell1=Cell1, direction=ANY, cell2=Cell2),
             PropagatedSymbol(loc=Cell1, sym=Sym),
             PropagatedSymbol(loc=Cell2, sym=Sym),
-            ~Connected(loc1=Cell1, loc2=Cell2),
-        )
+        ).require(Connected(loc1=Cell1, loc2=Cell2))
 
         # Rule 8: Solution extraction - compute the two directions for each non-symbol cell
         puzzle.section("Solution extraction")

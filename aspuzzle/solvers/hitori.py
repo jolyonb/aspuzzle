@@ -45,10 +45,11 @@ class Hitori(Solver):
 
         # Rule 2: Two black cells cannot be adjacent horizontally or vertically
         puzzle.section("Rule 2: No adjacent black cells")
-        puzzle.forbid(
+        puzzle.when(
+            grid.Orthogonal(cell1=cell, cell2=cell_adj),
+        ).forbid(
             symbols["black"](loc=cell),
             symbols["black"](loc=cell_adj),
-            grid.Orthogonal(cell1=cell, cell2=cell_adj),
         )
 
         # Rule 3: All white cells should be connected

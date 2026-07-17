@@ -43,7 +43,7 @@ class Tents(Solver):
         # Decide on the direction
         puzzle.when(
             Tree(loc=C),
-        ).derive(
+        ).choose(
             Choice(
                 element=Tie(tree_loc=C, dir=D),
                 condition=grid.OrthogonalDirections(D),
@@ -59,9 +59,9 @@ class Tents(Solver):
         puzzle.section("Tent placement")
         puzzle.when(TieDestination(tree_loc=ANY, tent_loc=C)).derive(Tent(loc=C))
         # Tents can only be placed in a valid cell
-        puzzle.forbid(Tent(loc=cell), ~cell)
+        puzzle.when(Tent(loc=cell)).require(cell)
         # Tents cannot be placed on a tree
-        puzzle.forbid(Tent(C), Tree(C))
+        puzzle.when(Tree(C)).forbid(Tent(C))
 
         # Rule 3: Tents can't be shared by trees
         puzzle.when(TieDestination(tree_loc=A, tent_loc=C), TieDestination(tree_loc=B, tent_loc=C)).require(A == B)
@@ -74,7 +74,7 @@ class Tents(Solver):
 
         # Rule 5: Tents cannot share a vertex
         puzzle.section("Tent adjacency constraints")
-        puzzle.forbid(Tent(A), Tent(B), grid.VertexSharing(A, B))
+        puzzle.when(grid.VertexSharing(A, B)).forbid(Tent(A), Tent(B))
 
     def validate_config(self) -> None:
         """Validate the puzzle configuration."""

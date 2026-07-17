@@ -173,7 +173,7 @@ class RegionConstructor(Module):
         if self.grid.has_outside_border:
             conditions.append(~self.grid.outside_grid())
 
-        self.when(*conditions).derive(choice)
+        self.when(*conditions).choose(choice)
 
         # For fixed anchors, we need to identify the anchor locations
         if not self.dynamic_anchors:
@@ -200,7 +200,7 @@ class RegionConstructor(Module):
             # Dynamic anchors: connected cells must have at least one connection (as they're not anchors)
             choice = choice.at_least(1)
             # For fixed anchors, no minimum constraint is needed, as connected cells can also be anchors
-        self.when(self.Connected(loc=C)).derive(choice)
+        self.when(self.Connected(loc=C)).choose(choice)
 
         # Connections are symmetric (bidirectional)
         self.when(self.ConnectsTo(loc1=C, loc2=N)).derive(self.ConnectsTo(loc1=N, loc2=C))
@@ -224,7 +224,7 @@ class RegionConstructor(Module):
         if not self.dynamic_anchors:
             # These constraints enforce a single region per cell, but do so more cheaply than using a count aggregate
             # Connected cells must have at least one anchor
-            self.forbid(self.Connected(loc=C), ~self.Region(loc=C, anchor=ANY))
+            self.when(self.Connected(loc=C)).require(self.Region(loc=C, anchor=ANY))
             # Cells cannot belong to multiple different regions
             self.when(self.Region(loc=C, anchor=A[1]), self.Region(loc=C, anchor=A[2])).require(A[1] == A[2])
         else:
@@ -237,7 +237,7 @@ class RegionConstructor(Module):
             self.when(*conditions).require(N == 1)
 
             # Anchor must be the lexicographically smallest cell in its region
-            self.forbid(self.Region(loc=C, anchor=A), C < A)
+            self.when(self.Region(loc=C, anchor=A)).require(C >= A)
             # TODO: if this works, then finding an anchor cell in Grid is probably a lot easier than what I'm
             #       currently doing! Update: this DOES seem to work, which is impressive!
 
@@ -274,9 +274,10 @@ class RegionConstructor(Module):
             self.section("Regions cannot touch")
             # Cheapest to express this as "forbid cells next to a region cell that aren't the same region or regionless"
             # Can write as "if region(C1, A1) and region(C2, A2), then A1 == A2", but that's more expensive to ground
-            self.forbid(
+            self.when(
                 self.Region(loc=C[1], anchor=A),
                 self.grid.Orthogonal(cell1=C[1], cell2=C[2]),
+            ).forbid(
                 ~self.Region(loc=C[2], anchor=A),
                 ~self.Regionless(loc=C[2]),
             )
@@ -308,8 +309,8 @@ class RegionConstructor(Module):
                 self.Regionless(loc=C_adj),
             ).derive(ConnectedClone(loc=C_adj))
 
-            # Forbid disconnected regionless cells
-            self.forbid(self.Regionless(loc=C), ~ConnectedClone(loc=C))
+            # Every regionless cell must be connected
+            self.when(self.Regionless(loc=C)).require(ConnectedClone(loc=C))
 
         # Min/Max region sizes
         if self.min_region_size or self.max_region_size:

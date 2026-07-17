@@ -62,14 +62,14 @@ tie_destination(cell(R, C), cell(R + R_vec, C + C_vec)) :- tie(cell(R, C), D), d
 % Tent placement
 tent(C) :- tie_destination(_, C).
 :- tent(cell(R, C)), not cell(R, C).
-:- tent(C), tree(C).
+:- tree(C), tent(C).
 :- tie_destination(A, C), tie_destination(B, C), A != B.
 
 % Line tent count constraints
 :- expected_count(D, N, Clue), #count{ cell(R, C) : tent(cell(R, C)), line(D, N, cell(R, C)) } != Clue.
 
 % Tent adjacency constraints
-:- tent(A), tent(B), vertex_sharing(A, B).
+:- vertex_sharing(A, B), tent(A), tent(B).
 
 #show.
 #show tent/1.

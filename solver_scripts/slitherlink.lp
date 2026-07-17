@@ -61,8 +61,8 @@ connected_outside(C_adj) :- connected_outside(C), outside(C_adj), orthogonal(C, 
 :- outside(C), not connected_outside(C).
 
 % Forbid disconnecting checkerboard pattern for inside
-:- inside(cell(R, C)), inside(cell(R + 1, C + 1)), not inside(cell(R, C + 1)), not inside(cell(R + 1, C)), cell(R, C), cell(R + 1, C + 1).
-:- inside(cell(R, C + 1)), inside(cell(R + 1, C)), not inside(cell(R, C)), not inside(cell(R + 1, C + 1)), cell(R, C), cell(R + 1, C + 1).
+:- cell(R, C), cell(R + 1, C + 1), inside(cell(R, C)), inside(cell(R + 1, C + 1)), not inside(cell(R, C + 1)), not inside(cell(R + 1, C)).
+:- cell(R, C), cell(R + 1, C + 1), inside(cell(R, C + 1)), inside(cell(R + 1, C)), not inside(cell(R, C)), not inside(cell(R + 1, C + 1)).
 
 % Place symbols in the grid
 { inside(cell(R, C)); outside(cell(R, C)) } = 1 :- cell(R, C), not outside_grid(cell(R, C)).
@@ -75,8 +75,8 @@ outside(C) :- outside_grid(C).
 
 % Slitherlink clue constraints
 % Efficient handling for 0 clues
-:- clue(C, 0), inside(C), not inside(C_adj), orthogonal(C, C_adj).
-:- clue(C, 0), outside(C), not outside(C_adj), orthogonal(C, C_adj).
+:- clue(C, 0), inside(C), orthogonal(C, C_adj), not inside(C_adj).
+:- clue(C, 0), outside(C), orthogonal(C, C_adj), not outside(C_adj).
 % General handling for 1/2/3 clues
 :- clue(cell(R, C), N), N > 0, inside(cell(R, C)), #count{ cell(R_adj, C_adj) : orthogonal(cell(R, C), cell(R_adj, C_adj)), outside(cell(R_adj, C_adj)) } != N.
 :- clue(cell(R, C), N), N > 0, outside(cell(R, C)), #count{ cell(R_adj, C_adj) : orthogonal(cell(R, C), cell(R_adj, C_adj)), inside(cell(R_adj, C_adj)) } != N.

@@ -169,7 +169,7 @@ class SymbolSet(Module):
             conditions.append(~self.grid.outside_grid())
 
         self.section("Place symbols in the grid")
-        self.when(*conditions).derive(choice)
+        self.when(*conditions).choose(choice)
 
     def make_contiguous(self, symbol_name: str, anchor_cell: Predicate | None = None) -> Self:
         """
@@ -233,7 +233,7 @@ class SymbolSet(Module):
             self.grid.Orthogonal(cell1=C, cell2=C_adj),
         ).derive(Connected(loc=C_adj, **value_field))
 
-        # Forbid symbol cells that aren't connected
-        self.forbid(symbol_pred(loc=C, **value_field), ~Connected(loc=C, **value_field))
+        # Every symbol cell must be connected
+        self.when(symbol_pred(loc=C, **value_field)).require(Connected(loc=C, **value_field))
 
         return self

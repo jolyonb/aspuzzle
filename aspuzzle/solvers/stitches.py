@@ -61,7 +61,7 @@ class Stitches(Solver):
         puzzle.section("Create stitches between adjoining regions")
         puzzle.when(
             AdjoiningRegion(id1=Id[1], id2=Id[2]),
-        ).derive(
+        ).choose(
             Choice(
                 element=Stitch(loc1=A, loc2=B),
                 condition=[

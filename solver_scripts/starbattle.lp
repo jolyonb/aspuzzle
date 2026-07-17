@@ -67,7 +67,7 @@ region(cell(5, 5), 5).
 :- region(_, N), #count{ cell(R, C) : star(cell(R, C)), region(cell(R, C), N) } != star_count.
 
 % Star adjacency constraints
-:- star(cell(R, C)), star(cell(R_adj, C_adj)), vertex_sharing(cell(R, C), cell(R_adj, C_adj)).
+:- vertex_sharing(cell(R, C), cell(R_adj, C_adj)), star(cell(R, C)), star(cell(R_adj, C_adj)).
 
 #show.
 #show star/1.
