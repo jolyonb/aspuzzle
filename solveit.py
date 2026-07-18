@@ -120,10 +120,12 @@ def solve(
             print(grounded.analyze_grounding())
             print("\n=== Statement Analysis ===")
             print(grounded.analyze_statements())
-            print(f"\naspif size: {len(grounded.aspif()):,} bytes")
+            print(f"\ngrounding time: {grounded.grounding_time:.2f}s")
+            print(f"aspif size: {len(grounded.aspif()):,} bytes")
 
         # Solve the puzzle
         if solve_puzzle:
+            grounded = solver.ground()  # cached: separates grounding time from solving time
             solutions, result = solver.solve(models=max_solutions, timeout=timeout)
 
             # Display solutions
@@ -132,6 +134,8 @@ def solve(
 
             # Print statistics
             if display_stats and not quiet:
+                if not analyze_grounding:
+                    print(f"\nGrounding time: {grounded.grounding_time:.2f}s")
                 solver.display_statistics(result)
 
             # Validate solutions
