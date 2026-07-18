@@ -78,7 +78,13 @@ class Puzzle:
 
         Raises:
             ValueError: If a module with the same name is already registered
+            RuntimeError: If the puzzle has already been finalized
         """
+        if self.finalized:
+            raise RuntimeError(
+                f"Cannot register module '{module.name}': the puzzle is already finalized, "
+                "so the module's finalize() would never run"
+            )
         if module.name in self._modules:
             raise ValueError(f"Module with name '{module.name}' is already registered")
 
@@ -198,6 +204,18 @@ class Puzzle:
         """Show this predicate only where the condition holds."""
         self._program.show_when(condition)
 
+    @property
+    def _finalized_program(self) -> ASPProgram:
+        """
+        The underlying program, finalized. Every consumer (solving,
+        grounding, rendering, analysis) reads the program through this
+        accessor — the single place finalization happens — so no entry
+        point can reach the solver with module rules missing. The
+        statement verbs above build on the raw _program.
+        """
+        self.finalize()
+        return self._program
+
     def solve(self, timeout: int = 0) -> SolveResult:
         """
         Solve the puzzle, returning a SolveResult that yields Models lazily.
@@ -209,7 +227,7 @@ class Puzzle:
             timeout: Wall-clock limit in seconds (0 for no limit); on timeout, models found
                      so far are yielded and 'exhausted' remains False
         """
-        return self._program.solve(timeout=timeout)
+        return self._finalized_program.solve(timeout=timeout)
 
     def ground(self, stop_on_log_level: LogLevel = LogLevel.INFO, context: object = None) -> GroundedProgram:
         """
@@ -223,9 +241,7 @@ class Puzzle:
                 GroundingError (see ASPProgram.ground)
             context: Optional @-function grounding context object
         """
-        self.finalize()
-        self._program.header = f"{self.name} by ASPuzzle"
-        return self._program.ground(stop_on_log_level=stop_on_log_level, context=context)
+        return self._finalized_program.ground(stop_on_log_level=stop_on_log_level, context=context)
 
     def recursion_profile(self) -> tuple[RecursiveComponent, ...]:
         """
@@ -234,13 +250,11 @@ class Puzzle:
         grounding performed. Finalizes first so module-emitted rules
         (RegionConstructor's fixpoints in particular) are visible.
         """
-        self.finalize()
-        return self._program.recursion_profile()
+        return self._finalized_program.recursion_profile()
 
     def analyze_recursion(self) -> str:
         """The recursion profile as prose (see ASPProgram.analyze_recursion)."""
-        self.finalize()
-        return self._program.analyze_recursion()
+        return self._finalized_program.analyze_recursion()
 
     def render(self, annotate: bool = False) -> str:
         """
@@ -254,13 +268,12 @@ class Puzzle:
         Returns:
             str: The rendered ASP program.
         """
-        self.finalize()
-        self._program.header = f"{self.name} by ASPuzzle"
-        return self._program.render(annotate=annotate)
+        return self._finalized_program.render(annotate=annotate)
 
     def finalize(self) -> None:
         """Ensures all modules finalize their code before rendering or solving"""
         if not self.finalized:
+            self._program.header = f"{self.name} by ASPuzzle"
             for module in self._modules.values():
                 # Rules emitted during a finalize pass have no honest user
                 # frame on the stack; attribute them to the solver line that

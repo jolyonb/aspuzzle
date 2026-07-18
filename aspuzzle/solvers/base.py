@@ -1,8 +1,9 @@
 import importlib
 import json
 from abc import ABC, abstractmethod
+from functools import wraps
 from itertools import islice
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from aspalchemy import GroundedProgram, Predicate, SolveResult
 from aspuzzle.grids.base import Grid, GridCellData
@@ -21,6 +22,32 @@ class Solver(ABC):
     map_grid_to_integers: bool = False  # Whether to map grid symbols to unique integer ids, useful for defining regions
     _grid_data: list[GridCellData] | None = None
     _grounding: GroundedProgram | None = None
+    _constructed: bool = False
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """
+        Wrap each subclass's construct_puzzle in a once-per-instance guard.
+
+        The rules must be emitted exactly once no matter which paths reach
+        them: an explicit construct_puzzle() call, ground()'s automatic one,
+        or both. Subclasses just implement construct_puzzle as usual; the
+        guard is applied here so no implementation can forget it.
+        """
+        super().__init_subclass__(**kwargs)
+        construct = cls.__dict__.get("construct_puzzle")
+        if construct is None:
+            return
+
+        @wraps(construct)
+        def guarded(self: Solver) -> None:
+            if self._constructed:
+                return
+            construct(self)
+            # Set only after the body completes: an overriding body calling
+            # super().construct_puzzle() must still run the parent's rules
+            self._constructed = True
+
+        cast(Any, cls).construct_puzzle = guarded
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> Solver:
@@ -168,15 +195,44 @@ class Solver(ABC):
 
     @abstractmethod
     def construct_puzzle(self) -> None:
-        """Construct the rules of the puzzle."""
+        """
+        Construct the rules of the puzzle. Guarded to run at most once per
+        solver (see __init_subclass__); ground() calls it automatically, so
+        explicit calls are only needed to emit rules before grounding
+        (e.g. to render the program without solving).
+        """
+
+    def render_program(self, annotate: bool = False) -> str:
+        """
+        Construct (if not already constructed), finalize, and render the
+        complete ASP program. The rendering entry point at the solver level:
+        going to solver.puzzle.render() directly skips construction.
+
+        Args:
+            annotate: Append a "% file:line" provenance note to each
+                statement (see Puzzle.render)
+        """
+        self.construct_puzzle()
+        return self.puzzle.render(annotate=annotate)
+
+    def analyze_recursion(self) -> str:
+        """
+        Construct (if not already constructed) and report the recursion
+        profile as prose (see Puzzle.analyze_recursion): static analysis,
+        no grounding performed.
+        """
+        self.construct_puzzle()
+        return self.puzzle.analyze_recursion()
 
     def ground(self) -> GroundedProgram:
         """
-        Finalize and ground the puzzle, caching the immutable snapshot: the
-        handle for grounding introspection (analyze_grounding(), aspif(),
-        ground_text()) and repeated solving.
+        Construct (if not already constructed), finalize, and ground the
+        puzzle, caching the immutable snapshot: the handle for grounding
+        introspection (analyze_grounding(), aspif(), ground_text()) and
+        repeated solving.
         """
         if self._grounding is None:
+            self.construct_puzzle()
             self._grounding = self.puzzle.ground()
         return self._grounding
 

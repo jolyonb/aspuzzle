@@ -64,16 +64,13 @@ def solve(
     # Create the appropriate solver
     solver = Solver.from_config(config)
 
-    # Construct the puzzle rules
-    solver.construct_puzzle()
-
     # Preview the puzzle if requested
     if preview_puzzle and not quiet:
         print("\n=== Puzzle Preview ===")
         print(solver.render_puzzle())
 
-    # Render the puzzle
-    asp_program = solver.puzzle.render()
+    # Render the puzzle (constructs the puzzle rules)
+    asp_program = solver.render_program()
     if render and not quiet:
         print("\n=== Clingo Script ===")
         print(asp_program)
@@ -106,7 +103,7 @@ def solve(
             else:
                 annotated_path = output_path.with_name(f"{output_path.name}.annotated.lp")
             with open(annotated_path, "w") as f:
-                f.write(solver.puzzle.render(annotate=True))
+                f.write(solver.render_program(annotate=True))
             if not quiet:
                 print(f"% (Annotated program written to {annotated_path})")
 
@@ -114,7 +111,7 @@ def solve(
         # Analyze the grounding if requested
         if analyze_grounding and not quiet:
             print("\n=== Recursion Analysis ===")
-            print(solver.puzzle.analyze_recursion())
+            print(solver.analyze_recursion())
             grounded = solver.ground()
             print("\n=== Grounding Analysis ===")
             print(grounded.analyze_grounding())
