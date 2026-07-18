@@ -1,12 +1,10 @@
 from itertools import islice
-from typing import Any, TypeVar
+from typing import Any
 
 from aspalchemy import ANY, Choice, Field, Predicate, PredicateArg, V
 from aspuzzle.grids.base import Grid
 from aspuzzle.grids.rendering import BgColor
 from aspuzzle.puzzle import Puzzle
-
-T = TypeVar("T")  # For region ID type
 
 
 class Region(Predicate, show=False):
@@ -36,7 +34,9 @@ class RegionColoring:
         self._puzzle = Puzzle(name="RegionColoring")
         self.grid = grid.with_new_puzzle(self._puzzle)
 
-    def color_regions(self, regions: dict[T, list[tuple[int, ...]]], color_palette: list[BgColor]) -> dict[T, BgColor]:
+    def color_regions[T](
+        self, regions: dict[T, list[tuple[int, ...]]], color_palette: list[BgColor]
+    ) -> dict[T, BgColor]:
         """
         Color regions using ASP to ensure no adjacent regions share colors.
 
@@ -100,7 +100,9 @@ class RegionColoring:
 
         return self.color_regions(regions, color_palette)
 
-    def _try_coloring(self, regions: dict[T, list[tuple[int, ...]]], colors: list[BgColor]) -> dict[T, BgColor] | None:
+    def _try_coloring[T](
+        self, regions: dict[T, list[tuple[int, ...]]], colors: list[BgColor]
+    ) -> dict[T, BgColor] | None:
         """
         Try to color regions with a specific number of colors.
 

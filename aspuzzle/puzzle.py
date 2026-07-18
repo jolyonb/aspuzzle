@@ -1,6 +1,7 @@
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from functools import wraps
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 from aspalchemy import (
     ASPProgram,
@@ -23,7 +24,95 @@ from aspalchemy import (
 )
 
 
-class Puzzle:
+class StatementSpeaker(ABC):
+    """
+    The statement-verb surface shared by Puzzle and Module: the statement
+    verbs (fact, choose, when, forbid, require) and the formatting verbs
+    (comment, blank_line, section), spoken on this speaker's target.
+    Defined once here so the two surfaces cannot drift apart.
+    """
+
+    @property
+    @abstractmethod
+    def _statement_target(self) -> ASPProgram | Segment:
+        """
+        Where this speaker's statements land: a Puzzle speaks on its
+        program (whose verbs write to the default segment), a Module on
+        its own segment.
+        """
+
+    def fact(self, *facts: Predicate) -> None:
+        """
+        Add unconditional statements: grounded atoms, asserted true.
+
+        Args:
+            *facts: Grounded Predicate instances
+        """
+        self._statement_target.fact(*facts)
+
+    def choose(self, choice: Choice) -> None:
+        """
+        Add a bare choice rule with no body.
+
+        Args:
+            choice: The Choice to state
+        """
+        self._statement_target.choose(choice)
+
+    def when(self, *conditions: Term) -> When:
+        """
+        Hold the conditions for a closer; see Segment.when.
+
+        Args:
+            *conditions: One or more conditions that must be satisfied
+
+        Returns:
+            A pending context completed by exactly one of
+            .derive/.choose/.require/.forbid/.penalize
+        """
+        return self._statement_target.when(*conditions)
+
+    def forbid(self, *conditions: Term) -> None:
+        """
+        Create a constraint which forbids the specified combination of conditions.
+
+        Args:
+            *conditions: One or more conditions that must not be simultaneously satisfied
+        """
+        self._statement_target.forbid(*conditions)
+
+    def require(self, target: Comparison | Predicate) -> None:
+        """
+        Require that a comparison or an atom holds in every answer set.
+        Takes exactly one target; syntactic sugar for a forbid constraint
+        on its flip. See Segment.require.
+        """
+        self._statement_target.require(target)
+
+    def comment(self, text: str) -> None:
+        """
+        Add a comment to the program.
+
+        Args:
+            text: The comment text
+        """
+        self._statement_target.comment(text)
+
+    def blank_line(self) -> None:
+        """Add a blank line to the program for formatting."""
+        self._statement_target.blank_line()
+
+    def section(self, title: str) -> None:
+        """
+        Add a section header to the program.
+
+        Args:
+            title: The section title
+        """
+        self._statement_target.section(title)
+
+
+class Puzzle(StatementSpeaker):
     """
     Coordinates modules and their rules to create a complete ASP program.
 
@@ -48,6 +137,10 @@ class Puzzle:
         self.name = name
         self._program = ASPProgram(allow_singletons=allow_singletons, source_locations=source_locations)
         self._modules: dict[str, Module] = {}
+
+    @property
+    def _statement_target(self) -> ASPProgram:
+        return self._program
 
     def get_module(self, name: str) -> Module:
         """
@@ -91,55 +184,6 @@ class Puzzle:
         self._modules[module.name] = module
         return self._program.add_segment(module.name)
 
-    # Forward statement verbs to the program's default segment
-    def fact(self, *facts: Predicate) -> None:
-        """
-        Add unconditional statements: grounded atoms, asserted true.
-
-        Args:
-            *facts: Grounded Predicate instances
-        """
-        self._program.fact(*facts)
-
-    def choose(self, choice: Choice) -> None:
-        """
-        Add a bare choice rule to the program's default segment.
-
-        Args:
-            choice: The Choice to state, with no body
-        """
-        self._program.choose(choice)
-
-    def when(self, *conditions: Term) -> When:
-        """
-        Hold the conditions for a closer; see Segment.when.
-
-        Args:
-            *conditions: One or more conditions that must be satisfied
-
-        Returns:
-            A pending context completed by exactly one of
-            .derive/.choose/.require/.forbid/.penalize
-        """
-        return self._program.when(*conditions)
-
-    def forbid(self, *conditions: Term) -> None:
-        """
-        Create a constraint which forbids the specified combination of conditions.
-
-        Args:
-            *conditions: One or more conditions that must not be simultaneously satisfied
-        """
-        self._program.forbid(*conditions)
-
-    def require(self, target: Comparison | Predicate) -> None:
-        """
-        Require that a comparison or an atom holds in every answer set.
-        Takes exactly one target; syntactic sugar for a forbid constraint
-        on its flip. See Segment.require.
-        """
-        self._program.require(target)
-
     def add_segment(self, segment: str | Segment) -> Segment:
         """
         Add a segment to the program and return it: a string pre-declares
@@ -148,28 +192,6 @@ class Puzzle:
         registration).
         """
         return self._program.add_segment(segment)
-
-    def comment(self, text: str) -> None:
-        """
-        Add a comment to the program.
-
-        Args:
-            text: The comment text
-        """
-        self._program.comment(text)
-
-    def blank_line(self) -> None:
-        """Add a blank line to the program for formatting."""
-        self._program.blank_line()
-
-    def section(self, title: str) -> None:
-        """
-        Add a section header to the program.
-
-        Args:
-            title: The section title
-        """
-        self._program.section(title)
 
     def define_constant(self, name: str, value: int | str) -> DefinedConstant:
         """
@@ -286,12 +308,13 @@ class Puzzle:
             self.finalized = True
 
 
-class Module:
+class Module(StatementSpeaker):
     """
     Base class for puzzle modules.
 
     Modules provide organization and domain-specific logic for different
-    components of a puzzle. Each module has its own namespace in the ASP program.
+    components of a puzzle. Each module has its own namespace in the ASP
+    program, and its statement verbs speak on its own segment.
     """
 
     def __init__(self, puzzle: Puzzle, name: str, primary_namespace: bool = False):
@@ -320,6 +343,10 @@ class Module:
         self._segment = puzzle.register_module(self)
 
     @property
+    def _statement_target(self) -> Segment:
+        return self._segment
+
+    @property
     def construction_site(self) -> SourceLocation | None:
         """The solver line that constructed this module, if captured."""
         return self._construction_site
@@ -344,86 +371,11 @@ class Module:
         """Get this module's segment in the ASP program."""
         return self._segment
 
-    # Statement verbs spoken on this module's segment
-
-    def fact(self, *predicates: Predicate) -> None:
-        """
-        Add unconditional statements to this module's segment.
-
-        Args:
-            *predicates: Grounded predicate instances
-        """
-        self._segment.fact(*predicates)
-
-    def choose(self, choice: Choice) -> None:
-        """
-        Add a bare choice rule to this module's segment.
-
-        Args:
-            choice: The Choice to state, with no body
-        """
-        self._segment.choose(choice)
-
-    def when(self, *conditions: Term) -> When:
-        """
-        Hold conditions for a closer, in this module's segment.
-
-        Args:
-            *conditions: One or more conditions that must be satisfied
-
-        Returns:
-            A pending context completed by exactly one of
-            .derive/.choose/.require/.forbid/.penalize
-        """
-        return self._segment.when(*conditions)
-
-    def forbid(self, *conditions: Term) -> None:
-        """
-        Create a constraint in this module's segment.
-
-        Args:
-            *conditions: One or more conditions that must not be simultaneously satisfied
-        """
-        self._segment.forbid(*conditions)
-
-    def require(self, target: Comparison | Predicate) -> None:
-        """
-        Require that a comparison or an atom holds, in this module's
-        segment. Takes exactly one target; syntactic sugar for a forbid
-        constraint on its flip. See Segment.require.
-        """
-        self._segment.require(target)
-
-    def comment(self, text: str) -> None:
-        """
-        Add a comment to this module's segment.
-
-        Args:
-            text: The comment text
-        """
-        self._segment.comment(text)
-
-    def blank_line(self) -> None:
-        """Add a blank line to this module's segment for formatting."""
-        self._segment.blank_line()
-
-    def section(self, title: str) -> None:
-        """
-        Add a section header to this module's segment.
-
-        Args:
-            title: The section title
-        """
-        self._segment.section(title)
-
     def finalize(self) -> None:
         """
         Called just before rendering in case the module needs to add any rules based on an internal state.
         """
         pass
-
-
-T = TypeVar("T")
 
 
 def cached_predicate[T](init_func: Callable[[Any], T]) -> Callable[[Any], T]:
