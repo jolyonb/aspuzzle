@@ -8,12 +8,18 @@ from aspalchemy import (
     Comparison,
     ConditionalLiteral,
     DefinedConstant,
+    GroundedProgram,
+    LogLevel,
     NegatedSignature,
     Predicate,
+    RecursiveComponent,
     Segment,
     SolveResult,
+    SourceLocation,
     Term,
     When,
+    capture_location,
+    location_override,
 )
 
 
@@ -27,7 +33,7 @@ class Puzzle:
 
     finalized: bool = False
 
-    def __init__(self, name: str = "Puzzle", allow_singletons: bool = False):
+    def __init__(self, name: str = "Puzzle", allow_singletons: bool = False, source_locations: bool = True):
         """
         Initialize a new puzzle.
 
@@ -35,9 +41,12 @@ class Puzzle:
             name: A name for this puzzle (for documentation purposes)
             allow_singletons: Switch off the singleton-variable lint
                 (see ASPProgram)
+            source_locations: Stamp each statement with the authoring Python
+                line (see ASPProgram); powers dangling-when() reports,
+                render(annotate=True), and grounding diagnostics
         """
         self.name = name
-        self._program = ASPProgram(allow_singletons=allow_singletons)
+        self._program = ASPProgram(allow_singletons=allow_singletons, source_locations=source_locations)
         self._modules: dict[str, Module] = {}
 
     def get_module(self, name: str) -> Module:
@@ -202,22 +211,65 @@ class Puzzle:
         """
         return self._program.solve(timeout=timeout)
 
-    def render(self) -> str:
+    def ground(self, stop_on_log_level: LogLevel = LogLevel.INFO, context: object = None) -> GroundedProgram:
+        """
+        Finalize and ground the puzzle, returning the immutable grounding
+        snapshot: the hub for grounding introspection (ground_text(), aspif(),
+        analyze_grounding(), grounding_profile()) and for ground-once,
+        solve-many workflows (solve/brave/cautious/optimize with assumptions).
+
+        Args:
+            stop_on_log_level: Clingo messages at or above this level raise
+                GroundingError (see ASPProgram.ground)
+            context: Optional @-function grounding context object
+        """
+        self.finalize()
+        self._program.header = f"{self.name} by ASPuzzle"
+        return self._program.ground(stop_on_log_level=stop_on_log_level, context=context)
+
+    def recursion_profile(self) -> tuple[RecursiveComponent, ...]:
+        """
+        The recursive components of the puzzle's predicate dependency
+        graph (see ASPProgram.recursion_profile): static analysis, no
+        grounding performed. Finalizes first so module-emitted rules
+        (RegionConstructor's fixpoints in particular) are visible.
+        """
+        self.finalize()
+        return self._program.recursion_profile()
+
+    def analyze_recursion(self) -> str:
+        """The recursion profile as prose (see ASPProgram.analyze_recursion)."""
+        self.finalize()
+        return self._program.analyze_recursion()
+
+    def render(self, annotate: bool = False) -> str:
         """
         Render the puzzle as an ASP program.
+
+        Args:
+            annotate: Append a "% file:line" provenance note to each statement
+                (line numbering is unchanged). Keep checked-in renders
+                unannotated — annotations churn on unrelated edits.
 
         Returns:
             str: The rendered ASP program.
         """
         self.finalize()
         self._program.header = f"{self.name} by ASPuzzle"
-        return self._program.render()
+        return self._program.render(annotate=annotate)
 
     def finalize(self) -> None:
         """Ensures all modules finalize their code before rendering or solving"""
         if not self.finalized:
             for module in self._modules.values():
-                module.finalize()
+                # Rules emitted during a finalize pass have no honest user
+                # frame on the stack; attribute them to the solver line that
+                # constructed the module
+                if module.construction_site is not None:
+                    with location_override(module.construction_site):
+                        module.finalize()
+                else:
+                    module.finalize()
             self.finalized = True
 
 
@@ -247,8 +299,17 @@ class Module:
         self._name = name.lower()
         self._namespace = "" if primary_namespace else f"{self._name}"
 
+        # The solver line constructing this module: rules the module emits
+        # during finalize() are attributed here (see Puzzle.finalize)
+        self._construction_site = capture_location()
+
         # Register with the puzzle, capturing this module's segment
         self._segment = puzzle.register_module(self)
+
+    @property
+    def construction_site(self) -> SourceLocation | None:
+        """The solver line that constructed this module, if captured."""
+        return self._construction_site
 
     @property
     def name(self) -> str:

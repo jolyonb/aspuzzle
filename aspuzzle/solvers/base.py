@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from itertools import islice
 from typing import Any, ClassVar
 
-from aspalchemy import Predicate, SolveResult
+from aspalchemy import GroundedProgram, Predicate, SolveResult
 from aspuzzle.grids.base import Grid, GridCellData
 from aspuzzle.grids.rendering import RenderItem, RenderSymbol
 from aspuzzle.puzzle import Puzzle
@@ -20,6 +20,7 @@ class Solver(ABC):
     grid: Grid
     map_grid_to_integers: bool = False  # Whether to map grid symbols to unique integer ids, useful for defining regions
     _grid_data: list[GridCellData] | None = None
+    _grounding: GroundedProgram | None = None
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> Solver:
@@ -169,6 +170,16 @@ class Solver(ABC):
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
 
+    def ground(self) -> GroundedProgram:
+        """
+        Finalize and ground the puzzle, caching the immutable snapshot: the
+        handle for grounding introspection (analyze_grounding(), aspif(),
+        ground_text()) and repeated solving.
+        """
+        if self._grounding is None:
+            self._grounding = self.puzzle.ground()
+        return self._grounding
+
     def solve(self, models: int = 1, timeout: int = 0) -> tuple[list[dict[str, list[Predicate]]], SolveResult]:
         """
         Solve the puzzle; returns the collected name-keyed solutions (the shape
@@ -177,9 +188,7 @@ class Solver(ABC):
         models caps the collection (0 collects every model) — a consumer-side
         limit on the unbounded stream.
         """
-        self.puzzle.finalize()
-
-        result = self.puzzle.solve(timeout=timeout)
+        result = self.ground().solve(timeout=timeout)
         stream = islice(result, models) if models else result
         solutions = []
         for model in stream:

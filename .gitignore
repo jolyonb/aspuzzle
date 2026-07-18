@@ -13,3 +13,4 @@ temp/
 .coverage.*
 htmlcov/
 coverage.xml
+solver_scripts/*.annotated.lp
