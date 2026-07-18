@@ -136,11 +136,27 @@ Given the project's maturity, these extensions are best accomplished by adapting
 
 ### ASP Program Size
 - **Grounding explosion**: Complex conditions can create enormous ground programs
-- **Mitigation**: Look at the clingo output and perform scaling analysis on the grounding size; O(N^2) is okay (N number of cells), but O(N^3) is not
-- **Debug**: Check generated `.lp` files in `solver_scripts/` for size, or
-  ask the grounding directly: `grounded.ground_text()` (readable ground
-  rules) and `grounded.aspif()` (the exact solver input — the honest size
-  measure, since pretty-printed text repeats shared aggregate elements)
+- **Mitigation**: O(N^2) grounding is okay (N number of cells), but O(N^3) is not
+- **First stop**: `python solveit.py puzzle --render-only --analyze-grounding` —
+  four instruments in one flag, every row naming the solver line responsible:
+  - **Recursion analysis** (static, before grounding): the components gringo
+    grounds as fixpoints, with the statements re-evaluated inside each. A
+    derivation in a fixpoint that need not feed the recursion is the classic
+    finding — restate it with `.require()` (this fix alone was 95% of a
+    100×100 Galaxies grounding). An UNSTRATIFIED component means circular
+    rules through `not` — expensive to solve, almost always an accident.
+  - **Grounding analysis**: ground-atom counts per signature
+  - **Statement analysis**: ground instantiation counts per statement —
+    constraints charge their own rows here, which atom counts cannot see
+    (a pairwise uniqueness constraint was 92% of that same Galaxies program,
+    invisible to the signature profile)
+  - **aspif size**: the honest size measure
+- **Programmatic**: `solver.ground()` exposes `analyze_grounding()`,
+  `analyze_statements()`, `ground_text()`, `aspif()`;
+  `puzzle.analyze_recursion()` needs no grounding at all
+- **Domain pruning**: when a RegionConstructor grounds at cells×anchors, pass
+  `region_domain=` conditions (see Galaxies' mirror bound, Nurikabe's
+  per-clue `grid.distance_bound`)
 
 ### Module Dependencies
 - **Predicate access triggers rule generation**: First access to cached predicate defines all rules
@@ -169,22 +185,23 @@ python solveit.py puzzle --stats
 - **Target**: 10×10 puzzle should solve in < 0.1s in most cases
 - If significantly slower, investigate scaling issues
 
-**Step 2: Scaling Analysis by Grid Size**
-Test the same puzzle type with different grid sizes:
+**Step 2: Profile the Grounding**
 ```bash
-# Test different sizes if possible
-python solveit.py small_puzzle --stats    # e.g., 5×5
-python solveit.py medium_puzzle --stats   # e.g., 10×10
-python solveit.py large_puzzle --stats    # e.g., 15×15
+python solveit.py puzzle --render-only --analyze-grounding
 ```
-- Compare solve times: should scale roughly O(N²) where N = number of cells
-- If scaling > O(N²), you have grounding explosion
+Read the report top-down — the top rows name the guilty solver lines:
+- A constraint or rule with an outsized statement count: rethink its joins
+  (aggregates instead of pairwise rules; `possible_region`-style domain
+  pruning; anonymous variables where a binding is not needed)
+- A statement inside a recursive component that need not feed the recursion:
+  restate the derivation as a `.require()`
+- An UNSTRATIFIED component: a stratum of your encoding folded back on
+  itself through `not` — almost certainly unintended; restructure the tower
 
-**Step 3: Analyze Predicate Scaling**
-Look at the generated .lp file and analyze each predicate:
-- Count variables per rule for each predicate type
-- Rules with many variables create expensive grounding
-- Example: `rule(X,Y,Z,W,V)` with 5 variables is much more expensive than `rule(X,Y)`
+**Step 3: Scaling Analysis by Grid Size (if the profile is inconclusive)**
+Test the same puzzle type at different sizes and compare profiles; counts
+should scale roughly O(N²) in cells. Closed forms fall straight out of the
+statement counts (e.g. a row growing as (N−2)·A·(A−1) is cells×anchors²).
 
 **Step 4: Direct ASP Testing (Rapid Iteration)**
 For fast debugging without Python overhead:
@@ -198,11 +215,17 @@ python -m clingo solver_scripts/puzzle.lp -n 0
 - Much faster iteration cycle for constraint optimization
 
 **Step 5: Constraint Optimization**
-Focus on rules with poor scaling:
-- Replace multi-variable rules with aggregates: `#count{X : condition}`
+Focus on the profile's top rows:
+- Replace multi-variable rules with BOUNDED aggregates:
+  `.require(Count(...) == 1)`, never `N == Count(...)` in a body plus
+  `.require(N == 1)` — the assignment form makes gringo enumerate every
+  feasible count per cell
+- Keep derivations out of recursive components when a `.require()` says
+  the same thing — a rule inside a fixpoint is re-evaluated across the
+  whole iteration
 - Use intermediate predicates to break complex conditions
-- Minimize variables in rule bodies
-- Consider problem-specific optimizations
+- Restrict region membership with `region_domain=` when anchors are fixed
+- Keep the encoding a tower: each stratum negates only settled strata below
 
 **Step 6: Verify Improvement**
 ```bash
