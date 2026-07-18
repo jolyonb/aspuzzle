@@ -16,6 +16,7 @@ tool for deciding whether a change deserves --update-goldens.
 
 import argparse
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 from tests.test_golden_renders import BACKENDS, GOLDEN_ROOT, MODES, solver_and_first_solution
@@ -40,7 +41,7 @@ def find_puzzle_file(name: str) -> Path:
     return matches[0]
 
 
-def show(puzzle: str, backend: str, modes: list[str], current: bool) -> bool:
+def show(puzzle: str, backend: str, modes: Sequence[str], current: bool) -> bool:
     """Print the requested goldens (and current renders); returns True if all match."""
     all_match = True
     for mode in modes:

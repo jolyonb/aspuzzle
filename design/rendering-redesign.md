@@ -142,24 +142,39 @@ class AsciiTheme:
 DEFAULT_THEME: Final[AsciiTheme]             # exactly today's SGR codes
 ```
 
-### 3.2 Glyphs
+### 3.2 Glyphs — with per-backend variants
 
 ```python
 # aspuzzle/rendering/glyph.py
 @dataclass(frozen=True)
 class Glyph:
-    """A short renderable text mark. ASCII geometries enforce their content
-    width (1 char on rectangular grids today); SVG renders the full text
-    centered. Keep to one grapheme for current grids."""
+    """A renderable text mark with optional per-backend variants.
+
+    `text` is the baseline every backend falls back to. Keep it one
+    grapheme: character-grid geometries enforce their content width (1 char
+    on rectangular grids), and emoji are double-width in terminals, which
+    breaks column alignment. Richer backends may override — svg= for
+    full-fidelity marks (emoji welcome), sheet= for spreadsheet cells (no
+    width limit): Glyph("A", svg="⛺") renders a tent as 'A' in the
+    terminal and as the emoji in SVG, from ONE element/rule."""
     text: str
+    svg: str | None = None
+    sheet: str | None = None
+
+    def for_backend(self, backend: Backend) -> str:
+        """The text this backend renders: its override if set, else text."""
 
 def glyph_for_value(value: int) -> Glyph:
-    """The single home of the digit convention: 1-9 as digits, 10+ as
-    letters (10 -> 'A'). Currently duplicated in Sudoku and Skyscrapers
-    clue maps — and *not* applied to solution values, which today render
-    multi-char through str(); this fixes that inconsistency."""
-    return Glyph(str(value) if value <= 9 else chr(ord("A") + value - 10))
+    """The single home of the digit convention: 0-9 as digits, 10+ as
+    letters (10 -> 'A') on character grids. Currently duplicated in Sudoku
+    and Skyscrapers clue maps — and *not* applied to solution values, which
+    today render multi-char through str(); this fixes that inconsistency.
+    10+ carries its literal number as the sheet variant (a spreadsheet
+    wants "10", not "A"); SVG keeps the letter so the drawn puzzle matches
+    the terminal render."""
 ```
+
+Glyph variants vs the complementary-pair idiom (§3.5 rule 4): variants are for *the same mark drawn with different text* — one element, resolved by each renderer via `for_backend`, with `layout_needs` measuring the backend-resolved width. The pair idiom remains for *structurally different content* per backend (different element kinds, different layers, or omission). `Backend` itself lives in its own leaf module (`backend.py`) so both `glyph.py` and `scene.py` can import it without a cycle.
 
 ### 3.3 Locations — cell, edge, vertex, outside
 
@@ -819,7 +834,7 @@ class SheetRenderer:
 
 Element mapping (the renderer's documented contract, per visibility rule 5):
 
-- `CellGlyph` → the cell's text. **No width limit** — a sheet cell holds arbitrary text, so this is the one backend where multi-char values need no letter compaction (`glyph_for_value`'s A-for-10 convention exists for character-grid alignment; a solver that wants literal `10` in sheets uses the complementary-pair idiom: a `SHEET_ONLY` rule with plain `str(value)` glyphs beside the default rule marked `frozenset({ASCII, SVG})`). Later elements at the same position overwrite (paint order degenerates to last-writer-wins per cell).
+- `CellGlyph` → the cell's text, via `glyph.for_backend(Backend.SHEET)`. **No width limit** — a sheet cell holds arbitrary text, and `glyph_for_value` already carries the literal number as its sheet variant for values ≥ 10 (§3.2), so sheets show `10` where character grids show `A`, with no extra rule. Later elements at the same position overwrite (paint order degenerates to last-writer-wins per cell).
 - `CellPath` → the geometry's path glyph as cell text (box-drawing characters paste fine as text); `CellLink` → its glyph in both cells; `OutsideLabel` → text in a reserved margin row/column — outside clues are a *natural* fit for sheets, they become real cells you can reference in formulas.
 - `CellFill`, `EdgeSegment`, `VertexMark`, colors, `EdgeWeight` → **documented no-ops** (plain-text paste cannot carry them). This is contract, not silent skipping: the backend's stated fidelity is "textual content only". Solvers that want region structure visible in sheets emit `SHEET_ONLY` glyph alternatives (e.g. a `GlyphRule` writing region ids).
 - `Provenance` → ignored (no styling channel), retained in the scene as always.
@@ -842,7 +857,9 @@ def get_render_config(self) -> dict[str, Any]:
 def get_render_spec(self) -> RenderSpec:
     return RenderSpec(
         clues={"T": CellStyle(glyph=Glyph("T"), color=PaletteColor.GREEN)},
-        atoms=[GlyphRule("tent", glyph=Glyph("A"), color=PaletteColor.YELLOW)],
+        # 'A' on the character grid (emoji are double-width in terminals),
+        # the real thing in SVG — one rule, per-backend glyph variants
+        atoms=[GlyphRule("tent", glyph=Glyph("A", svg="⛺"), color=PaletteColor.YELLOW)],
         labels=[LineLabels(d, self.config[f"{self.grid.line_direction_descriptions[d]}_clues"])
                 for d in self.grid.line_direction_names],
     )

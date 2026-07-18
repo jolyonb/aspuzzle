@@ -2,12 +2,14 @@
 
 Repo: `/Users/jolyon/gitrepos/aspuzzle`. Target: the approved unified design (typed Scene IR, grid geometry objects, `AsciiRenderer`, per-backend visibility, `get_render_spec()`).
 
-**Green criteria, enforced after every step:**
+**Green criteria, enforced after every step** (the full pre-commit gauntlet — tests are in every tool's include list and are held to the same standard as the package):
 
 ```bash
 uv run pytest -q          # all tests incl. golden renders
 uv run mypy .             # strict config in pyproject
+uv run pyright            # include list covers aspuzzle, tests, solveit.py
 uv run ruff check
+uv run ruff format --check
 ```
 
 plus eyeballing **both render modes** for the solvers a step touches, using the default-preview form of the CLI (no `--no-preview`, no `--no-viz`):
@@ -56,8 +58,9 @@ Both old and new pipelines coexist untouched from Step 2 through Step 10; Steps 
 **Create:**
 - `aspuzzle/rendering/__init__.py` — re-exports the solver-facing vocabulary.
 - `aspuzzle/rendering/color.py` — `PaletteColor` (16 members), `Rgb` (validated in `__post_init__`), `type ColorSpec = PaletteColor | Rgb`.
-- `aspuzzle/rendering/glyph.py` — `Glyph`, `glyph_for_value` (the single home of the 1–9/A+ convention, currently duplicated in `sudoku.py:150` and `skyscrapers.py:139`).
-- `aspuzzle/rendering/scene.py` — `Backend` (ASCII, SVG, SHEET), `BackendSet`/`ALL_BACKENDS`/`ASCII_ONLY`/`SVG_ONLY`/`SHEET_ONLY`, `Provenance`, `Layer`, `EdgeWeight`, `Edge`, `Vertex`, `SceneElementBase` (`KW_ONLY` backends/provenance), the seven element dataclasses, `SceneElement` union, `CellStyle`, `SceneStyle`, `AsciiLayoutNeeds`, `Scene` (`add`/`extend`/`glyph`/`fill`/`line_labels`/`visible`/`sorted_elements`/`layout_needs`).
+- `aspuzzle/rendering/backend.py` — `Backend` (ASCII, SVG, SHEET), `BackendSet`/`ALL_BACKENDS`/`ASCII_ONLY`/`SVG_ONLY`/`SHEET_ONLY`. A leaf module so both `glyph.py` and `scene.py` can import it without a cycle.
+- `aspuzzle/rendering/glyph.py` — `Glyph` with per-backend variants (`text` baseline + optional `svg`/`sheet` overrides, resolved via `for_backend`; design §3.2 — e.g. `Glyph("A", svg="⛺")` for Tents), `glyph_for_value` (the single home of the 0–9/A+ convention, currently duplicated in `sudoku.py:150` and `skyscrapers.py:139`; ≥10 carries the literal number as its sheet variant).
+- `aspuzzle/rendering/scene.py` — `Provenance`, `Layer`, `EdgeWeight`, `Edge`, `Vertex`, `SceneElementBase` (`KW_ONLY` backends/provenance), the seven element dataclasses, `SceneElement` union, `CellStyle`, `SceneStyle`, `AsciiLayoutNeeds`, `Scene` (`add`/`extend`/`glyph`/`fill`/`line_labels`/`visible`/`sorted_elements`/`layout_needs`).
 - `tests/rendering/test_scene.py`, `tests/rendering/test_color_glyph.py`.
 
 **Two concrete decisions the design leaves ambiguous, resolved here:**
