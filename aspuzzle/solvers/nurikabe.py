@@ -1,7 +1,7 @@
 from aspalchemy import ANY, Field, Predicate, Term, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.regionconstructor import RegionConstructor
-from aspuzzle.rendering import CellStyle, FillRule, RenderSpec, SceneStyle, glyph_for_value
+from aspuzzle.rendering import CellStyle, FillRule, Glyph, RenderSpec, SceneStyle, glyph_for_value
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 
@@ -70,8 +70,16 @@ class Nurikabe(Solver):
         puzzle.when(region_constructor.Region(loc=C, anchor=ANY)).derive(Island(loc=C))
 
     def get_render_spec(self) -> RenderSpec:
+        # Digits and letters up to 35; larger clues render as # (single-char
+        # displays cannot say more; the sheet backend still shows the number)
+        clues: dict[int | str, CellStyle] = {
+            value: CellStyle(glyph=glyph_for_value(value), color=Color.BRIGHT_BLUE) for value in range(1, 36)
+        }
+        clues |= {
+            value: CellStyle(glyph=Glyph("#", sheet=str(value)), color=Color.BRIGHT_BLUE) for value in range(36, 100)
+        }
         return RenderSpec(
-            clues={value: CellStyle(glyph=glyph_for_value(value), color=Color.BRIGHT_BLUE) for value in range(1, 100)},
+            clues=clues,
             atoms=[FillRule(Stream, fill=Color.BRIGHT_BLACK)],
             style=SceneStyle(packed=True),
         )

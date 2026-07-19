@@ -47,15 +47,16 @@ class Glyph:
 
 def glyph_for_value(value: int) -> Glyph:
     """
-    The single home of the digit convention: 0-9 as digits, 10+ as letters
-    (10 -> 'A'), keeping values one character wide on character grids.
-    Values above 9 carry their literal number as the sheet variant — a
-    spreadsheet cell wants "10", not "A". SVG keeps the letter so the drawn
-    puzzle matches the terminal render; a solver preferring numbers in SVG
-    passes its own Glyph(..., svg=...).
+    The single home of the digit convention: 0-9 as digits, 10-35 as
+    letters (10 -> 'A', 35 -> 'Z'), keeping values one character wide on
+    character grids; values outside 0..35 have no single-character form
+    and raise. Values above 9 carry their literal number as the sheet
+    variant — a spreadsheet cell wants "10", not "A". SVG keeps the letter
+    so the drawn puzzle matches the terminal render; a solver preferring
+    numbers in SVG passes its own Glyph(..., svg=...).
     """
-    if value < 0:
-        raise ValueError(f"glyph_for_value takes non-negative values, got {value}")
+    if not 0 <= value <= 35:
+        raise ValueError(f"glyph_for_value covers 0..35 (digits, then A-Z), got {value}")
     if value <= 9:
         return Glyph(str(value))
     return Glyph(chr(ord("A") + value - 10), sheet=str(value))

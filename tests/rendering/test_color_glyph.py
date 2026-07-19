@@ -46,5 +46,8 @@ def test_glyph_for_value_digit_letter_convention() -> None:
     assert glyph_for_value(35) == Glyph("Z", sheet="35")
     assert glyph_for_value(10).for_backend(Backend.SHEET) == "10"
     assert glyph_for_value(10).for_backend(Backend.SVG) == "A"
-    with pytest.raises(ValueError, match="non-negative"):
+    # The single-char convention ends at Z; outside it, no silent garbage
+    with pytest.raises(ValueError, match=r"0\.\.35"):
+        glyph_for_value(36)
+    with pytest.raises(ValueError, match=r"0\.\.35"):
         glyph_for_value(-1)

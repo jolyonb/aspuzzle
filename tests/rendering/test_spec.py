@@ -279,3 +279,20 @@ def test_labels_and_styles_flow_through() -> None:
     labels = [element for element in scene.visible(Backend.SVG) if isinstance(element, OutsideLabel)]
     assert len(labels) == 1 and labels[0].index == 1 and labels[0].provenance is Provenance.GIVEN
     assert not list(scene.visible(Backend.ASCII))  # SVG-only labels invisible to ASCII
+
+
+def test_line_labels_reject_offset_at_construction() -> None:
+    with pytest.raises(ValueError, match="rings"):
+        LineLabels("s", [1], offset=1)
+
+
+def test_value_glyph_falls_back_to_literal_text_outside_convention() -> None:
+    grid = make_grid()
+    solution = {"number": [Number(loc=grid.Cell(1, 1), value=-3), Number(loc=grid.Cell(1, 2), value=99)]}
+    scene = build_scene(grid, RenderSpec(atoms=[GlyphRule("number", value_field="value")]), [], solution)
+    texts = {
+        element.glyph.for_backend(Backend.SHEET)
+        for element in scene.visible(Backend.SHEET)
+        if isinstance(element, CellGlyph)
+    }
+    assert texts == {"-3", "99"}  # width-free backends render the literal value

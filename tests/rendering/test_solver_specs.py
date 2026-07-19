@@ -97,8 +97,14 @@ def test_hitori_and_cave_and_nurikabe_fill_rules() -> None:
     for name, predicate in (("hitori", "black"), ("cave", "wall")):
         (rule,) = load_solver(name).get_render_spec().atoms
         assert isinstance(rule, FillRule) and rule.predicate == predicate
-    (rule,) = load_solver("nurikabe").get_render_spec().atoms
+    nurikabe_spec = load_solver("nurikabe").get_render_spec()
+    (rule,) = nurikabe_spec.atoms
     assert isinstance(rule, FillRule) and rule.predicate is Stream
+    # Clues beyond the single-char convention render as # (number kept for sheets)
+    large = nurikabe_spec.clues[40]
+    assert large.glyph is not None
+    assert large.glyph.for_backend(Backend.ASCII) == "#"
+    assert large.glyph.for_backend(Backend.SHEET) == "40"
 
 
 def test_skyscrapers_labels_all_four_sides() -> None:

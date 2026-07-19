@@ -12,7 +12,9 @@ from aspuzzle.grids.rendering import RenderSymbol
 from aspuzzle.puzzle import Puzzle
 from aspuzzle.rendering import (
     Backend,
+    CellFill,
     CellGlyph,
+    CellPath,
     EdgeSegment,
     EdgeWeight,
     Glyph,
@@ -22,6 +24,7 @@ from aspuzzle.rendering import (
     PaletteColor,
     Scene,
     SceneStyle,
+    Vertex,
     VertexMark,
 )
 from aspuzzle.rendering.ascii import AsciiRenderer
@@ -170,3 +173,62 @@ def test_stacked_label_rings_unsupported() -> None:
     scene.add(OutsideLabel("s", 1, Glyph("2"), offset=1))
     with pytest.raises(NotImplementedError, match="rings"):
         render(scene)
+
+
+def test_wide_top_labels_widen_pitch_instead_of_crashing() -> None:
+    _, scene = make_scene()
+    scene.line_labels("s", [12, 10])
+    out = render(scene)
+    assert out.splitlines()[0] == "12 10"
+
+
+def test_isolated_edge_covers_only_its_own_cell() -> None:
+    grid, scene = make_scene(rows=2, cols=3)
+    scene.add(EdgeSegment(grid.edge(grid.Cell(1, 2), "n")))
+    assert render(scene).splitlines()[0] == "  ─  "
+
+
+def test_fills_bridge_gaps_between_equal_neighbors() -> None:
+    grid, scene = make_scene(rows=1, cols=2)
+    scene.add(
+        CellFill(grid.Cell(1, 1), PaletteColor.GREEN),
+        CellFill(grid.Cell(1, 2), PaletteColor.GREEN),
+        EdgeSegment(grid.edge(grid.Cell(1, 1), "n")),  # materializes a lane: expanded layout
+    )
+    colored = AsciiRenderer(use_colors=True).render(scene)
+    content_row = colored.splitlines()[1]
+    # cell, gap, cell — the gap char carries the shared background too
+    assert content_row.count("\033[42m") == 3
+
+
+def test_fills_flood_solid_block_through_full_lattice() -> None:
+    grid, scene = make_scene(style=SceneStyle(lattice=Lattice.FULL))
+    for row in (1, 2):
+        for col in (1, 2):
+            scene.add(CellFill(grid.Cell(row, col), PaletteColor.GREEN))
+    colored = AsciiRenderer(use_colors=True).render(scene)
+    # the interior 3x3 (cells plus every char between them) carries the
+    # background; the outer lattice ring has no filled flank and stays bare
+    assert colored.count("\033[42m") == 9
+    for line in colored.splitlines()[1:4]:
+        assert line.count("\033[42m") == 3
+
+
+def test_out_of_grid_vertex_mark_skipped_silently() -> None:
+    grid, scene = make_scene(rows=3, cols=3)
+    scene.add(VertexMark(grid.vertex(grid.Cell(1, 1), "nw")), VertexMark(Vertex(grid.Cell(0, 7), "nw")))
+    out = render(scene)  # no crash; the in-grid mark renders
+    assert "." in out
+
+
+def test_singleton_path_renders_stub() -> None:
+    grid, scene = make_scene()
+    scene.add(CellPath(grid.Cell(1, 1), frozenset({"e"})))
+    assert "╶" in render(scene)
+
+
+def test_label_index_beyond_grid_skipped_silently() -> None:
+    _, scene = make_scene()
+    scene.add(OutsideLabel("e", 5, Glyph("9")), OutsideLabel("e", 1, Glyph("7")))
+    out = render(scene)
+    assert "7" in out and "9" not in out

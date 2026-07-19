@@ -103,7 +103,12 @@ def _resolve(color: ColorLike | None, atom: Predicate) -> ColorSpec | None:
 
 
 def _value_glyph(value: object) -> Glyph:
-    return glyph_for_value(value) if isinstance(value, int) else Glyph(str(value))
+    """Single-char convention where it applies; the literal text otherwise
+    (multi-char text renders in width-free backends and raises the canvas's
+    precise width error on character grids)."""
+    if isinstance(value, int) and 0 <= value <= 35:
+        return glyph_for_value(value)
+    return Glyph(str(value))
 
 
 @dataclass(frozen=True)
@@ -428,6 +433,10 @@ class LineLabels(RuleBase):
     values: Sequence[int | str | None] = ()
     color: ColorSpec | None = None
     offset: int = 0
+
+    def __post_init__(self) -> None:
+        if self.offset != 0:
+            raise ValueError("Stacked label rings (offset > 0) are not supported")
 
     def apply(self, scene: Scene, context: RenderContext) -> None:
         scene.line_labels(self.direction, self.values, color=self.color, offset=self.offset, backends=self.backends)
