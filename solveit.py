@@ -12,7 +12,7 @@ def solve(
     preview_puzzle: bool = False,
     render: bool = True,
     solve_puzzle: bool = True,
-    max_solutions: int = 1,
+    max_solutions: int = 1000,
     timeout: int = 0,
     display_solutions: bool = True,
     display_stats: bool = True,
@@ -32,7 +32,9 @@ def solve(
         preview_puzzle: Whether to preview the puzzle before solving
         render: Whether to render the ASP program
         solve_puzzle: Whether to solve the puzzle
-        max_solutions: Maximum number of solutions to find (0 to enumerate all)
+        max_solutions: Maximum number of solutions to find (0 to enumerate all);
+            the default is high enough that an exhausted search proves uniqueness
+            for ordinary puzzles
         timeout: Wall-clock limit in seconds (0 for no limit)
         display_solutions: Whether to display found solutions
         display_stats: Whether to display solver statistics
@@ -91,7 +93,7 @@ def solve(
             f.write(asp_program)
 
         if not quiet:
-            print(f"% (Script program written to {output_path})")
+            print(f"\n% (Script program written to {output_path})")
 
         # Annotated sidecar: provenance notes churn on unrelated edits, so
         # they never go into the canonical (checked-in) .lp
@@ -177,7 +179,11 @@ def main() -> None:
     # Solve options
     solve_group = parser.add_argument_group("Solving options")
     solve_group.add_argument(
-        "--max-solutions", "-m", type=int, default=1, help="Maximum number of solutions to find (0 to enumerate all)"
+        "--max-solutions",
+        "-m",
+        type=int,
+        default=1000,
+        help="Maximum number of solutions to find (default 1000, so exhaustion proves uniqueness; 0 enumerates all)",
     )
     solve_group.add_argument(
         "--timeout", "-t", type=int, default=0, help="Wall-clock limit in seconds (0 for no limit)"
