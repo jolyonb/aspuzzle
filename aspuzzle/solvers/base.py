@@ -8,7 +8,6 @@ from typing import Any, ClassVar, cast
 
 from aspalchemy import GroundedProgram, Predicate, SolveResult
 from aspuzzle.grids.base import Grid, GridCellData
-from aspuzzle.grids.rendering import RenderItem, RenderSymbol
 from aspuzzle.puzzle import Puzzle
 from aspuzzle.rendering import LineLabels, RenderSpec, Scene, build_scene
 from aspuzzle.rendering.ascii import AsciiRenderer
@@ -383,157 +382,10 @@ class Solver(ABC):
 
     def render_puzzle(self, solution: dict[str, list[Predicate]] | None = None, *, use_colors: bool = True) -> str:
         """
-        Render a solution as ASCII text.
-
-        Args:
-            solution: Solution dictionary mapping predicate names to lists of predicate instances
-            use_colors: Whether to emit ANSI colors (scene pipeline only)
-
-        Returns:
-            ASCII representation of the solution
+        Render the puzzle as ASCII text: the solution when given, the
+        clues-only preview when not.
         """
-        # Dispatch bridge, deleted when the last solver ports: a solver on
-        # the scene pipeline declares itself by overriding get_render_spec
-        # or build_scene; everything else takes the original path,
-        # byte-identically
-        if type(self).get_render_spec is not Solver.get_render_spec or type(self).build_scene is not Solver.build_scene:
-            return AsciiRenderer(use_colors=use_colors).render(self.build_scene(solution))
-
-        # Perform any additional preprocessing before rendering
-        self._preprocess_for_rendering(solution)
-
-        # Preprocess puzzle symbols and predicates
-        puzzle_render_items = self._preprocess_puzzle_symbols()
-        predicate_render_items = self._preprocess_predicates(solution)
-
-        # Get rendering configuration
-        render_config = self.get_render_config()
-
-        # Call the grid's render_ascii method with processed items
-        return self.grid.render_ascii(
-            puzzle_render_items=puzzle_render_items,
-            predicate_render_items=predicate_render_items,
-            render_config=render_config,
-        )
-
-    def _preprocess_puzzle_symbols(self) -> list[RenderItem]:
-        """
-        Preprocess puzzle definition symbols for rendering.
-
-        Expects puzzle_symbols to be a mapping from values to RenderSymbol objects.
-
-        Returns:
-            List of RenderItem objects ready for rendering
-        """
-        render_config = self.get_render_config()
-        puzzle_symbols = render_config.get("puzzle_symbols", {})
-
-        processed_symbols = []
-
-        for loc, value in self.grid_data:
-            render_symbol = puzzle_symbols.get(value)
-            if render_symbol is None:
-                continue
-
-            if not isinstance(render_symbol, RenderSymbol):
-                raise ValueError(f"Expected RenderSymbol for puzzle symbol '{value}', got {type(render_symbol)}")
-
-            render_item = RenderItem(
-                loc=self.grid.Cell(*loc),
-                symbol=render_symbol.symbol,
-                color=render_symbol.color,
-                background=render_symbol.bgcolor,
-            )
-            processed_symbols.append(render_item)
-
-        return processed_symbols
-
-    def _preprocess_predicates(self, solution: dict[str, list[Predicate]] | None = None) -> dict[int, list[RenderItem]]:
-        """
-        Preprocess solution predicates for rendering, organized by priority level.
-
-        Args:
-            solution: Dictionary mapping predicate names to lists of predicate instances
-
-        Returns:
-            Dictionary mapping priority levels to lists of RenderItem objects
-        """
-        if not solution:
-            return {}
-
-        render_config = self.get_render_config()
-        predicate_styling = render_config.get("predicates", {})
-
-        priority_render_items: dict[int, list[RenderItem]] = {}
-
-        for pred_name, instances in solution.items():
-            render_info = predicate_styling.get(pred_name)
-            if render_info is None:
-                continue
-            assert isinstance(render_info, dict)
-
-            priority = render_info.get("priority", 0)
-
-            # Initialize list for this priority if needed
-            if priority not in priority_render_items:
-                priority_render_items[priority] = []
-
-            if custom_renderer := render_info.get("custom_renderer"):
-                priority_render_items[priority].extend([item for pred in instances for item in custom_renderer(pred)])
-            else:
-                color = render_info.get("color", None)
-                background = render_info.get("background", None)
-                default_symbol = render_info.get("symbol", pred_name[0])
-                value_field: str | None = render_info.get("value", None)
-
-                for pred in instances:
-                    if render_info.get("loop_directions"):
-                        # Handle loop directions
-                        dir1_field = render_info.get("dir1_field", "dir1")
-                        dir2_field = render_info.get("dir2_field", "dir2")
-                        dir1 = pred[dir1_field].value
-                        dir2 = pred[dir2_field].value
-                        combined = dir1 + dir2
-                        symbol = self.grid.line_characters.get(combined, None)
-                    elif value_field is not None:
-                        # Handle value field
-                        symbol = str(pred[value_field])
-                    else:
-                        # Use default symbol
-                        symbol = default_symbol
-
-                    priority_render_items[priority].append(
-                        RenderItem(
-                            loc=pred["loc"],
-                            symbol=symbol,
-                            color=color,
-                            background=background,
-                        )
-                    )
-
-        return priority_render_items
-
-    def _preprocess_for_rendering(self, solution: dict[str, list[Predicate]] | None = None) -> None:
-        """
-        Optional preprocessing step before rendering. Intended to be used to cache calculations that can be used in
-        get_rendering_config.
-        """
-        pass
-
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for this solver.
-
-        This is a default implementation that provides no special rendering.
-        Solver subclasses should override this method to provide specific rendering configuration.
-
-        Returns:
-            Dictionary with rendering configuration
-        """
-        return {
-            "puzzle_symbols": {},  # Map puzzle values to RenderSymbol objects
-            "predicates": {},  # Map predicate names to rendering info
-        }
+        return AsciiRenderer(use_colors=use_colors).render(self.build_scene(solution))
 
     def line_clues(self, direction: str) -> Sequence[int | None]:
         """The config clue list for a line direction, per the naming

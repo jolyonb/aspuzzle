@@ -14,7 +14,6 @@ from aspalchemy import (
     V,
     Variable,
 )
-from aspuzzle.grids.rendering import RenderItem
 from aspuzzle.puzzle import Module, Puzzle, cached_predicate
 from aspuzzle.rendering.scene import Edge, Vertex
 
@@ -164,12 +163,6 @@ class Grid(Module, ABC):
     @abstractmethod
     def line_direction_descriptions(self) -> dict[str, str]:
         """Returns human-readable descriptions of line directions"""
-        pass
-
-    @property
-    @abstractmethod
-    def line_characters(self) -> dict[str, str]:
-        """Get ASCII line characters for direction combination."""
         pass
 
     @abstractmethod
@@ -550,33 +543,6 @@ class Grid(Module, ABC):
         Returns:
             A new Cell predicate with the vector added
         """
-
-    @abstractmethod
-    def render_ascii(
-        self,
-        puzzle_render_items: list[RenderItem],
-        predicate_render_items: dict[int, list[RenderItem]],
-        render_config: dict[str, Any],
-        use_colors: bool = True,
-    ) -> str:
-        """
-        Render the rectangular grid as ASCII text.
-
-        This method takes preprocessed rendering items and converts them into an ASCII
-        representation of the grid. Rendering is applied in order of priority, with higher
-        priority items rendered later (on top).
-
-        Args:
-            puzzle_render_items: List of RenderItem objects for the puzzle symbols
-            predicate_render_items: Dictionary mapping priority levels to lists of RenderItem objects
-            render_config: Additional rendering configuration including:
-                - 'join_char': Character to use in joining cells (default: " ")
-            use_colors: Whether to use ANSI colors in the output
-
-        Returns:
-            ASCII string representation of the grid
-        """
-        pass
 
 
 def do_not_show_outside(pred: Predicate, grid: Grid) -> None:

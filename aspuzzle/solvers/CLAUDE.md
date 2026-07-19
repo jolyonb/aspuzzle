@@ -17,7 +17,7 @@ Abstract base class for all puzzle solvers:
 
 - **Key Methods:**
   - `construct_puzzle()` - Abstract method where puzzle rules are defined
-  - `get_render_config()` - Returns rendering configuration for ASCII output
+  - `get_render_spec()` - Returns the declarative RenderSpec (clue styles, atom rules, labels, substrate)
   - `validate_config()` - Custom validation logic per solver
   - `solve()` - Executes the ASP solver and returns results
   - `display_results()` - Formatted output with optional visualization
@@ -96,7 +96,7 @@ This directory is under active development. To add a new solver:
 1. Create `newsolver.py` implementing the `Solver` abstract class
 2. Define `construct_puzzle()` with puzzle-specific rules
 3. Set appropriate `solver_name`, `supported_symbols`, and `default_config`
-4. Implement `get_render_config()` for visualization
+4. Implement `get_render_spec()` for visualization
 5. The solver will be automatically discoverable via `Solver.from_config()`
 
 The framework handles all common functionality (parsing, validation, solving, rendering), allowing solver implementations to focus purely on puzzle logic and constraints.

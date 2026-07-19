@@ -11,7 +11,7 @@ Abstract base class and utilities for all grid types:
   - Inherits from `Module`, so grids are puzzle modules with their own segments
   - Defines abstract properties: `cell_fields`, `direction_vectors`, `line_direction_names`
   - Provides cached predicates: `Cell`, `Direction`, `Orthogonal`, `VertexSharing`, `Line`
-  - Abstract methods: `parse_grid()`, `add_vector_to_cell()`, `render_ascii()`
+  - Abstract methods: `parse_grid()`, `add_vector_to_cell()`, `neighbor()`, `ascii_geometry()`
   - `find_anchor_cell()` utility for finding lexicographically minimum cells
 
 - **Key Predicates Generated:**
@@ -45,44 +45,22 @@ Concrete implementation for rectangular grids with rows and columns:
   - `forbid_checkerboard()` - Prevents disconnecting checkerboard patterns
   - Outside border support with `OutsideGrid` predicate
 
-- **ASCII Rendering:**
-  - `render_ascii()` - Converts grid to ASCII with colors and symbols
-  - Priority-based rendering with multiple layers
-  - Configurable cell joining and color support
+## Rendering
 
-## Rendering System
-
-### rendering.py
-Color and rendering utilities:
-
-- **Color Enums:**
-  - `Color` - ANSI foreground colors (standard + bright variants)
-  - `BgColor` - ANSI background colors (standard + bright variants)
-  - `colorize()` - Applies color codes to text
-
-- **Rendering Data Classes:**
-  - `RenderItem` - Single item to render (location, symbol, colors)
-  - `RenderSymbol` - Symbol with color information
-
-### region_coloring.py
-Advanced region coloring using ASP and the Four Color Theorem:
-
-- **`RegionColoring`** - Utility for coloring adjacent regions with different colors
-  - Uses ASP to solve graph coloring problem
-  - Ensures no adjacent regions share colors
-  - Requires minimum 4 colors (Four Color Theorem)
-  - Handles both region dictionaries and predicate instances
-
-- **Convenience Functions:**
-  - `assign_region_colors()` - Color regions from location lists
-  - `assign_region_colors_from_predicates()` - Color from predicate instances
-  - `DEFAULT_PALETTE` - Standard 5-color palette
+Grid classes carry a pure-Python topology vocabulary for the rendering
+system (`aspuzzle/rendering/`): `neighbor()`, canonical `edge()`/`vertex()`
+constructors, `corner_names`/`corner_across`, `all_cells()`, and an
+`ascii_geometry()` factory returning the grid's character-layout engine
+(per-grid geometries live in `aspuzzle/rendering/grids/`, e.g.
+`RectangularAsciiGeometry`). Rendering code types against the `RenderGrid`
+protocol, so it can never reach the ASP statement verbs. Region coloring
+for visualization is `aspuzzle/rendering/regioncolor.py` — deterministic
+pure Python, no solving.
 
 ## Key Features
 
 1. **Extensible Architecture**: Abstract Grid class allows new grid types
 2. **Rich Adjacency Support**: Orthogonal, vertex-sharing, and directional adjacency
 3. **Flexible Parsing**: Handles various input formats with validation
-4. **Advanced Rendering**: Multi-layer ASCII rendering with colors
-5. **Constraint Helpers**: Common pattern prevention (pools, checkerboards)
-6. **Automatic Coloring**: ASP-based region coloring for visualization
+4. **Constraint Helpers**: Common pattern prevention (pools, checkerboards)
+5. **Rendering Topology**: Pure-Python neighbor/edge/vertex vocabulary behind the RenderGrid protocol

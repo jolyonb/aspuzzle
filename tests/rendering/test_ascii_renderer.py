@@ -1,7 +1,6 @@
 import pytest
 
 from aspuzzle.grids.rectangulargrid import RectangularGrid
-from aspuzzle.grids.rendering import BgColor, Color, RenderSymbol
 from aspuzzle.puzzle import Puzzle
 from aspuzzle.rendering import (
     SVG_ONLY,
@@ -36,23 +35,6 @@ def test_packed_cells_touch() -> None:
     grid, scene = make_scene(style=SceneStyle(packed=True))
     scene.add(CellGlyph(grid.Cell(1, 1), Glyph("5")))
     assert AsciiRenderer(use_colors=False).render(scene) == "5.\n.."
-
-
-def test_colored_output_matches_old_render_grid_simple() -> None:
-    """The new pipeline's colored bytes equal the old one's for the same content."""
-    grid, scene = make_scene()
-    scene.add(
-        CellGlyph(grid.Cell(1, 2), Glyph("5"), color=PaletteColor.GREEN),
-        CellFill(grid.Cell(1, 2), PaletteColor.RED),
-    )
-    new = AsciiRenderer(use_colors=True).render(scene)
-
-    old_grid = [
-        [RenderSymbol("."), RenderSymbol("5", Color.GREEN, BgColor.RED)],
-        [RenderSymbol("."), RenderSymbol(".")],
-    ]
-    old = RectangularGrid._render_grid_simple(old_grid, {"join_char": " "}, use_colors=True)
-    assert new == old
 
 
 def test_path_glyphs_use_box_chars() -> None:

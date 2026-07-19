@@ -108,14 +108,14 @@ regions = RegionConstructor(..., contiguous_regionless=True)
 
 ### Adding New Puzzle Types
 1. **Create solver**: `aspuzzle/solvers/newpuzzle.py`
-2. **Inherit from Solver**: Implement `construct_puzzle()` and `get_render_config()`
+2. **Inherit from Solver**: Implement `construct_puzzle()` and `get_render_spec()`
 3. **Add rules**: `rules/newpuzzle.md`
 4. **Add test cases**: `puzzles/newpuzzle.json`
 
 ### Adding New Grid Types
 1. **Inherit from Grid**: Implement abstract methods in `aspuzzle/grids/`
 2. **Define coordinate system**: `cell_fields`, `direction_vectors`
-3. **Implement adjacency**: `add_vector_to_cell()`, `render_ascii()`
+3. **Implement adjacency and layout**: `add_vector_to_cell()`, `neighbor()`, `ascii_geometry()`
 
 ### Adding New Modules
 1. **Inherit from Module**: Add to `aspuzzle/`
