@@ -2,8 +2,8 @@ from typing import Any, ClassVar
 
 from aspalchemy import ANY, Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.grids.region_coloring import assign_region_colors
-from aspuzzle.grids.rendering import BgColor, Color, RenderSymbol
+from aspuzzle.rendering import FromClues, Glyph, GlyphRule, RegionFillRule, RenderSpec, SceneStyle
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
 
@@ -17,7 +17,6 @@ class Starbattle(Solver):
     solver_name = "Starbattle puzzle solver"
     default_config: ClassVar[dict[str, Any]] = {"star_count": 1}
     map_grid_to_integers = True
-    _region_colors: dict[Any, BgColor]
 
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
@@ -53,36 +52,11 @@ class Starbattle(Solver):
         puzzle.section("Star adjacency constraints")
         puzzle.when(grid.vertex_sharing(suffix_2="adj")).forbid(symbols["star"](cell), symbols["star"](cell_adj))
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Star Battle solver.
-
-        Returns:
-            Dictionary with rendering configuration for Star Battle
-        """
-        puzzle_symbols = {}
-        for region_id, background_color in self._region_colors.items():
-            puzzle_symbols[region_id] = RenderSymbol(".", bgcolor=background_color)
-
-        return {
-            "puzzle_symbols": puzzle_symbols,
-            "predicates": {
-                "star": {"symbol": "★", "color": Color.BRIGHT_YELLOW},
-            },
-            "join_char": "",
-        }
-
-    def _preprocess_config(self) -> None:
-        """Precompute region colors for rendering."""
-        regions: dict[Any, list[tuple[int, ...]]] = {}
-        for loc, region_id in self.grid_data:
-            regions.setdefault(region_id, []).append(loc)
-
-        colors = [
-            BgColor.BRIGHT_BLUE,
-            BgColor.GREEN,
-            BgColor.RED,
-            BgColor.CYAN,
-        ]
-
-        self._region_colors = assign_region_colors(self.grid, regions, color_palette=colors)
+    def get_render_spec(self) -> RenderSpec:
+        return RenderSpec(
+            atoms=[
+                RegionFillRule(FromClues(), palette=(Color.BRIGHT_BLUE, Color.GREEN, Color.RED, Color.CYAN)),
+                GlyphRule("star", glyph=Glyph("★", svg="⭐"), color=Color.BRIGHT_YELLOW),
+            ],
+            style=SceneStyle(packed=True),
+        )

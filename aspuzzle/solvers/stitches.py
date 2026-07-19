@@ -2,8 +2,8 @@ from typing import Any, ClassVar
 
 from aspalchemy import ANY, Choice, Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.grids.region_coloring import assign_region_colors
-from aspuzzle.grids.rendering import BgColor, Color, RenderItem, RenderSymbol
+from aspuzzle.rendering import FromClues, Glyph, LinkRule, RegionFillRule, RenderSpec, SceneStyle
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 
 
@@ -36,7 +36,6 @@ class Stitches(Solver):
     solver_name = "Stitches puzzle solver"
     default_config: ClassVar[dict[str, Any]] = {"stitch_count": 1}
     map_grid_to_integers = True
-    _region_colors: dict[Any, BgColor]
 
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
@@ -115,51 +114,16 @@ class Stitches(Solver):
         """Validate the puzzle configuration."""
         self.validate_line_clues()
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Stitches solver.
-
-        Returns:
-            Dictionary with rendering configuration for Stitches
-        """
-        # Create an array of distinct colors to cycle through
-        stitch_colors = [
-            Color.BRIGHT_MAGENTA,
-            Color.BRIGHT_CYAN,
-            Color.BRIGHT_YELLOW,
-            Color.BRIGHT_GREEN,
-        ]
-
-        # Create a closure to track the color index
-        color_index = [0]
-
-        def stitch_renderer(pred: Predicate) -> list[RenderItem]:
-            # Get the next color and increment the index
-            color = stitch_colors[color_index[0] % len(stitch_colors)]
-            color_index[0] += 1
-
-            # Return both ends of the stitch with the same color
-            return [
-                RenderItem(loc=pred["loc1"], symbol="X", color=color),
-                RenderItem(loc=pred["loc2"], symbol="X", color=color),
-            ]
-
-        puzzle_symbols = {}
-        for region_id, background_color in self._region_colors.items():
-            puzzle_symbols[region_id] = RenderSymbol(".", bgcolor=background_color)
-
-        return {
-            "puzzle_symbols": puzzle_symbols,
-            "predicates": {
-                "stitch": {"custom_renderer": stitch_renderer},
-            },
-            "join_char": "",
-        }
-
-    def _preprocess_config(self) -> None:
-        """Precompute region colors for rendering."""
-        regions: dict[Any, list[tuple[int, ...]]] = {}
-        for loc, region_id in self.grid_data:
-            regions.setdefault(region_id, []).append(loc)
-
-        self._region_colors = assign_region_colors(self.grid, regions)
+    def get_render_spec(self) -> RenderSpec:
+        return RenderSpec(
+            atoms=[
+                RegionFillRule(FromClues()),
+                LinkRule(
+                    Stitch,
+                    glyph=Glyph("X"),
+                    palette=(Color.BRIGHT_MAGENTA, Color.BRIGHT_CYAN, Color.BRIGHT_YELLOW, Color.BRIGHT_GREEN),
+                ),
+            ],
+            labels=self.clue_labels(),
+            style=SceneStyle(packed=True),
+        )

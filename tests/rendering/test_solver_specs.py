@@ -11,10 +11,13 @@ from pathlib import Path
 from aspalchemy import Predicate
 from aspuzzle.rendering import (
     Backend,
+    CellFill,
     CellGlyph,
     CellLink,
     EdgeSegment,
     FillRule,
+    FromClues,
+    FromPredicate,
     GlyphRule,
     Lattice,
     LineLabels,
@@ -24,11 +27,14 @@ from aspuzzle.rendering import (
     PathRule,
     Provenance,
     RegionBoundaryRule,
+    RegionFillRule,
 )
 from aspuzzle.solvers.base import Solver
 from aspuzzle.solvers.fillomino import Number
+from aspuzzle.solvers.galaxies import Galaxy
 from aspuzzle.solvers.numberlink import CellDirections
 from aspuzzle.solvers.nurikabe import Stream
+from aspuzzle.solvers.stitches import Stitch
 from aspuzzle.solvers.tents import Tent, TieDestination
 
 PUZZLES = Path(__file__).parents[2] / "puzzles"
@@ -181,3 +187,36 @@ def test_fillomino_large_clues_still_render() -> None:
     assert big.glyph is not None
     assert big.glyph.for_backend(Backend.ASCII) == "#"
     assert big.glyph.for_backend(Backend.SHEET) == "40"
+
+
+# -- Wave 3 --
+
+
+def test_galaxies_spec() -> None:
+    spec = load_solver("galaxies").get_render_spec()
+    (fill,) = spec.atoms
+    assert isinstance(fill, RegionFillRule)
+    assert isinstance(fill.source, FromPredicate) and fill.source.predicate is Galaxy
+    assert spec.clues["o"].color is None  # center markers inherit the terminal default
+
+
+def test_stitches_spec_and_preview_regions() -> None:
+    solver = load_solver("stitches")
+    spec = solver.get_render_spec()
+    region_fill, link = spec.atoms
+    assert isinstance(region_fill, RegionFillRule) and isinstance(region_fill.source, FromClues)
+    assert isinstance(link, LinkRule) and link.predicate is Stitch
+    assert {label.direction for label in spec.labels} == {"e", "s"}
+    # FromClues runs pre-solve: the preview shows the four-colored regions
+    preview = solver.build_scene(None)
+    fills = [element for element in preview.visible(Backend.ASCII) if isinstance(element, CellFill)]
+    assert len(fills) == len(solver.grid_data)
+    assert all(element.provenance is Provenance.GIVEN for element in fills)
+
+
+def test_starbattle_spec() -> None:
+    spec = load_solver("starbattle").get_render_spec()
+    region_fill, star = spec.atoms
+    assert isinstance(region_fill, RegionFillRule) and isinstance(region_fill.source, FromClues)
+    assert isinstance(star, GlyphRule)
+    assert star.glyph is not None and star.glyph.for_backend(Backend.SVG) == "⭐"

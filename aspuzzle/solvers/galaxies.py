@@ -1,11 +1,9 @@
-from typing import Any
-
 from aspalchemy import ANY, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rectangulargrid import RectangularGrid
-from aspuzzle.grids.region_coloring import assign_region_colors_from_predicates
-from aspuzzle.grids.rendering import BgColor, Color, RenderItem, RenderSymbol
 from aspuzzle.regionconstructor import RegionConstructor
+from aspuzzle.rendering import CellStyle, FromPredicate, Glyph, RegionFillRule, RenderSpec, SceneStyle
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 
 
@@ -31,7 +29,6 @@ class Galaxies(Solver):
     solver_name = "Spiral Galaxies solver"
     supported_grid_types = (RectangularGrid,)
     supported_symbols = (".", "o", "<", ">", "^", "v", 1, 2, 3, 4)
-    _region_colors: dict[Any, BgColor]
 
     def validate_config(self) -> None:
         """Validate the puzzle configuration."""
@@ -167,54 +164,18 @@ class Galaxies(Solver):
             Center(loc=V.A, loc2=ANY, id=V.Id),
         ).derive(Galaxy(loc=V.Loc, id=V.Id))
 
-    def get_render_config(self) -> dict[str, Any]:
-        """Get the rendering configuration for the Galaxies solver."""
-
-        def region_renderer(pred: Predicate) -> list[RenderItem]:
-            """Custom renderer that uses precomputed colors."""
-            region_id = pred["id"].value
-
-            # Precomputed color, with a fallback that shouldn't be reached if
-            # preprocess_for_rendering was called
-            background = self._region_colors.get(region_id, BgColor.BRIGHT_BLACK)
-
-            return [
-                RenderItem(
-                    loc=pred["loc"],
-                    symbol=None,
-                    background=background,
+    def get_render_spec(self) -> RenderSpec:
+        marker = ("o", "^", "v", "<", ">")
+        clues: dict[int | str, CellStyle] = {symbol: CellStyle(glyph=Glyph(symbol)) for symbol in marker}
+        clues |= {1: CellStyle(glyph=Glyph("/")), 2: CellStyle(glyph=Glyph("\\"))}
+        clues |= {3: CellStyle(glyph=Glyph("\\")), 4: CellStyle(glyph=Glyph("/"))}
+        return RenderSpec(
+            clues=clues,
+            atoms=[
+                RegionFillRule(
+                    FromPredicate(Galaxy),
+                    palette=(Color.YELLOW, Color.BRIGHT_BLUE, Color.GREEN, Color.RED),
                 )
-            ]
-
-        center_color = Color.RESET
-        return {
-            "puzzle_symbols": {
-                ".": RenderSymbol(".", Color.BRIGHT_WHITE),
-                "o": RenderSymbol("o", center_color),
-                "^": RenderSymbol("^", center_color),
-                "v": RenderSymbol("v", center_color),
-                "<": RenderSymbol("<", center_color),
-                ">": RenderSymbol(">", center_color),
-                1: RenderSymbol("/", center_color),
-                2: RenderSymbol("\\", center_color),
-                3: RenderSymbol("\\", center_color),
-                4: RenderSymbol("/", center_color),
-            },
-            "predicates": {
-                "galaxy": {"custom_renderer": region_renderer},
-            },
-            "join_char": "",
-        }
-
-    def _preprocess_for_rendering(self, solution: dict[str, list[Predicate]] | None = None) -> None:
-        """Precompute region colors for efficient rendering."""
-        if not solution or "galaxy" not in solution:
-            return
-
-        self._region_colors = assign_region_colors_from_predicates(
-            self.grid,
-            solution["galaxy"],
-            id_field="id",
-            loc_field="loc",
-            color_palette=[BgColor.YELLOW, BgColor.BRIGHT_BLUE, BgColor.GREEN, BgColor.RED],
+            ],
+            style=SceneStyle(packed=True),
         )
