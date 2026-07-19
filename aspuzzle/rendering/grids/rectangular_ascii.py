@@ -107,12 +107,14 @@ class RectangularAsciiGeometry:
         h_lanes: set[int] = set()
         v_lanes: set[int] = set()
         for edge in needs.edges:
-            orientation, boundary, _ = self._edge_lattice(edge)
-            (h_lanes if orientation == "h" else v_lanes).add(boundary)
+            orientation, boundary, along = self._edge_lattice(edge)
+            if self._on_lattice(orientation, boundary, along):
+                (h_lanes if orientation == "h" else v_lanes).add(boundary)
         for vertex in needs.vertices:
             row_boundary, col_boundary = self._vertex_lattice(vertex)
-            h_lanes.add(row_boundary)
-            v_lanes.add(col_boundary)
+            if 0 <= row_boundary <= grid.rows and 0 <= col_boundary <= grid.cols:
+                h_lanes.add(row_boundary)
+                v_lanes.add(col_boundary)
         if style.lattice is not Lattice.NONE:
             h_lanes.update({0, grid.rows})
             v_lanes.update({0, grid.cols})
@@ -183,6 +185,13 @@ class RectangularAsciiGeometry:
         vertical, horizontal = vertex.corner[0], vertex.corner[1]
         return (row - 1 if vertical == "n" else row, col - 1 if horizontal == "w" else col)
 
+    def _on_lattice(self, orientation: str, boundary: int, along: int) -> bool:
+        """Whether an edge's lattice indices fall on the grid (edges of
+        out-of-grid cells are skipped silently, like other elements)."""
+        if orientation == "h":
+            return 0 <= boundary <= self.grid.rows and 1 <= along <= self.grid.cols
+        return 0 <= boundary <= self.grid.cols and 1 <= along <= self.grid.rows
+
     # -- layout --
 
     def size(self) -> tuple[int, int]:
@@ -243,6 +252,8 @@ class RectangularAsciiGeometry:
 
     def _stamp_edge(self, edge: Edge, weight: EdgeWeight, color: ColorSpec | None) -> None:
         orientation, boundary, along = self._edge_lattice(edge)
+        if not self._on_lattice(orientation, boundary, along):
+            return
         if orientation == "h":
             y = self._lane_y[boundary]
             # The run covers the cell's char plus the gap back to the

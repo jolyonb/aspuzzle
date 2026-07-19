@@ -22,6 +22,13 @@ if TYPE_CHECKING:
 
 
 class RenderGrid(Protocol):
+    # -- cells --
+    @property
+    def Cell(self) -> type[GridCell]:
+        """The grid's cell class, for constructing grounded cells from
+        parsed coordinates (grid.Cell(*coords))."""
+        ...
+
     # -- direction and line vocabulary --
     @property
     def orthogonal_direction_names(self) -> list[str]: ...

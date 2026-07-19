@@ -205,6 +205,7 @@ class CellStyle:
     glyph: Glyph | None = None
     color: ColorSpec | None = None
     fill: ColorSpec | None = None
+    backends: BackendSet = ALL_BACKENDS
 
 
 @dataclass(frozen=True)
