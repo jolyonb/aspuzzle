@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterator, Sequence
 from typing import Any
 
 from aspalchemy import (
@@ -15,6 +16,7 @@ from aspalchemy import (
 )
 from aspuzzle.grids.rendering import RenderItem
 from aspuzzle.puzzle import Module, Puzzle, cached_predicate
+from aspuzzle.rendering.scene import Edge, Vertex
 
 # Representing a location and a value
 type GridCellData = tuple[tuple[int, ...], int | str]
@@ -426,6 +428,99 @@ class Grid(Module, ABC):
             index=V.Idx[index_suffix],
             loc=self.cell(suffix=loc_suffix),
         )
+
+    # -- Python-side topology: the rendering vocabulary (no ASP, no grounding) --
+
+    def cell_coords(self, cell: GridCell) -> tuple[int, ...]:
+        """Concrete coordinates of a grounded cell, in cell_fields order."""
+        return tuple(cell[field].value for field in self.cell_fields)
+
+    @abstractmethod
+    def neighbor(self, cell: GridCell, direction: str) -> GridCell | None:
+        """
+        Edge-adjacent neighbor of a grounded cell in `direction`, or None
+        if off-grid (outside-border cells count as off-grid here). Must
+        agree with the grid's ASP Orthogonal facts — kept honest by a
+        conformance test that grounds a small instance and diffs.
+
+        Raises:
+            ValueError: If `direction` is not an edge direction of this grid
+        """
+
+    @property
+    @abstractmethod
+    def corner_names(self) -> Sequence[str]:
+        """The corner vocabulary of this grid's cells (rectangular: nw/ne/se/sw)."""
+
+    @abstractmethod
+    def corner_across(self, corner: str, direction: str) -> str | None:
+        """
+        The name a cell-corner carries in the neighbor across `direction`,
+        or None when that edge is not incident to the corner. Drives the
+        generic vertex-canonicalization walk in vertex().
+        """
+
+    def opposite_direction(self, direction: str) -> str:
+        """The opposite of `direction`, per opposite_directions."""
+        for name, opposite in self.opposite_directions:
+            if name == direction:
+                return opposite
+        raise ValueError(f"No opposite defined for direction {direction!r}")
+
+    def edge(self, cell: GridCell, direction: str) -> Edge:
+        """
+        The canonical Edge between `cell` and its `direction`-neighbor,
+        valid for boundary edges too (no neighbor required). Of the two
+        spellings of an interior edge, the one with the lexicographically
+        smaller (cell_coords, direction) key wins, so the same geometric
+        edge compares and hashes equal from either side. The only public
+        Edge constructor.
+        """
+        if direction not in self.orthogonal_direction_names:
+            raise ValueError(f"{direction!r} is not an edge direction of this grid")
+        adjacent = self.neighbor(cell, direction)
+        if adjacent is None:
+            return Edge(cell, direction)
+        flipped = self.opposite_direction(direction)
+        if (self.cell_coords(cell), direction) <= (self.cell_coords(adjacent), flipped):
+            return Edge(cell, direction)
+        return Edge(adjacent, flipped)
+
+    def vertex(self, cell: GridCell, corner: str) -> Vertex:
+        """
+        The canonical Vertex for a cell corner: every spelling of the same
+        geometric point (found by walking corner_across through neighbors)
+        collapses to the lexicographically smallest (cell_coords, corner).
+        The only public Vertex constructor.
+        """
+        if corner not in self.corner_names:
+            raise ValueError(f"{corner!r} is not a corner name of this grid")
+        best_key = (self.cell_coords(cell), corner)
+        best = (cell, corner)
+        seen = {best_key}
+        frontier: list[tuple[GridCell, str]] = [best]
+        while frontier:
+            current_cell, current_corner = frontier.pop()
+            for direction in self.orthogonal_direction_names:
+                across = self.corner_across(current_corner, direction)
+                if across is None:
+                    continue
+                adjacent = self.neighbor(current_cell, direction)
+                if adjacent is None:
+                    continue
+                key = (self.cell_coords(adjacent), across)
+                if key in seen:
+                    continue
+                seen.add(key)
+                frontier.append((adjacent, across))
+                if key < best_key:
+                    best_key = key
+                    best = (adjacent, across)
+        return Vertex(*best)
+
+    @abstractmethod
+    def all_cells(self) -> Iterator[GridCell]:
+        """Every in-grid cell as a grounded Cell instance (no outside border)."""
 
     @abstractmethod
     def add_vector_to_cell(self, cell_pred: GridCell, vector_pred: GridCell) -> GridCell:

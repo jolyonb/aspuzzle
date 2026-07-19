@@ -219,14 +219,28 @@ class Grid(Module, ABC):
         grid's ASP Orthogonal/Direction facts — enforced by a conformance
         test that grounds a small instance and diffs."""
 
-    def edge_directions(self, cell: GridCell) -> Sequence[str]:
-        """Direction names carrying an edge AT this cell. Constant for
-        rectangular (n/e/s/w) and hex (6); orientation-dependent for
-        triangular (up: w/e/s; down: w/e/n) — hence per-cell."""
-        return self.orthogonal_direction_names
+    @property
+    @abstractmethod
+    def corner_names(self) -> Sequence[str]:
+        """The corner vocabulary of this grid's cells (rect: nw/ne/se/sw)."""
 
     @abstractmethod
-    def corner_names(self, cell: GridCell) -> Sequence[str]: ...
+    def corner_across(self, corner: str, direction: str) -> str | None:
+        """The name a cell-corner carries in the neighbor across
+        `direction`, or None when that edge is not incident to the corner.
+        The one grid-specific fact vertex() needs: the generic walk in the
+        base class crosses incident edges collecting every spelling of the
+        point, then keeps the lexicographically smallest. Cell-independent,
+        as is the edge-direction vocabulary (orthogonal_direction_names):
+        every cell of a rectangular or hex grid has the same shape. The
+        deferred triangular exploration (§5.5) would widen these to
+        per-cell signatures — a mechanical change, taken only when needed."""
+
+    @abstractmethod
+    def all_cells(self) -> Iterator[GridCell]:
+        """Every in-grid cell as a grounded Cell instance (no outside
+        border). Consumed by RegionBorderRule(by=...) (classify every
+        cell), RegionBoundaryRule, and the conformance suites."""
 
     def edge(self, cell: GridCell, direction: str) -> Edge:
         """Canonical Edge between `cell` and its `direction`-neighbor
@@ -245,6 +259,10 @@ class Grid(Module, ABC):
     def svg_geometry(self) -> SvgGeometry:   # later; default raises
         raise NotImplementedError(f"{type(self).__name__} has no SVG geometry yet")
 ```
+
+`neighbor()` and `all_cells()` are contracts, not implementation mandates: rectangular grids answer by arithmetic over the shared `direction_vectors` table plus a bounds check; a grid whose boundary is complicated may instead extract and cache its ground `Cell` atoms (see the double-bookkeeping entry in §11 for the decided strategy) so membership is stated once, in ASP. Renderers and the conformance suite cannot tell the difference.
+
+**The `RenderGrid` protocol — the typed rendering/ASP boundary.** Grid classes intentionally carry both faces (ASP emission and rendering vocabulary): the grid is the single geometry authority with two consumers, and the shared currency — cells as predicate instances, shared direction names — is the design's asset. The *dependency* boundary is what gets enforced: a structural Protocol `RenderGrid` in the rendering package lists exactly the surface above (topology methods, geometry factories, line vocabulary), and `Scene.grid`, renderers, and geometries are typed against it rather than `Grid`. `Grid` satisfies it structurally; nothing rendering-side can reach the statement verbs or cached predicates, and the protocol doubles as the checklist a new grid author implements. The inverse direction (rendering concerns perturbing the emitted ASP) is guarded behaviorally: goldens plus the checked-in `.lp` renders surface any program diff.
 
 **Removed from `Grid`:** `render_ascii` (abstract method) and `line_characters` (abstract property). The box-drawing table moves into `RectangularAsciiGeometry`, re-keyed by `frozenset[str]` direction sets — killing today's duplicated `"ew"/"we"` string-concatenation keys.
 
@@ -763,7 +781,9 @@ Flat-top hexes, the classic `__/  \__` tiling, in which **every geometric edge i
 
 Layout formulas (scale 1, content width 2): cell `(r, c)` has `x0 = 3(c-1)`, `y_top = 2(r-1) + (0 if c odd else 1)`; `content_span = (y_top+1, x0+1, width 2)`. The six edges are concrete char runs: `n` = `__` at `(y_top, x0+1..x0+2)`; `nw` = `/` at `(y_top+1, x0)`; `ne` = `\` at `(y_top+1, x0+3)`; etc. The `\` right of cell 1 *is* the `\` upper-left of cell 2 — `grid.edge((1,1),"ne") == grid.edge((1,2),"nw")` maps to that one char, so an `EdgeSegment` restyles it (color; heavy variants best-effort). Direction vocabulary: `n, s, ne, nw, se, sw` (no e/w), matching what `HexGrid.direction_vectors` will declare — so `CellPath` directions, ASP predicates, and geometry agree. `path_glyph`: `{n,s}` → `|`, `{ne,sw}` → `/`, mixed pairs fall back to `*` — the fallback of last resort for solvers that declared no backend preference; a solver that cares marks its `PathRule` `SVG_ONLY` and supplies an `ASCII_ONLY` alternative instead (§3.5 point 3, worked example §7.6). Fills paint the 2-char interior; a `scale` knob widens cells (`/ 12 \`) for larger content. `OutsideLabel` margins follow the row stagger.
 
-### 5.5 Triangular ASCII
+### 5.5 Triangular ASCII — deferred; exploratory sketch only
+
+**Scope decision (July 2026): grids ship rectangular + hex first; triangular is deferred.** Hex fits the existing `Grid` machinery as-is (axial coordinates give one uniform vector per direction name, which is what the base `Direction`/`Orthogonal` derivations assume). Triangular breaks that assumption across the whole stack, not just rendering: an up-triangle's northern *cell* exists without being edge-adjacent, so the base `Orthogonal`/`OrthogonalDir`/`VertexSharing` cached predicates would derive wrong adjacencies and need parity-conditioned overrides; `add_vector_to_cell` and the `Line`/`LineOfSight` story need their own design pass. On the rendering side, triangular's known requirement is widening the topology vocabulary to per-cell signatures (an up-triangle's sides are w/e/s, a down-triangle's w/e/n — no constant list serves both, and corner names/reflections vary the same way); the shipped rect/hex surface deliberately keeps those cell-free (`corner_names` property, `corner_across(corner, direction)`, edge directions from `orthogonal_direction_names`) rather than carrying speculative generality. What follows is the exploratory sketch, kept as a starting point.
 
 Alternating up/down triangles, orientation `up iff (r+c) even`, zigzag band layout. A 2×4 grid:
 
@@ -775,9 +795,19 @@ Alternating up/down triangles, orientation `up iff (r+c) even`, zigzag band layo
      ___     ___
 ```
 
-Content rows at `y = 2r-1` (center char at `x = 4c-2`); diagonal edges are single shared chars at `(2r-1, 4c)` (`\` or `/` by orientation); horizontal edges are 3-char `___` runs on interleaved edge rows — an up cell's south edge coincides with its lower neighbor's north edge: one run, one canonical `Edge`. `edge_directions` is orientation-dependent (up: w/e/s; down: w/e/n) — which is exactly why it takes the cell as an argument. Vertices sit at edge-row/diagonal intersections.
+Content rows at `y = 2r-1` (center char at `x = 4c-2`); diagonal edges are single shared chars at `(2r-1, 4c)` (`\` or `/` by orientation); horizontal edges are 3-char `___` runs on interleaved edge rows — an up cell's south edge coincides with its lower neighbor's north edge: one run, one canonical `Edge`. The side inventory is orientation-dependent (up: w/e/s; down: w/e/n) — which is exactly why triangular needs the per-cell signature widening noted above. Vertices sit at edge-row/diagonal intersections.
 
 Both geometries are pure Python with O(1) formulas per element. **No solver and no renderer code changes for either grid** — that is the payoff of the split, and a conformance test suite (render a synthetic scene containing every element kind through every registered geometry) keeps geometries honest.
+
+### 5.6 Orientation variants — sibling subclasses, not new machinery
+
+Both tessellations come in two orientations, and the sections above deliberately specify only one of each: hexes are **flat-top** (§5.4; the other variety is pointy-top) and triangles are **up/down** (§5.5; the other is left/right, with vertical bases). Each tessellation gets an abstract base class carrying everything orientation-independent, with **two concrete sibling subclasses** fixing the orientation — `HexGrid` → `FlatTopHexGrid` / `PointyTopHexGrid`, `TriangularGrid` → the up/down and left/right varieties. (Subclassing also fits the config loader: `"grid_type": "FlatTopHexGrid"` resolves by class name exactly like `"RectangularGrid"` does today, and solvers can declare `supported_grid_types = (HexGrid,)` to accept either orientation.) Everything orientation touches is per-class vocabulary the subclass overrides:
+
+- **Direction names**: flat-top hex has `n/s` plus four diagonals (no `e/w`); pointy-top has `e/w` plus four diagonals (no `n/s`). Up/down triangles have horizontal bases (`s` or `n` edges); left/right have vertical bases (`w` or `e` edges). These flow from `direction_vectors`/`orthogonal_direction_names` as usual — and the ASP program the grid emits uses the same names, so solver rules and render locations stay in one vocabulary per instance.
+- **Corner names and `corner_across`**: per-cell and per-instance already; each orientation states its own reflection table.
+- **ASCII/SVG geometry**: each orientation is its own layout arithmetic (a left/right triangle band zigzags vertically; pointy-top hex is a different character tiling), returned by the subclass's geometry factory.
+
+The scene model, canonicalization walk, renderers, and conformance suites are orientation-blind; each concrete subclass joins `ALL_GRID_FACTORIES` and inherits the whole test suite. Which orientations ship first is a per-tessellation decision at implementation time — nothing in the framework prefers one.
 
 ---
 
@@ -1114,7 +1144,7 @@ def test_ascii_fill_under_glyph_golden() -> None:
 def test_edge_canonicalization(grid_factory: Callable[[], Grid]) -> None:
     grid = grid_factory()
     for cell in grid.all_cells():
-        for d in grid.edge_directions(cell):
+        for d in grid.orthogonal_direction_names:
             n = grid.neighbor(cell, d)
             if n is not None:
                 assert grid.edge(cell, d) == grid.edge(n, grid.opposite_direction(d))
@@ -1145,7 +1175,7 @@ Two seams were adjusted to satisfy the criterion: (1) **region coloring must be 
 
 ## 10. Migration plan
 
-1. **Land the model**: `aspuzzle/rendering/` (color/glyph/scene/spec + ASCII canvas/theme/renderer) and `RectangularAsciiGeometry` (compact + expanded/lanes) alongside the old path; add `Grid.neighbor/edge_directions/corner_names/edge/vertex/cell_coords/ascii_geometry`. Land the §9 unit-test suites for scene, canvas/renderer, and rectangular geometry in the same PR (acceptance criterion), including the neighbor-vs-ASP conformance test (ground a small grid, diff `Orthogonal` atoms against `neighbor()`) and the backend-filtering tests (SVG-only edge ⇒ compact layout; hidden label ⇒ no margin).
+1. **Land the model**: `aspuzzle/rendering/` (color/glyph/scene/spec + ASCII canvas/theme/renderer) and `RectangularAsciiGeometry` (compact + expanded/lanes) alongside the old path; add `Grid.neighbor/corner_names/corner_across/edge/vertex/all_cells/cell_coords/ascii_geometry`. Land the §9 unit-test suites for scene, canvas/renderer, and rectangular geometry in the same PR (acceptance criterion), including the neighbor-vs-ASP conformance test (ground a small grid, diff `Orthogonal` atoms against `neighbor()`) and the backend-filtering tests (SVG-only edge ⇒ compact layout; hidden label ⇒ no margin).
 2. **Golden capture**: record every solver's current `render_puzzle` output (colored and plain) for all `puzzles/*.json` — *both* the preview (`solution=None`) and solved renders, since both flow through the new pipeline. Compact-mode solvers must match byte-for-byte; Sudoku's boxed output may differ only in reviewed junction chars; the new label margins, Slitherlink loop, and uniform >9 letters are intentional, reviewed deltas. Goldens are per-backend from the start (ASCII now; SVG goldens join when it lands). Solution *validation* compares predicate atoms, not rendered text — it cannot break.
 3. **Port solvers in three waves**: pure tables (Minesweeper, Tents, Hitori, Cave, Nurikabe, Skyscrapers, Sudoku); rule-based (Numberlink, Slitherlink, Fillomino, Starbattle ×2); region/link (Galaxies, Stitches). Every config is the same size or smaller, statically typed, and three previously-invisible clue families become visible. Each wave adds spec-as-data tests (§9) for its solvers.
 4. **Delete** `aspuzzle/grids/rendering.py`, `Grid.render_ascii`, `Grid.line_characters`, `RectangularGrid`'s canvas code, `Solver.get_render_config`/`_preprocess_puzzle_symbols`/`_preprocess_predicates`/`_preprocess_for_rendering`; re-point `region_coloring` to `ColorSpec` and make it deterministic (§9). No dual-path shim: single-author repo, all consumers in-tree, one migration PR per wave.
@@ -1160,9 +1190,10 @@ Two seams were adjusted to satisfy the criterion: (1) **region coloring must be 
 - **Glyph width.** Content width is fixed per geometry (1 char rectangular); `glyph_for_value` keeps values single-char, so spacing is stable. Multi-codepoint/emoji width is out of scope (documented; the canvas rejects width>span with a precise error rather than corrupting columns). Note Starbattle's `★` is single-width and unaffected.
 - **Hex/tri path-glyph fidelity.** Six-direction `CellPath` in one char is lossy (`{ne,s}` has no good glyph); geometries return best-effort with a documented `*` fallback; SVG is the faithful backend. This risk is now bounded rather than open-ended: any solver that finds the fallback unacceptable opts out per backend (`SVG_ONLY` path + `ASCII_ONLY` stand-in, §3.5/§7.3) — the fallback only ever shows where a solver declined to choose. Prototype the hex geometry early — it is the riskiest unproven piece.
 - **Per-backend divergence.** Visibility lets ASCII and SVG legitimately show different element sets, which doubles what goldens must pin and could tempt solvers into gratuitous divergence. Mitigations: goldens are per-backend (§10.2); the default is `ALL_BACKENDS` so divergence is always an explicit, grep-able keyword (`backends=`); convention documented in §6 — `SVG_ONLY` for "too rich for the terminal", `ASCII_ONLY` only for its stand-in, so SVG remains the superset view.
-- **Python/ASP double bookkeeping.** `neighbor()` restates adjacency the ASP `Orthogonal` facts define. Deliberate (rendering must not require grounding) and checked by the conformance test; still the place a future grid author could introduce skew.
+- **Python/ASP double bookkeeping.** `neighbor()`/`all_cells()` restate what the ASP `Cell`/`Orthogonal` facts define. For rectangular grids this is a non-issue by construction: `neighbor()` reads the same `direction_vectors` table that emits the `Direction` facts, so only the trivial bounds check is duplicated, and the conformance test (ground a small instance, diff) is the tripwire. **Decision (July 2026): keep the arithmetic implementation for rectangular; adopt ground-atom extraction only when a grid's boundary makes it earn its keep.** The real skew risk is in-grid *membership* on grids with complicated boundaries (hexagon-shaped hex boards, irregular regions) — and for those, the sanctioned strategy is to extract the `Cell` atoms once and cache them: copy the grid's segment into a fresh `ASPProgram` with the predicates shown (segments are extractable and copyable; hidden atoms can also be read from the solver directly), ground, store the cell set. `neighbor()` then stays shared-table vector arithmetic + a membership lookup, and `all_cells()` reads the same cached set — the boundary is stated exactly once, in ASP. Adjacency itself never needs extracting. The `neighbor()`/`all_cells()` contract is implementation-agnostic, so a grid can switch strategies without touching renderers, scenes, or the conformance suite.
 - **Clue layering.** Preserving today's "atoms paint over clues" order means Sudoku's clue cells still lose their blue in solved renders. If the author prefers clues to persist, it is a one-line change (`layer=Layer.ANNOTATION` on the clue styles) — deferred as a cosmetic decision, not a design constraint. (Note `Provenance` does not resolve this by itself — it is meaning, not paint order — but an ASCII theme that bolds GIVEN glyphs would keep clues distinguishable even when overpainted colors match.)
 - **Field names in rules are strings** (`value_field="size"`). Predicate fields are dynamic per-solver classes; full static typing would mean plumbing `type[Predicate]` generics through rules for marginal benefit. Instead `build_scene` validates field existence eagerly with precise errors. A conscious pragmatic stop.
+- **Open: vertex-clue puzzles and the dual grid (decided July 2026: not now, door left open).** Rendering needs only vertex *identity and position*, which the `(cell, corner)` canonicalization supplies for any tessellation from two local facts — deliberately the weakest mechanism that works. Puzzles with vertex entities in their ASP formulation (Slant-class: vertex clues, degree constraints) need far more — a vertex domain, incidence facts — and the canonical construction there is the **dual grid**, added at the ASP layer when the first such solver is written (for a rectangular primal: a second `RectangularGrid` of (rows+1)×(cols+1) plus +0/+1 incidence arithmetic, and a `vertex_cell(vertex) ↔ Vertex` bridge on the grid; the canonical spelling bijects with dual coordinates, so the bridge is mechanical and no scene/geometry API changes). The two mechanisms compose; they were deliberately NOT unified because the dual of a hex grid is a *triangular* grid — first-class dual coordinates would make hex vertex rendering wait on the deferred triangular machinery, when a corner mark needs nothing of the sort. (Slitherlink is the counter-example that cell-centric reformulation often beats native vertex encodings in ASP anyway.)
 - **Open:** module-contributed spec fragments (`Module.render_rules()` — a SymbolSet knows its symbol names) — additive later. A `ColorMode` (ANSI16/256/truecolor) theme upgrade with `Rgb` passthrough — additive later. JSON-serializing scenes for an interactive HTML viewer — nothing blocks it (a scene is a list of frozen dataclasses, and because visibility filters at query time, a serialized scene carries *all* backends' content). Whether `Provenance` should grow a third member for scaffold/debug overlays — deferred until a consumer exists.
 
 ---
@@ -1180,7 +1211,7 @@ All three proposals converged on the same skeleton — typed scene between solve
 - **`RegionBorderRule(by=…)`** — strictly better than Proposal 1's `edges_between` inside a `build_scene` override (Sudoku becomes fully declarative and boxes render in previews) and than Proposal 3's `RectangularGrid.block_border_edges` (which was rectangular-specific by construction).
 - **`RegionBoundaryRule`** computing Slitherlink's loop in Python from `inside` atoms — chosen over Proposal 1/3's ASP `LoopEdge` extraction as the *recommended* route because it needs zero solver ASP changes and no extra grounding; `EdgeRule` is retained for genuinely ASP-derived edges.
 - **`FromClues`** as a region-fill source, which is what actually deletes the side channels in Stitches *and* Starbattle (grid-data regions, not solution predicates — a case Proposal 1's `RegionFillRule` missed).
-- The **per-cell `edge_directions(cell)`/`corner_names(cell)`** signatures — triangular grids make the constant-list version wrong.
+- The observation that triangular grids make constant-list side/corner vocabularies wrong — retained as the documented signature-widening plan (§5.5), not as shipped generality, once triangular support was deferred.
 - The `EdgeWeight` enum and the CI rule that scene/spec modules import nothing ANSI.
 
 **Grafted from Proposal 3** (Pragmatic Typed Evolution):

@@ -1,4 +1,5 @@
 import dataclasses
+from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any
 
 from aspalchemy import Expression, Field, Predicate, RangePool, Segment, V
@@ -370,6 +371,37 @@ class RectangularGrid(Grid):
         row_distance: Expression = abs(cell1["row"] - cell2["row"])
         col_distance: Expression = abs(cell1["col"] - cell2["col"])
         return row_distance + col_distance
+
+    def neighbor(self, cell: GridCell, direction: str) -> RectangularCell | None:
+        """Pure-arithmetic mirror of the orthogonal direction vectors."""
+        assert isinstance(cell, RectangularCell)
+        if direction not in self.orthogonal_direction_names:
+            raise ValueError(f"{direction!r} is not an edge direction of a rectangular grid")
+        row_step, col_step = dict(self.direction_vectors)[direction]
+        row, col = cell.row + row_step, cell.col + col_step
+        if 1 <= row <= self.rows and 1 <= col <= self.cols:
+            return self.Cell(row=row, col=col)
+        return None
+
+    @property
+    def corner_names(self) -> Sequence[str]:
+        """Rectangular corners, vertical letter first."""
+        return ("nw", "ne", "se", "sw")
+
+    def corner_across(self, corner: str, direction: str) -> str | None:
+        """Crossing an edge incident to the corner flips that axis of its name."""
+        vertical, horizontal = corner[0], corner[1]
+        if direction == vertical:
+            return self.opposite_direction(vertical) + horizontal
+        if direction == horizontal:
+            return vertical + self.opposite_direction(horizontal)
+        return None
+
+    def all_cells(self) -> Iterator[GridCell]:
+        """Every in-grid cell, row-major."""
+        for row in range(1, self.rows + 1):
+            for col in range(1, self.cols + 1):
+                yield self.Cell(row=row, col=col)
 
     def forbid_2x2_blocks(
         self,
