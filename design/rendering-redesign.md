@@ -341,7 +341,7 @@ class Layer(IntEnum):
 
 class EdgeWeight(Enum):
     NORMAL = auto()   # today's light box chars / normal SVG stroke
-    HEAVY = auto()    # bold box chars (━┃┏…) / thicker stroke
+    HEAVY = auto()    # double-line box chars (═║╔…) / thicker stroke
 
 @dataclass(frozen=True)
 class CellFill(SceneElementBase):
@@ -750,11 +750,12 @@ The default `AsciiTheme` renders GIVEN and DERIVED identically (golden fidelity)
 ```python
 # aspuzzle/rendering/ascii/geometry.py
 @dataclass(frozen=True)
-class AsciiLayoutNeeds:
-    edges: bool = False                 # any ASCII-visible EdgeSegment
-    vertices: bool = False
+class AsciiLayoutNeeds:   # = scene.LayoutNeeds, re-exported
+    edges: frozenset[Edge] = frozenset()       # ASCII-visible stroked edges
+    vertices: frozenset[Vertex] = frozenset()  # ASCII-visible vertex marks
     label_margins: Mapping[str, int] = field(default_factory=dict)
-        # side-of-grid → char width needed (from ASCII-visible label texts/offsets)
+        # direction → widest ASCII-visible label text; geometries derive
+        # lane materialization/collapse from the edge and vertex sets
 
 class AsciiGeometry(Protocol):
     """Constructed per render by Grid.ascii_geometry(needs, style);
@@ -769,7 +770,6 @@ class AsciiGeometry(Protocol):
     # building blocks shared by paint(); useful to geometry subclasses
     def content_span(self, cell: GridCell) -> TextSpan: ...      # CellGlyph target
     def interior_spans(self, cell: GridCell) -> Sequence[TextSpan]: ...  # CellFill footprint
-    def edge_chars(self, edge: Edge, weight: EdgeWeight) -> Sequence[tuple[CharPos, str]]: ...
     def vertex_pos(self, vertex: Vertex) -> CharPos: ...
     def path_glyph(self, cell: GridCell, directions: frozenset[str]) -> str: ...
     def label_span(self, direction: str, index: int, offset: int, width: int) -> TextSpan: ...
@@ -783,7 +783,7 @@ class AsciiGeometry(Protocol):
 
 **Expanded layout** — chosen whenever the ASCII-visible elements contain any `EdgeSegment`, `VertexMark`, `style.frame`, or labels: the interleaved lattice with **collapsible lanes**. Edge lanes interleave cell rows/columns (vertices at lane intersections); a lane with no stroked edge in it and not required by the frame collapses to zero height / `cell_gap` width. Sudoku's classic look — thin grid, lines only at block boundaries and the frame — falls out of collapsing rather than special-cased `rows_per_box` arithmetic; Slitherlink keeps all lanes because its loop populates them.
 
-**Junction resolution via direction flags.** Painting an `EdgeSegment` never chooses `─`/`│`/`┌` directly. The geometry stamps direction flags onto lattice positions: a horizontal edge marks its run `{e,w}` and contributes `e`/`w` flags to its two flanking vertex positions; the frame and block borders do the same. `resolve_junctions` converts each flagged position's accumulated `frozenset[str]` into a character via the box-drawing table (today's `line_characters` content, moved here, re-keyed by direction *sets*, extended with the heavy family `━┃┏…`; mixed weights fall back to "heavy wins" initially). One mechanism produces `├ ┬ ┼ ┘` correctly for Sudoku boxes meeting the frame, a Slitherlink loop crossing lanes, and any combination of independent edge sources — replacing `_build_horizontal_line`'s hand-rolled cases.
+**Junction resolution via direction flags.** Painting an `EdgeSegment` never chooses `─`/`│`/`┌` directly. The geometry stamps direction flags onto lattice positions: a horizontal edge marks its run `{e,w}` and contributes `e`/`w` flags to its two flanking vertex positions; the frame and block borders do the same. `resolve_junctions` converts each flagged position's accumulated `frozenset[str]` into a character via the box-drawing table (today's `line_characters` content, moved here, re-keyed by direction *sets*, extended with the double-line family `═║╔…` for HEAVY; mixed weights fall back to "heavy wins" initially). One mechanism produces `├ ┬ ┼ ┘` correctly for Sudoku boxes meeting the frame, a Slitherlink loop crossing lanes, and any combination of independent edge sources — replacing `_build_horizontal_line`'s hand-rolled cases.
 
 **Margins for OutsideLabels.** The geometry reserves margin rows/columns on any side that `layout_needs` reports (ASCII-visible labels only). Mapping a line-of-sight direction to a side of the canvas is the geometry's business: `("s", index=c)` anchors above column `c`, `("e", index=r)` anchors left of row `r`. The same solver call sites work on a hex geometry with different sides.
 
@@ -1221,7 +1221,7 @@ Two seams were adjusted to satisfy the criterion: (1) **region coloring must be 
 
 ## 11. Risks and open questions
 
-- **ASCII junction fidelity.** The flag-accumulation algorithm must reproduce current Sudoku output; goldens gate it. Mixed NORMAL/HEAVY junctions ship with "heavy wins" before the mixed box-char family (`┠┿…`) is attempted.
+- **ASCII junction fidelity.** The flag-accumulation algorithm must reproduce current Sudoku output; goldens gate it. Mixed NORMAL/HEAVY junctions ship with "heavy wins" before the mixed single/double family (`╞╫…`) is attempted.
 - **Lane-collapse edge cases.** A stroked lane adjacent to a collapsed lane must still resolve junctions correctly (single stroked interior lane; strokes touching the frame). Dedicated tests in the geometry conformance suite — which now also covers visibility-induced collapse (all-`SVG_ONLY` edges must yield the compact layout byte-for-byte, §7.6).
 - **Glyph width.** Content width is fixed per geometry (1 char rectangular); `glyph_for_value` keeps values single-char, so spacing is stable. Multi-codepoint/emoji width is out of scope (documented; the canvas rejects width>span with a precise error rather than corrupting columns). Note Starbattle's `★` is single-width and unaffected.
 - **Hex/tri path-glyph fidelity.** Six-direction `CellPath` in one char is lossy (`{ne,s}` has no good glyph); geometries return best-effort with a documented `*` fallback; SVG is the faithful backend. This risk is now bounded rather than open-ended: any solver that finds the fallback unacceptable opts out per backend (`SVG_ONLY` path + `ASCII_ONLY` stand-in, §3.5/§7.3) — the fallback only ever shows where a solver declined to choose. Prototype the hex geometry early — it is the riskiest unproven piece.

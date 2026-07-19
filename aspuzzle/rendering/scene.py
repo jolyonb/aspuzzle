@@ -53,7 +53,15 @@ class Layer(IntEnum):
 
 class EdgeWeight(Enum):
     NORMAL = auto()  # light box chars / normal SVG stroke
-    HEAVY = auto()  # bold box chars / thicker stroke
+    HEAVY = auto()  # double-line box chars / thicker SVG stroke
+
+
+class Lattice(Enum):
+    """How much of the grid's own skeleton the substrate draws."""
+
+    NONE = auto()  # no cell borders (the compact terminal look)
+    FRAME = auto()  # outer boundary only
+    FULL = auto()  # every cell edge (wireframe / printed-grid look)
 
 
 @dataclass(frozen=True)
@@ -201,7 +209,16 @@ class CellStyle:
 
 @dataclass(frozen=True)
 class SceneStyle:
-    frame: bool = False  # outer border
+    """
+    The substrate: the puzzle's request for how the grid itself is drawn,
+    painted by each geometry's paint_base() at Layer.BASE and interpreted
+    per backend. Region borders and cages are content (EdgeSegments), not
+    substrate.
+    """
+
+    lattice: Lattice = Lattice.NONE
+    frame_weight: EdgeWeight = EdgeWeight.NORMAL  # HEAVY = bold outer boundary
+    vertex_dots: bool = False  # substrate dot at every vertex
     cell_gap: int = 1  # inter-cell spacing in character-grid backends
     empty: CellStyle = field(default_factory=lambda: CellStyle(glyph=Glyph(".")))  # untouched cells
 
@@ -210,16 +227,17 @@ class SceneStyle:
 class LayoutNeeds:
     """
     What a geometry must materialize for one backend's visible elements:
-    edge/vertex lanes and per-direction label margins. Pure data — no
-    character knowledge — so Scene can compute it without importing any
-    backend (ascii/geometry.py re-exports it as AsciiLayoutNeeds). Mapping
-    a line direction to a side of the canvas is the geometry's business;
-    the margin mapping is keyed by direction name, valued by the widest
-    label text in that direction.
+    the canonical edges and vertices in use, and per-direction label
+    margins. Pure data — no character knowledge — so Scene can compute it
+    without importing any backend (ascii/geometry.py re-exports it as
+    AsciiLayoutNeeds). Geometries derive their lane/collapse decisions from
+    the edge and vertex sets; mapping a line direction to a side of the
+    canvas is the geometry's business, so the margin mapping is keyed by
+    direction name, valued by the widest label text in that direction.
     """
 
-    edges: bool = False
-    vertices: bool = False
+    edges: frozenset[Edge] = frozenset()
+    vertices: frozenset[Vertex] = frozenset()
     label_margins: Mapping[str, int] = field(default_factory=dict)
 
 
@@ -235,7 +253,17 @@ class Scene:
 
     grid: RenderGrid
     style: SceneStyle = field(default_factory=SceneStyle)
+    backend_styles: Mapping[Backend, SceneStyle] = field(default_factory=dict)
     _elements: list[SceneElement] = field(default_factory=list, repr=False)
+
+    def style_for(self, backend: Backend) -> SceneStyle:
+        """
+        The substrate style a backend renders under: its entry in
+        backend_styles, else the default. Whole-style replacement — no
+        field merging. Geometries and layout decisions consult this, so a
+        substrate requested for one backend never affects another's layout.
+        """
+        return self.backend_styles.get(backend, self.style)
 
     def add(self, *elements: SceneElement) -> None:
         self._elements.extend(elements)
@@ -314,15 +342,15 @@ class Scene:
         over the same filtered view as sorted_elements, so an element
         hidden from a backend can never influence that backend's layout.
         """
-        edges = False
-        vertices = False
+        edges: set[Edge] = set()
+        vertices: set[Vertex] = set()
         label_margins: dict[str, int] = {}
         for element in self.visible(backend):
             match element:
-                case EdgeSegment():
-                    edges = True
-                case VertexMark():
-                    vertices = True
+                case EdgeSegment(edge=edge):
+                    edges.add(edge)
+                case VertexMark(vertex=vertex):
+                    vertices.add(vertex)
                 case OutsideLabel(direction=direction, glyph=glyph):
                     # Width of what THIS backend will draw (glyph variants
                     # may differ per backend)
@@ -330,4 +358,4 @@ class Scene:
                     label_margins[direction] = max(label_margins.get(direction, 0), width)
                 case _:
                     pass
-        return LayoutNeeds(edges=edges, vertices=vertices, label_margins=label_margins)
+        return LayoutNeeds(edges=frozenset(edges), vertices=frozenset(vertices), label_margins=label_margins)

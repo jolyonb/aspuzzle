@@ -15,7 +15,7 @@ from aspuzzle.rendering.scene import LayoutNeeds as AsciiLayoutNeeds
 
 if TYPE_CHECKING:
     from aspuzzle.grids.base import GridCell
-    from aspuzzle.rendering.scene import Edge, EdgeWeight, SceneElement, Vertex
+    from aspuzzle.rendering.scene import SceneElement, Vertex
 
 __all__ = ["AsciiGeometry", "AsciiLayoutNeeds"]
 
@@ -52,10 +52,6 @@ class AsciiGeometry(Protocol):
 
     def interior_spans(self, cell: GridCell) -> Sequence[TextSpan]:
         """A cell's full interior footprint (plural for hex/tri layouts)."""
-        ...
-
-    def edge_chars(self, edge: Edge, weight: EdgeWeight) -> Sequence[tuple[CharPos, str]]:
-        """The character run realizing an edge."""
         ...
 
     def vertex_pos(self, vertex: Vertex) -> CharPos:

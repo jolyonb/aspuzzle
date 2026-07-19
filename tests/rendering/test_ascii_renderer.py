@@ -117,8 +117,9 @@ def test_wide_glyph_raises_precise_error() -> None:
         AsciiRenderer(use_colors=False).render(scene)
 
 
-def test_unsupported_element_raises() -> None:
+def test_single_edge_materializes_one_lane() -> None:
     grid, scene = make_scene()
     scene.add(EdgeSegment(Edge(grid.Cell(1, 1), "e")))
-    with pytest.raises(NotImplementedError, match="compact ASCII layout"):
-        AsciiRenderer(use_colors=False).render(scene)
+    # The interior vertical lane materializes (replacing the gap); the other
+    # boundaries stay collapsed and the second row's lane column is blank
+    assert AsciiRenderer(use_colors=False).render(scene) == ".│.\n. ."

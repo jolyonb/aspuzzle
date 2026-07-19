@@ -16,6 +16,7 @@ from aspuzzle.rendering import (
     Edge,
     EdgeSegment,
     Glyph,
+    Lattice,
     Layer,
     OutsideLabel,
     PaletteColor,
@@ -137,8 +138,34 @@ def test_convenience_emitters() -> None:
     assert fill.layer == Layer.FILL
 
 
-def test_scene_style_defaults_match_old_pipeline() -> None:
+def test_scene_style_defaults() -> None:
     style = SceneStyle()
-    assert style.cell_gap == 1  # old default join_char " "
-    assert not style.frame
+    assert style.cell_gap == 1
+    assert style.lattice is Lattice.NONE
+    assert not style.vertex_dots
     assert style.empty == CellStyle(glyph=Glyph("."))
+
+
+def test_style_for_whole_style_replacement() -> None:
+    grid = make_grid()
+    ascii_style = SceneStyle(cell_gap=0)
+    svg_style = SceneStyle(lattice=Lattice.FULL, vertex_dots=True)
+    scene = Scene(grid, style=ascii_style, backend_styles={Backend.SVG: svg_style})
+    assert scene.style_for(Backend.ASCII) is ascii_style
+    assert scene.style_for(Backend.SVG) is svg_style  # replacement, not a merge
+    assert scene.style_for(Backend.SHEET) is ascii_style  # no override: the default
+
+
+def test_layout_needs_collects_edge_and_vertex_sets() -> None:
+    grid = make_grid()
+    scene = Scene(grid)
+    edge = Edge(grid.Cell(1, 1), "e")
+    scene.add(
+        EdgeSegment(edge),
+        EdgeSegment(edge),  # duplicates collapse: needs carries a set
+        VertexMark(Vertex(grid.Cell(1, 1), "nw"), backends=SVG_ONLY),
+    )
+    needs = scene.layout_needs(Backend.ASCII)
+    assert needs.edges == frozenset({edge})
+    assert not needs.vertices  # SVG-only vertex is invisible to ASCII layout
+    assert scene.layout_needs(Backend.SVG).vertices == frozenset({Vertex(grid.Cell(1, 1), "nw")})

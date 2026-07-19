@@ -26,7 +26,7 @@ class AsciiRenderer:
         self.theme = theme
 
     def render(self, scene: Scene) -> str:
-        geometry = scene.grid.ascii_geometry(scene.layout_needs(self.backend), scene.style)
+        geometry = scene.grid.ascii_geometry(scene.layout_needs(self.backend), scene.style_for(self.backend))
         canvas = CharCanvas(*geometry.size())
         geometry.paint_base(canvas)
         for element in scene.sorted_elements(self.backend):
