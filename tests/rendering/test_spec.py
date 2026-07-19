@@ -296,3 +296,20 @@ def test_value_glyph_falls_back_to_literal_text_outside_convention() -> None:
         if isinstance(element, CellGlyph)
     }
     assert texts == {"-3", "99"}  # width-free backends render the literal value
+
+
+def test_line_labels_semantics() -> None:
+    grid = make_grid()
+    scene = build_scene(grid, RenderSpec(labels=[LineLabels("s", [1, None, 12])]), [], None)
+    labels = [element for element in scene.visible(Backend.ASCII) if isinstance(element, OutsideLabel)]
+    assert [(label.index, label.glyph.text) for label in labels] == [(1, "1"), (3, "12")]  # 1-based; None skipped
+    assert all(label.provenance is Provenance.GIVEN for label in labels)
+    assert scene.layout_needs(Backend.ASCII).label_margins == {"s": 2}
+
+
+def test_class_reference_field_typo_fails_at_construction() -> None:
+    with pytest.raises(ValueError, match="no field 'lco'"):
+        GlyphRule(Star, glyph=Glyph("*"), loc_field="lco")
+    # String references cannot be checked until atoms exist
+    rule = GlyphRule("star", glyph=Glyph("*"), loc_field="lco")
+    assert rule.loc_field == "lco"

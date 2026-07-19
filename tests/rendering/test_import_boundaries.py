@@ -12,7 +12,9 @@ from pathlib import Path
 
 RENDERING = Path(__file__).parent.parent.parent / "aspuzzle" / "rendering"
 
-BACKEND_AGNOSTIC = ["backend.py", "color.py", "glyph.py", "scene.py", "gridview.py", "__init__.py", "spec.py"]
+# Every module directly under rendering/ is backend-agnostic by layout;
+# backend-specific code lives in the subpackages
+BACKEND_AGNOSTIC = sorted(path.name for path in Path(__file__).parents[2].glob("aspuzzle/rendering/*.py"))
 BACKEND_PACKAGES = ("aspuzzle.rendering.ascii", "aspuzzle.rendering.svg")
 
 
@@ -44,10 +46,9 @@ def runtime_imports(path: Path) -> list[str]:
 
 
 def test_backend_agnostic_modules_import_no_backend_code() -> None:
+    assert "spec.py" in BACKEND_AGNOSTIC and "regioncolor.py" in BACKEND_AGNOSTIC  # list is derived, not curated
     for name in BACKEND_AGNOSTIC:
         path = RENDERING / name
-        if not path.exists():  # spec.py arrives in Step 6
-            continue
         for imported in runtime_imports(path):
             assert not imported.startswith(BACKEND_PACKAGES), (
                 f"{name} imports {imported} at runtime; backend-agnostic modules may "

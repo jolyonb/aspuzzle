@@ -10,7 +10,6 @@ def test_put_transparency_rules() -> None:
 
     canvas.put(pos, char="5", fg=PaletteColor.GREEN)
     canvas.put(pos, bg=PaletteColor.RED)  # fill over glyph: char and fg preserved
-    assert canvas.char_at(pos) == "5"
     themed = canvas.to_string(DEFAULT_THEME, use_colors=True)
     assert themed == "\033[32m\033[41m5\033[0m"  # fg then bg, char, reset
 

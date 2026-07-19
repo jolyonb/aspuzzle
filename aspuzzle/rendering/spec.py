@@ -38,6 +38,7 @@ from aspuzzle.rendering.scene import (
     EdgeSegment,
     EdgeWeight,
     Layer,
+    OutsideLabel,
     Provenance,
     Scene,
     SceneElement,
@@ -76,6 +77,21 @@ class RenderContext:
 
 def _ref_name(ref: PredicateRef) -> str:
     return ref if isinstance(ref, str) else ref.get_name()
+
+
+def _check_ref_fields(rule: object, ref: PredicateRef, fields: Sequence[str | None]) -> None:
+    """Class references carry their field set, so a bad field name fails at
+    spec construction; string references can only be checked against atoms
+    at build time."""
+    if isinstance(ref, str):
+        return
+    available = ref.field_names()
+    for name in fields:
+        if name is not None and name not in available:
+            raise ValueError(
+                f"{type(rule).__name__} on predicate {_ref_name(ref)!r}: "
+                f"no field {name!r} (available: {', '.join(available)})"
+            )
 
 
 def _checked_atoms(rule: object, ref: PredicateRef, context: RenderContext, fields: Sequence[str]) -> list[Predicate]:
@@ -131,6 +147,9 @@ class FromPredicate:
     id_field: str = "id"
     loc_field: str = "loc"
 
+    def __post_init__(self) -> None:
+        _check_ref_fields(self, self.predicate, [self.id_field, self.loc_field])
+
 
 @dataclass(frozen=True)
 class FromClues:
@@ -174,6 +193,7 @@ class GlyphRule(RuleBase):
     def __post_init__(self) -> None:
         if (self.glyph is None) == (self.value_field is None):
             raise ValueError(f"GlyphRule on {_ref_name(self.predicate)!r}: give exactly one of glyph= or value_field=")
+        _check_ref_fields(self, self.predicate, [self.loc_field, self.value_field])
 
     def apply(self, scene: Scene, context: RenderContext) -> None:
         fields = [self.loc_field] + ([self.value_field] if self.value_field else [])
@@ -208,6 +228,7 @@ class FillRule(RuleBase):
     def __post_init__(self) -> None:
         if self.fill is None:
             raise ValueError(f"FillRule on {_ref_name(self.predicate)!r}: fill= is required")
+        _check_ref_fields(self, self.predicate, [self.loc_field])
 
     def apply(self, scene: Scene, context: RenderContext) -> None:
         for atom in _checked_atoms(self, self.predicate, context, [self.loc_field]):
@@ -225,6 +246,9 @@ class PathRule(RuleBase):
     direction_fields: tuple[str, ...] = ("dir1", "dir2")
     color: ColorSpec | None = None
     layer: int = Layer.PATH
+
+    def __post_init__(self) -> None:
+        _check_ref_fields(self, self.predicate, [self.loc_field, *self.direction_fields])
 
     def apply(self, scene: Scene, context: RenderContext) -> None:
         for atom in _checked_atoms(self, self.predicate, context, [self.loc_field, *self.direction_fields]):
@@ -246,6 +270,9 @@ class EdgeRule(RuleBase):
     weight: EdgeWeight = EdgeWeight.NORMAL
     layer: int = Layer.PATH
 
+    def __post_init__(self) -> None:
+        _check_ref_fields(self, self.predicate, [self.loc_field, self.direction_field])
+
     def apply(self, scene: Scene, context: RenderContext) -> None:
         for atom in _checked_atoms(self, self.predicate, context, [self.loc_field, self.direction_field]):
             edge = scene.grid.edge(atom[self.loc_field], atom[self.direction_field].value)
@@ -262,6 +289,9 @@ class LinkRule(RuleBase):
     glyph: Glyph | None = None
     palette: Sequence[ColorSpec] = ()
     layer: int = Layer.PATH
+
+    def __post_init__(self) -> None:
+        _check_ref_fields(self, self.predicate, list(self.loc_fields))
 
     def apply(self, scene: Scene, context: RenderContext) -> None:
         for index, atom in enumerate(_checked_atoms(self, self.predicate, context, list(self.loc_fields))):
@@ -382,6 +412,9 @@ class RegionBoundaryRule(RuleBase):
     weight: EdgeWeight = EdgeWeight.NORMAL
     layer: int = Layer.PATH
 
+    def __post_init__(self) -> None:
+        _check_ref_fields(self, self.predicate, [self.loc_field])
+
     def apply(self, scene: Scene, context: RenderContext) -> None:
         atoms = _checked_atoms(self, self.predicate, context, [self.loc_field])
         grid = scene.grid
@@ -439,7 +472,20 @@ class LineLabels(RuleBase):
             raise ValueError("Stacked label rings (offset > 0) are not supported")
 
     def apply(self, scene: Scene, context: RenderContext) -> None:
-        scene.line_labels(self.direction, self.values, color=self.color, offset=self.offset, backends=self.backends)
+        for index, value in enumerate(self.values, 1):
+            if value is None:
+                continue
+            scene.add(
+                OutsideLabel(
+                    self.direction,
+                    index,
+                    Glyph(str(value)),
+                    color=self.color,
+                    offset=self.offset,
+                    backends=self.backends,
+                    provenance=Provenance.GIVEN,
+                )
+            )
 
 
 type AtomRule = (
@@ -453,6 +499,12 @@ type AtomRule = (
     | RegionBoundaryRule
     | CustomRule
 )
+
+
+def digit_clues(values: Iterable[int], color: ColorSpec | None = None) -> dict[int | str, CellStyle]:
+    """The common clue table: each value styled with its single-character
+    glyph (glyph_for_value) in one shared color."""
+    return {value: CellStyle(glyph=glyph_for_value(value), color=color) for value in values}
 
 
 @dataclass(frozen=True)

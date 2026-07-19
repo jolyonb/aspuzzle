@@ -17,7 +17,6 @@ from aspuzzle.rendering import (
     EdgeSegment,
     Glyph,
     Lattice,
-    Layer,
     OutsideLabel,
     PaletteColor,
     Provenance,
@@ -79,19 +78,6 @@ def test_hidden_label_reserves_no_margin() -> None:
     assert scene.layout_needs(Backend.SVG).label_margins == {"s": 2}
 
 
-def test_label_margin_takes_widest_text_per_direction() -> None:
-    grid = make_grid()
-    scene = Scene(grid)
-    scene.line_labels("s", [1, None, 12])
-    labels = scene.sorted_elements(Backend.ASCII)
-    assert [(label.index, label.glyph.text) for label in labels if isinstance(label, OutsideLabel)] == [
-        (1, "1"),
-        (3, "12"),  # 1-based; None skipped
-    ]
-    assert all(e.provenance is Provenance.GIVEN for e in labels)  # labels are puzzle input
-    assert scene.layout_needs(Backend.ASCII).label_margins == {"s": 2}
-
-
 def test_label_margin_uses_backend_resolved_glyph_width() -> None:
     grid = make_grid()
     scene = Scene(grid)
@@ -123,19 +109,6 @@ def test_elements_are_frozen() -> None:
     element = CellFill(grid.Cell(1, 1), PaletteColor.RED)
     with pytest.raises(dataclasses.FrozenInstanceError):
         element.color = PaletteColor.BLUE  # type: ignore[misc]
-
-
-def test_convenience_emitters() -> None:
-    grid = make_grid()
-    scene = Scene(grid)
-    scene.fill(grid.Cell(1, 1), PaletteColor.GREEN)
-    scene.glyph(grid.Cell(1, 1), "7", provenance=Provenance.GIVEN)
-    fill, glyph = scene.sorted_elements(Backend.ASCII)
-    assert isinstance(fill, CellFill)
-    assert isinstance(glyph, CellGlyph)
-    assert glyph.glyph == Glyph("7")
-    assert glyph.provenance is Provenance.GIVEN
-    assert fill.layer == Layer.FILL
 
 
 def test_scene_style_defaults() -> None:

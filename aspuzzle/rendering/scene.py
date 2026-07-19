@@ -8,7 +8,7 @@ everything; renderers consume it through the two filtered views
 visibility applies.
 """
 
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping
 from dataclasses import KW_ONLY, dataclass, field
 from enum import Enum, IntEnum, auto
 from typing import TYPE_CHECKING
@@ -230,8 +230,7 @@ class LayoutNeeds:
     What a geometry must materialize for one backend's visible elements:
     the canonical edges and vertices in use, and per-direction label
     margins. Pure data — no character knowledge — so Scene can compute it
-    without importing any backend (ascii/geometry.py re-exports it as
-    AsciiLayoutNeeds). Geometries derive their lane/collapse decisions from
+    without importing any backend. Geometries derive their lane/collapse decisions from
     the edge and vertex sets; mapping a line direction to a side of the
     canvas is the geometry's business, so the margin mapping is keyed by
     direction name, valued by the widest label text in that direction.
@@ -268,64 +267,6 @@ class Scene:
 
     def add(self, *elements: SceneElement) -> None:
         self._elements.extend(elements)
-
-    def extend(self, elements: Iterable[SceneElement]) -> None:
-        self._elements.extend(elements)
-
-    # -- convenience emitters --
-
-    def glyph(
-        self,
-        cell: GridCell,
-        text: str,
-        *,
-        color: ColorSpec | None = None,
-        layer: int = Layer.GLYPH,
-        backends: BackendSet = ALL_BACKENDS,
-        provenance: Provenance = Provenance.DERIVED,
-    ) -> None:
-        self.add(CellGlyph(cell, Glyph(text), color=color, layer=layer, backends=backends, provenance=provenance))
-
-    def fill(
-        self,
-        cell: GridCell,
-        color: ColorSpec,
-        *,
-        layer: int = Layer.FILL,
-        backends: BackendSet = ALL_BACKENDS,
-        provenance: Provenance = Provenance.DERIVED,
-    ) -> None:
-        self.add(CellFill(cell, color, layer=layer, backends=backends, provenance=provenance))
-
-    def line_labels(
-        self,
-        direction: str,
-        values: Sequence[int | str | None],
-        *,
-        color: ColorSpec | None = None,
-        offset: int = 0,
-        backends: BackendSet = ALL_BACKENDS,
-        provenance: Provenance = Provenance.GIVEN,
-    ) -> None:
-        """
-        One OutsideLabel per non-None entry, 1-based index — the exact
-        shape of the *_clues config arrays. Labels are puzzle input, hence
-        the GIVEN default.
-        """
-        for index, value in enumerate(values, 1):
-            if value is None:
-                continue
-            self.add(
-                OutsideLabel(
-                    direction,
-                    index,
-                    Glyph(str(value)),
-                    color=color,
-                    offset=offset,
-                    backends=backends,
-                    provenance=provenance,
-                )
-            )
 
     # -- the filtered views renderers consume --
 

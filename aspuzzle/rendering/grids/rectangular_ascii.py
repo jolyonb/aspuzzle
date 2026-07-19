@@ -22,7 +22,7 @@ direction set and picks the character: {e,w} → ─, {e,s} → ┌,
 correctly no matter which of them supplied which line.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Final
 
 from aspuzzle.rendering.ascii.canvas import CharCanvas, CharPos, TextSpan
@@ -216,28 +216,25 @@ class RectangularAsciiGeometry:
             return None
         return CharPos(self._row_y[row], self._col_x[col])
 
-    def content_span(self, cell: GridCell) -> TextSpan:
+    def _content_span(self, cell: GridCell) -> TextSpan:
         pos = self._cell_pos(cell)
         if pos is None:
             raise ValueError(f"{cell} is outside the grid")
         return TextSpan(pos.row, pos.col, 1)
 
-    def interior_spans(self, cell: GridCell) -> Sequence[TextSpan]:
-        return (self.content_span(cell),)
-
-    def vertex_pos(self, vertex: Vertex) -> CharPos:
+    def _vertex_pos(self, vertex: Vertex) -> CharPos:
         row_boundary, col_boundary = self._vertex_lattice(vertex)
         if row_boundary not in self._lane_y or col_boundary not in self._lane_x:
             raise ValueError(f"{vertex} lies in a collapsed lane")
         return CharPos(self._lane_y[row_boundary], self._lane_x[col_boundary])
 
-    def path_glyph(self, cell: GridCell, directions: frozenset[str]) -> str:
+    def _path_glyph(self, cell: GridCell, directions: frozenset[str]) -> str:
         glyph = BOX_CHARS.get(directions)
         if glyph is None:
             raise ValueError(f"No path glyph for direction set {sorted(directions)} on a rectangular grid")
         return glyph
 
-    def label_span(self, direction: str, index: int, offset: int, width: int) -> TextSpan:
+    def _label_span(self, direction: str, index: int, offset: int, width: int) -> TextSpan:
         if offset != 0:
             raise NotImplementedError("Stacked label rings (offset > 0) are not supported")
         limit = self.grid.cols if direction in ("s", "n") else self.grid.rows
@@ -314,7 +311,7 @@ class RectangularAsciiGeometry:
         empty = self.style.empty
         text = empty.glyph.for_backend(Backend.ASCII) if empty.glyph is not None else None
         for cell in self.grid.all_cells():
-            span = self.content_span(cell)
+            span = self._content_span(cell)
             if text is not None:
                 canvas.put_text(span, text, fg=empty.color)
             if empty.fill is not None:
@@ -340,7 +337,7 @@ class RectangularAsciiGeometry:
                     canvas.put_text(TextSpan(pos.row, pos.col, 1), glyph.for_backend(Backend.ASCII), fg=color)
             case CellPath(cell=cell, directions=directions, color=color):
                 if (pos := self._cell_pos(cell)) is not None:
-                    canvas.put(pos, char=self.path_glyph(cell, directions), fg=color)
+                    canvas.put(pos, char=self._path_glyph(cell, directions), fg=color)
             case CellLink(cell1=cell1, cell2=cell2, glyph=glyph, color=color):
                 text = glyph.for_backend(Backend.ASCII) if glyph is not None else None
                 for cell in (cell1, cell2):
@@ -353,13 +350,13 @@ class RectangularAsciiGeometry:
                 if not (0 <= row_boundary <= self.grid.rows and 0 <= col_boundary <= self.grid.cols):
                     return  # out-of-grid vertices skip silently, like every element
                 text = glyph.for_backend(Backend.ASCII) if glyph is not None else VERTEX_DOT
-                canvas.put(self.vertex_pos(vertex), char=text, fg=color)
+                canvas.put(self._vertex_pos(vertex), char=text, fg=color)
             case OutsideLabel(direction=direction, index=index, glyph=glyph, color=color, offset=offset):
                 limit = self.grid.cols if direction in ("s", "n") else self.grid.rows
                 if not 1 <= index <= limit:
                     return  # labels beyond the grid skip silently, like every element
                 text = glyph.for_backend(Backend.ASCII)
-                canvas.put_text(self.label_span(direction, index, offset, len(text)), text, fg=color)
+                canvas.put_text(self._label_span(direction, index, offset, len(text)), text, fg=color)
 
     def resolve_junctions(self, canvas: CharCanvas) -> None:
         self._bridge_horizontal_runs()

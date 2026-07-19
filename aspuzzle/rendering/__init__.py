@@ -56,6 +56,7 @@ from aspuzzle.rendering.spec import (
     RenderContext,
     RenderSpec,
     build_scene,
+    digit_clues,
 )
 
 __all__ = [
@@ -106,5 +107,6 @@ __all__ = [
     "Vertex",
     "VertexMark",
     "build_scene",
+    "digit_clues",
     "glyph_for_value",
 ]

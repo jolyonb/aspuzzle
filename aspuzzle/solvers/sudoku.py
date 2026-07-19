@@ -3,7 +3,7 @@ from typing import Any, ClassVar
 from aspalchemy import Field, Predicate, RangePool, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rectangulargrid import RectangularGrid
-from aspuzzle.rendering import CellStyle, GlyphRule, Lattice, RegionBorderRule, RenderSpec, SceneStyle, glyph_for_value
+from aspuzzle.rendering import GlyphRule, Lattice, RegionBorderRule, RenderSpec, SceneStyle, digit_clues
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
@@ -148,9 +148,7 @@ class Sudoku(Solver):
             return (row - 1) // block_rows, (col - 1) // block_cols
 
         return RenderSpec(
-            clues={
-                value: CellStyle(glyph=glyph_for_value(value), color=Color.BLUE) for value in range(1, grid_size + 1)
-            },
+            clues=digit_clues(range(1, grid_size + 1), Color.BLUE),
             atoms=[
                 GlyphRule("number", value_field="value", color=Color.GREEN),
                 RegionBorderRule(by=block_id),

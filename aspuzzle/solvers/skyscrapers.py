@@ -1,6 +1,8 @@
+from typing import ClassVar
+
 from aspalchemy import ANY, Count, Field, Predicate, RangePool, V
 from aspuzzle.grids.rectangulargrid import RectangularGrid
-from aspuzzle.rendering import CellStyle, GlyphRule, Lattice, LineLabels, RenderSpec, SceneStyle, glyph_for_value
+from aspuzzle.rendering import GlyphRule, Lattice, LineLabels, RenderSpec, SceneStyle, digit_clues
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
@@ -30,6 +32,14 @@ class Skyscrapers(Solver):
     solver_name = "Skyscrapers puzzle solver"
     supported_symbols = (*range(1, 26), ".")  # Support up to 25x25 grids
     supported_grid_types = (RectangularGrid,)
+    # (line-of-sight direction, config key): the direction is which way the
+    # clue looks, not where it sits — a top clue looks south down its column
+    CLUE_DIRECTIONS: ClassVar[tuple[tuple[str, str], ...]] = (
+        ("s", "top_clues"),
+        ("n", "bottom_clues"),
+        ("e", "left_clues"),
+        ("w", "right_clues"),
+    )
 
     def validate_config(self) -> None:
         """Validate the Skyscrapers configuration."""
@@ -65,12 +75,7 @@ class Skyscrapers(Solver):
         # Clues
         clues_seg = puzzle.add_segment("Clues")
         clues_seg.section("Clue constraints")
-        clue_mapping: list[tuple[str, list[int]]] = [
-            ("s", config["top_clues"]),  # Top clues look south (down)
-            ("n", config["bottom_clues"]),  # Bottom clues look north (up)
-            ("e", config["left_clues"]),  # Left clues look east (right)
-            ("w", config["right_clues"]),  # Right clues look west (left)
-        ]
+        clue_mapping = [(direction, config[key]) for direction, key in self.CLUE_DIRECTIONS]
         for direction, clues in clue_mapping:
             clues_seg.fact(
                 *[Clue(dir=direction, index=idx, count=clue_count) for idx, clue_count in enumerate(clues, 1)]
@@ -127,18 +132,11 @@ class Skyscrapers(Solver):
         assert isinstance(self.grid, RectangularGrid)
         grid_size = self.grid.rows
         return RenderSpec(
-            clues={
-                value: CellStyle(glyph=glyph_for_value(value), color=Color.GREEN) for value in range(1, grid_size + 1)
-            },
+            clues=digit_clues(range(1, grid_size + 1), Color.GREEN),
             atoms=[GlyphRule("height", value_field="value", color=Color.BRIGHT_BLUE)],
             labels=[
-                # The direction is which way the clue looks, not where it
-                # sits — a top clue looks south down its column. Same
-                # convention as construct_puzzle's Clue facts.
-                LineLabels("s", self.config["top_clues"], color=Color.BRIGHT_WHITE),
-                LineLabels("n", self.config["bottom_clues"], color=Color.BRIGHT_WHITE),
-                LineLabels("e", self.config["left_clues"], color=Color.BRIGHT_WHITE),
-                LineLabels("w", self.config["right_clues"], color=Color.BRIGHT_WHITE),
+                LineLabels(direction, self.config[key], color=Color.BRIGHT_WHITE)
+                for direction, key in self.CLUE_DIRECTIONS
             ],
             style=SceneStyle(lattice=Lattice.FRAME),
         )

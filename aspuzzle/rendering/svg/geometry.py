@@ -4,7 +4,7 @@ onto the 2D plane for the SVG renderer.
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -17,6 +17,12 @@ if TYPE_CHECKING:
 class Point:
     x: float
     y: float
+
+
+# SVG text-anchor values: which side of the anchor point label text grows
+# from. Which anchoring a label needs is grid knowledge (a left-ring label
+# ends at its point, a top-ring label centers on it), so the geometry says.
+type TextAnchor = Literal["start", "middle", "end"]
 
 
 class SvgGeometry(Protocol):
@@ -33,4 +39,4 @@ class SvgGeometry(Protocol):
 
     def vertex_point(self, vertex: Vertex) -> Point: ...
 
-    def outside_anchor(self, direction: str, index: int, offset: int) -> Point: ...
+    def outside_anchor(self, direction: str, index: int, offset: int) -> tuple[Point, TextAnchor]: ...

@@ -269,7 +269,7 @@ class Grid(Module, ABC):
 
 `neighbor()` and `all_cells()` are contracts, not implementation mandates: rectangular grids answer by arithmetic over the shared `direction_vectors` table plus a bounds check; a grid whose boundary is complicated may instead extract and cache its ground `Cell` atoms (see the double-bookkeeping entry in §11 for the decided strategy) so membership is stated once, in ASP. Renderers and the conformance suite cannot tell the difference.
 
-**The `RenderGrid` protocol — the typed rendering/ASP boundary.** Grid classes intentionally carry both faces (ASP emission and rendering vocabulary): the grid is the single geometry authority with two consumers, and the shared currency — cells as predicate instances, shared direction names — is the design's asset. The *dependency* boundary is what gets enforced: a structural Protocol `RenderGrid` in the rendering package lists exactly the surface above (topology methods, geometry factories, line vocabulary), and `Scene.grid`, renderers, and geometries are typed against it rather than `Grid`. `Grid` satisfies it structurally; nothing rendering-side can reach the statement verbs or cached predicates, and the protocol doubles as the checklist a new grid author implements. The inverse direction (rendering concerns perturbing the emitted ASP) is guarded behaviorally: goldens plus the checked-in `.lp` renders surface any program diff.
+**The `RenderGrid` protocol — the typed rendering/ASP boundary.** Grid classes intentionally carry both faces (ASP emission and rendering vocabulary): the grid is the single geometry authority with two consumers, and the shared currency — cells as predicate instances, shared direction names — is the design's asset. The *dependency* boundary is what gets enforced: a structural Protocol `RenderGrid` in the rendering package lists exactly the surface above (topology methods, geometry factories, line vocabulary), and `Scene.grid`, renderers, and geometries are typed against it rather than `Grid`. `Grid` satisfies it structurally; nothing rendering-side can reach the statement verbs or cached predicates, and the protocol doubles as the checklist a new grid author implements. (Scope, decided at implementation: the guarantee covers scene/spec/renderers; a concrete geometry legitimately types against its own concrete grid — RectangularAsciiGeometry reads .rows/.cols. The protocol also carries Cell, for constructing grounded cells from parsed clue coordinates.) The inverse direction (rendering concerns perturbing the emitted ASP) is guarded behaviorally: goldens plus the checked-in `.lp` renders surface any program diff.
 
 **Removed from `Grid`:** `render_ascii` (abstract method) and `line_characters` (abstract property). The box-drawing table moves into `RectangularAsciiGeometry`, re-keyed by `frozenset[str]` direction sets — killing today's duplicated `"ew"/"we"` string-concatenation keys.
 
@@ -520,7 +520,7 @@ class GlyphRule:
     """predicate atoms → CellGlyph (+ optional CellFill). Replaces the
     'symbol'/'color'/'background'/'value' keys and most custom_renderer
     closures. Emits Provenance.DERIVED."""
-    predicate: str
+    predicate: PredicateRef   # class (typo-loud, isinstance-filtered) or name
     loc_field: str = "loc"
     glyph: Glyph | None = None            # fixed glyph, or:
     value_field: str | None = None        # glyph_for_value(pred[value_field])
@@ -532,7 +532,7 @@ class GlyphRule:
 @dataclass(frozen=True)
 class FillRule:
     """predicate atoms → CellFill (Slitherlink 'inside', Hitori 'black')."""
-    predicate: str
+    predicate: PredicateRef   # class (typo-loud, isinstance-filtered) or name
     fill: ColorSpec | Colorer
     loc_field: str = "loc"
     layer: int = Layer.FILL
@@ -542,7 +542,7 @@ class FillRule:
 class PathRule:
     """predicate atoms → CellPath. Replaces 'loop_directions' /
     'dir1_field' / 'dir2_field'."""
-    predicate: str
+    predicate: PredicateRef   # class (typo-loud, isinstance-filtered) or name
     loc_field: str = "loc"
     direction_fields: tuple[str, ...] = ("dir1", "dir2")
     color: ColorSpec | None = None
@@ -553,7 +553,7 @@ class PathRule:
 class EdgeRule:
     """predicate atoms carrying (cell, direction) → EdgeSegment — for loops
     or fences already derived in ASP."""
-    predicate: str
+    predicate: PredicateRef   # class (typo-loud, isinstance-filtered) or name
     loc_field: str = "loc"
     direction_field: str = "direction"
     color: ColorSpec | None = None
@@ -565,7 +565,7 @@ class EdgeRule:
 class LinkRule:
     """predicate atoms → CellLink, palette cycled deterministically per atom
     in sorted-atom order (Stitches — kills the mutable color_index[0])."""
-    predicate: str
+    predicate: PredicateRef   # class (typo-loud, isinstance-filtered) or name
     loc_fields: tuple[str, str] = ("loc1", "loc2")
     glyph: Glyph | None = None
     palette: Sequence[ColorSpec] = ()
@@ -574,7 +574,7 @@ class LinkRule:
 
 @dataclass(frozen=True)
 class FromPredicate:
-    predicate: str; id_field: str = "id"; loc_field: str = "loc"
+    predicate: PredicateRef; id_field: str = "id"; loc_field: str = "loc"
 
 @dataclass(frozen=True)
 class FromClues:
@@ -615,7 +615,7 @@ class RegionBoundaryRule:
     """EdgeSegments around the boundary of a cell SET: edges between a
     member cell and any non-member or off-grid cell. Draws Slitherlink's
     actual loop straight from its 'inside' atoms — zero ASP changes."""
-    predicate: str
+    predicate: PredicateRef   # class (typo-loud, isinstance-filtered) or name
     loc_field: str = "loc"
     color: ColorSpec | None = None
     weight: EdgeWeight = EdgeWeight.NORMAL
@@ -628,7 +628,7 @@ class CustomRule:
     (unlike today's per-instance closures) so whole-set decisions need no
     hidden mutable state; atoms arrive sorted for determinism. The callable
     sets backends/provenance on its elements directly (defaults apply)."""
-    predicate: str
+    predicate: PredicateRef   # class (typo-loud, isinstance-filtered) or name
     make: Callable[[Sequence[Predicate], RenderContext], Iterable[SceneElement]]
 
 type AtomRule = (GlyphRule | FillRule | PathRule | EdgeRule | LinkRule
@@ -734,7 +734,7 @@ class AsciiRenderer:
     def render(self, scene: Scene) -> str:
         # Both queries filter with the SAME backend identity (§3.5): an
         # element hidden from ASCII affects neither layout nor paint.
-        geom = scene.grid.ascii_geometry(scene.layout_needs(self.backend), scene.style)
+        geom = scene.grid.ascii_geometry(scene.layout_needs(self.backend), scene.style_for(self.backend))
         canvas = CharCanvas(*geom.size())
         geom.paint_base(canvas)                          # frame / lattice / empties
         for element in scene.sorted_elements(self.backend):
@@ -864,7 +864,7 @@ Element mapping is mechanical because the scene is already geometric: `CellFill`
 
 SVG is the **full-fidelity backend**: it renders every element kind exactly, so the visibility mechanism is expected to *hide from ASCII*, not from SVG — `SVG_ONLY` marks "too rich for the terminal" content, `ASCII_ONLY` marks its simplified stand-in, and a scene's SVG output is the superset view by construction whenever solvers follow that convention.
 
-Adding SVG is: two renderer/theme files, `svg_geometry()` per grid, `--svg out.svg` in `solveit.py`. **Zero solver edits** — requirement 2 discharged structurally, and enforced by a CI check that `scene.py`/`spec.py` import nothing from `ascii/`. (`Backend` names backends but carries no backend internals — it lives in `scene.py` and imports nothing.)
+Adding SVG is: two renderer/theme files, `svg_geometry()` per grid, `--svg out.svg` in `solveit.py`. **Zero solver edits** — requirement 2 discharged structurally, and enforced by the import-boundary guardrail test (scene/spec import nothing from `ascii/`). (`Backend` names backends but carries no backend internals — it lives in the leaf module `backend.py` and imports nothing.)
 
 ### 6.0 Implementation notes salvaged from dbpuzzles (surveyed July 2026)
 
@@ -913,6 +913,8 @@ Geometry per grid is a few lines: rectangular is the identity mapping (plus marg
 
 ### 7.1 Tents (simple table + previously-invisible clue counts)
 
+*Amended at the Step 7 port:* `TieDestination` was flipped to shown — the tree-to-tent assignment is solution content, and an `SVG_ONLY` `LinkRule` draws it as a connector in SVG. A deliberate, narrow exception to the "no ASP output changes" non-goal, recorded here: expected-solutions data was regenerated (uniqueness unchanged — solutions were already unique including hidden scaffolding).
+
 ```python
 # BEFORE: untyped dict; row/column clues silently unrendered
 def get_render_config(self) -> dict[str, Any]:
@@ -949,7 +951,7 @@ def get_render_spec(self) -> RenderSpec:
             RegionBorderRule(by=lambda cell: ((cell["row"].value - 1) // br,
                                               (cell["col"].value - 1) // bc)),
         ],
-        style=SceneStyle(frame=True),
+        style=SceneStyle(lattice=Lattice.FRAME),
     )
 ```
 
@@ -1005,7 +1007,7 @@ def get_render_spec(self) -> RenderSpec:
     )
 ```
 
-`regioncolor.py` keeps its ASP core; signatures change `BgColor` → `ColorSpec` (and the coloring becomes contractually deterministic — see §9).
+`regioncolor.py` colors deterministically in pure Python — no solver involved (see §9 and the plan's Step 6 entry).
 
 ### 7.5 Skyscrapers (edge clues rendered for the first time)
 
@@ -1017,7 +1019,7 @@ def get_render_spec(self) -> RenderSpec:
         clues={v: CellStyle(glyph=glyph_for_value(v), color=PaletteColor.GREEN)
                for v in range(1, n + 1)},
         atoms=[GlyphRule("height", value_field="value", color=PaletteColor.BRIGHT_BLUE)],
-        style=SceneStyle(frame=True),
+        style=SceneStyle(lattice=Lattice.FRAME),
         labels=[  # the exact direction convention the Clue facts already use
             LineLabels("s", cfg["top_clues"], color=clue),      # top: looking south
             LineLabels("n", cfg["bottom_clues"], color=clue),   # bottom: looking north
@@ -1130,7 +1132,7 @@ atoms=[FillRule("black", fill=PaletteColor.WHITE)]
 | Stitches paired-cell closure (mutable state) | `LinkRule` → `CellLink` (deterministic) |
 | Fillomino/Galaxies `custom_renderer` closures | typed `Colorer` / `RegionFillRule` |
 | region_coloring + `_region_colors` stash (Galaxies, Stitches, Starbattle) | `RegionFillRule(FromPredicate|FromClues)` |
-| `draw_box`/`rows_per_box`/`cols_per_box` | `SceneStyle.frame` + `RegionBorderRule(by=…)` |
+| `draw_box`/`rows_per_box`/`cols_per_box` | `Lattice.FRAME` + `RegionBorderRule(by=…)` |
 | `join_char` | `SceneStyle.packed` |
 | `"."` default dot via `puzzle_symbols` | `SceneStyle.empty` |
 | `grid.line_characters` string-concat keys | geometry table keyed by `frozenset[str]` + junction flags |
@@ -1251,7 +1253,7 @@ All three proposals converged on the same skeleton — typed scene between solve
 - **`RegionBoundaryRule`** computing Slitherlink's loop in Python from `inside` atoms — chosen over Proposal 1/3's ASP `LoopEdge` extraction as the *recommended* route because it needs zero solver ASP changes and no extra grounding; `EdgeRule` is retained for genuinely ASP-derived edges.
 - **`FromClues`** as a region-fill source, which is what actually deletes the side channels in Stitches *and* Starbattle (grid-data regions, not solution predicates — a case Proposal 1's `RegionFillRule` missed).
 - The observation that triangular grids make constant-list side/corner vocabularies wrong — retained as the documented signature-widening plan (§5.5), not as shipped generality, once triangular support was deferred.
-- The `EdgeWeight` enum and the CI rule that scene/spec modules import nothing ANSI.
+- The `EdgeWeight` enum and the guardrail test that scene/spec modules import nothing ANSI.
 
 **Grafted from Proposal 3** (Pragmatic Typed Evolution):
 - **Whole-set `CustomRule`** (all atoms at once, sorted) — the fix for Stitches' order-dependent colors generalizes to every future escape-hatch use.

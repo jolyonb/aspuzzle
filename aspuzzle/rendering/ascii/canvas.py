@@ -80,11 +80,6 @@ class CharCanvas:
         for offset in range(span.width):
             self.put(CharPos(span.row, span.col + offset), bg=bg)
 
-    def char_at(self, pos: CharPos) -> str:
-        """The character currently at a position (junction resolution reads back)."""
-        self._check(pos.row, pos.col)
-        return self._chars[pos.row][pos.col]
-
     def to_string(self, theme: AsciiTheme, use_colors: bool) -> str:
         """
         Serialize. Each styled character is wrapped fg-code, bg-code, char, reset.

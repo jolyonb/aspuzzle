@@ -1,6 +1,6 @@
 from aspalchemy import Field, Predicate, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.rendering import CellStyle, FillRule, Glyph, RenderSpec, SceneStyle
+from aspuzzle.rendering import FillRule, RenderSpec, SceneStyle, digit_clues
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
@@ -62,7 +62,7 @@ class Hitori(Solver):
 
     def get_render_spec(self) -> RenderSpec:
         return RenderSpec(
-            clues={value: CellStyle(glyph=Glyph(str(value)), color=Color.BLUE) for value in range(1, 10)},
+            clues=digit_clues(range(1, 10), Color.BLUE),
             atoms=[FillRule("black", fill=Color.WHITE)],
             style=SceneStyle(packed=True),
         )

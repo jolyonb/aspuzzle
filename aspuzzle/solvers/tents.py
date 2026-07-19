@@ -35,7 +35,7 @@ class Tents(Solver):
 
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
-        puzzle, grid, config, grid_data = self.unpack_data()
+        puzzle, grid, _config, grid_data = self.unpack_data()
 
         # Create variables
         C, D, A, B = V.C, V.D, V.A, V.B
@@ -50,8 +50,7 @@ class Tents(Solver):
         # Define expected line counts
         clues.section("Tent counts")
         for direction in grid.line_direction_names:
-            clue_key = f"{grid.line_direction_descriptions[direction]}_clues"
-            for i, count in enumerate(config[clue_key], 1):
+            for i, count in enumerate(self.line_clues(direction), 1):
                 if count is not None:
                     clues.fact(ExpectedCounts(dir=direction, index=i, count=count))
 
