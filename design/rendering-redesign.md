@@ -91,7 +91,7 @@ aspuzzle/rendering/
         rectangular_svg.py     (with the SVG renderer)
     ascii/
         canvas.py     CharCanvas (styled-character compositing surface)
-        geometry.py   AsciiGeometry protocol, CharPos, TextSpan, AsciiLayoutNeeds
+        geometry.py   AsciiGeometry protocol (canvas.py holds CharPos, TextSpan)
         renderer.py   AsciiRenderer
         theme.py      AsciiTheme (ColorSpec → ANSI; the only ANSI in the system)
     svg/              (later; protocols defined now)
@@ -206,7 +206,7 @@ class Vertex:
     corner: str
 ```
 
-Outside-the-grid clue positions need no dataclass: they are addressed by the grid's existing **line vocabulary** as `(direction, index)` — "just outside the grid, where line-of-sight direction `direction` enters line `index`". Skyscrapers' top clue for column 3 is `("s", 3)`, exactly matching its existing `Clue(dir="s", index=3)` facts (verified: `clue_mapping` in `skyscrapers.py` maps top→"s", bottom→"n", left→"e", right→"w"). This reuses `line_direction_names`/`get_line_count` and is meaningful on hex grids with their own line directions. An `offset` field stacks multiple label rings.
+Outside-the-grid clue positions need no dataclass: they are addressed by the grid's existing **line vocabulary** as `(direction, index)` — "just outside the grid, where line-of-sight direction `direction` enters line `index`". Skyscrapers' top clue for column 3 is `("s", 3)`, exactly matching its existing `Clue(dir="s", index=3)` facts (verified: `clue_mapping` in `skyscrapers.py` maps top→"s", bottom→"n", left→"e", right→"w"). This reuses `line_direction_names`/`get_line_count` and is meaningful on hex grids with their own line directions. An `offset` field stacks multiple label rings — **deferred** (see §11): the field exists on `OutsideLabel`, but both construction sites raise loudly on `offset > 0` until the first solver needs a second ring.
 
 ### 3.4 Grid additions (pure Python, no ASP, no grounding)
 
@@ -262,7 +262,7 @@ class Grid(Module, ABC):
 
     # -- geometry factories consumed by renderers --
     @abstractmethod
-    def ascii_geometry(self, needs: AsciiLayoutNeeds, style: SceneStyle) -> AsciiGeometry: ...
+    def ascii_geometry(self, needs: LayoutNeeds, style: SceneStyle) -> AsciiGeometry: ...
     def svg_geometry(self) -> SvgGeometry:   # later; default raises
         raise NotImplementedError(f"{type(self).__name__} has no SVG geometry yet")
 ```
@@ -315,7 +315,7 @@ class SceneElementBase:
 **Visibility semantics — stated precisely, because they are the model's answer to "ASCII cannot render everything":**
 
 1. **One Scene, always.** The Scene contains *every* element regardless of visibility; there is no per-backend scene, ever. A future JSON serialization of a scene therefore loses nothing, and `build_scene` runs once per render regardless of backend.
-2. **Filtering happens in the Scene's query methods, nowhere else.** `scene.sorted_elements(backend)` and `scene.layout_needs(backend)` both filter by `backend in element.backends`. Renderers pass their own `Backend` identity and never re-check. Because *layout* and *painting* consult the same filtered view, an element hidden from ASCII can never influence ASCII layout: an SVG-only `EdgeSegment` does not set `AsciiLayoutNeeds.edges` (so the compact layout survives), and an SVG-only `OutsideLabel` reserves no label margin. This single-choke-point rule is what makes the feature safe — there is no second place for layout and paint to disagree.
+2. **Filtering happens in the Scene's query methods, nowhere else.** `scene.sorted_elements(backend)` and `scene.layout_needs(backend)` both filter by `backend in element.backends`. Renderers pass their own `Backend` identity and never re-check. Because *layout* and *painting* consult the same filtered view, an element hidden from ASCII can never influence ASCII layout: an SVG-only `EdgeSegment` does not set `LayoutNeeds.edges` (so the compact layout survives), and an SVG-only `OutsideLabel` reserves no label margin. This single-choke-point rule is what makes the feature safe — there is no second place for layout and paint to disagree.
 3. **Explicit solver choice wins over geometry fallbacks.** Geometry best-effort fallbacks (hex `CellPath` → `*`, §5.4) apply only to elements the solver *left visible* on that backend. If the solver marks the element `SVG_ONLY` (optionally providing an `ASCII_ONLY` alternative), the ASCII geometry never sees it and no fallback fires. Precedence order: visibility filter first, then geometry fidelity. Fallbacks remain the safety net for solvers that make no choice — the default is still `ALL_BACKENDS`, and the default behavior is unchanged.
 4. **"Simplified alternative in ASCII" is the complementary-pair idiom**, not a special construct: one element/rule with `backends=SVG_ONLY`, one with `backends=ASCII_ONLY` (worked example in §7.6). Two rules reading the same predicate cost nothing extra.
 5. **Visibility is the only sanctioned way to omit.** A renderer must never silently skip a visible element it cannot render exactly; it renders best-effort (or raises, per the geometry's documented contract). SVG, having full fidelity, is expected to be given `ALL_BACKENDS` or `SVG_ONLY` elements only in practice — but `ASCII_ONLY` is legal and simply invisible there.
@@ -461,21 +461,11 @@ class Scene:
         SVG-only vertex dots never force ASCII into the expanded layout."""
 
     def add(self, *elements: SceneElement) -> None: ...
-    def extend(self, elements: Iterable[SceneElement]) -> None: ...
-
-    # convenience emitters (kwargs pass through to the element, incl.
-    # backends= and provenance=)
-    def glyph(self, cell: GridCell, text: str, *, color: ColorSpec | None = None,
-              layer: int = Layer.GLYPH, backends: BackendSet = ALL_BACKENDS,
-              provenance: Provenance = Provenance.DERIVED) -> None: ...
-    def fill(self, cell: GridCell, color: ColorSpec, *,
-             backends: BackendSet = ALL_BACKENDS,
-             provenance: Provenance = Provenance.DERIVED) -> None: ...
-    def line_labels(self, direction: str, values: Sequence[int | str | None],
-                    *, color: ColorSpec | None = None, offset: int = 0,
-                    backends: BackendSet = ALL_BACKENDS) -> None:
-        """One OutsideLabel per non-None entry, 1-based index — the exact
-        shape of the *_clues config arrays. Stamped Provenance.GIVEN."""
+    # Not shipped: extend() and the convenience emitters (glyph/fill/
+    # line_labels) sketched here were dropped at implementation — rules
+    # emit elements directly, label emission lives in LineLabels.apply
+    # (its one consumer), and no solver overrides build_scene. Revisit
+    # only if build_scene overrides appear.
 
     # -- the only filtering choke point (see §3.5) --
     def visible(self, backend: Backend) -> list[SceneElement]:
@@ -483,12 +473,13 @@ class Scene:
     def sorted_elements(self, backend: Backend) -> list[SceneElement]:
         """visible(backend), stable-sorted by (layer, insertion order) —
         the painter's order for that backend."""
-    def layout_needs(self, backend: Backend) -> AsciiLayoutNeeds:
+    def layout_needs(self, backend: Backend) -> LayoutNeeds:
         """Summarize what geometry must materialize for that backend:
-        edge/vertex lanes, per-side label margins (with max label width per
-        ring). Computed over visible(backend) ONLY — an element hidden
-        from ASCII can neither force the expanded layout nor reserve
-        margins."""
+        edge/vertex lanes, per-side label margins (max label width per
+        direction; keys widen to (direction, offset) when stacked rings
+        land — see the ring deferral in §11). Computed over
+        visible(backend) ONLY — an element hidden from ASCII can neither
+        force the expanded layout nor reserve margins."""
 ```
 
 **The substrate is the puzzle's request to the grid** (added July 2026, post-review): everything that isn't puzzle content — outer boundary, full wireframe lattice, vertex dots, plain — is `SceneStyle` vocabulary, painted by each geometry's `paint_base()` at `Layer.BASE` and interpreted per backend (ASCII `Lattice.FULL` = expanded layout with every lane stroked, junction-resolved; SVG `FULL` = light strokes on every cell polygon; sheet ignores lattice entirely). The same puzzle legitimately wants different substrates per backend — Slitherlink: compact fills in the terminal, dots-no-lines in SVG (`backend_styles={Backend.SVG: SceneStyle(vertex_dots=True)}`); Sudoku: sparse heavy-framed boxes in ASCII, full printed lattice in SVG — hence `backend_styles` with whole-style replacement. Region borders (Sudoku blocks, cages) deliberately stay *content* (`RegionBorderRule` → `EdgeSegment`s), not substrate: they are puzzle-specific structure and already compose per backend via rule visibility. Implementation lands with migration Step 5 (ASCII) and the SVG renderer; `RenderSpec` grows the matching `style`/`backend_styles` fields in Step 6.
@@ -509,7 +500,7 @@ type Colorer = Callable[[Predicate], ColorSpec]
 
 @dataclass(frozen=True)
 class RenderContext:
-    grid: Grid
+    grid: RenderGrid   # the typed boundary (§3.4) — rules cannot reach ASP verbs
     grid_data: Sequence[GridCellData]
     solution: Mapping[str, list[Predicate]]
     def atoms(self, predicate: str) -> Sequence[Predicate]:
@@ -625,9 +616,12 @@ class RegionBoundaryRule:
 @dataclass(frozen=True)
 class CustomRule:
     """Typed escape hatch. Receives ALL atoms of the predicate at once
-    (unlike today's per-instance closures) so whole-set decisions need no
-    hidden mutable state; atoms arrive sorted for determinism. The callable
-    sets backends/provenance on its elements directly (defaults apply)."""
+    (unlike per-instance closures) so whole-set decisions need no hidden
+    mutable state; atoms arrive sorted for determinism. The callable sets
+    backends/provenance on its elements directly; additionally, a
+    non-default rule-level backends= is stamped onto emitted elements that
+    kept ALL_BACKENDS, so the rule composes with visibility like every
+    other rule."""
     predicate: PredicateRef   # class (typo-loud, isinstance-filtered) or name
     make: Callable[[Sequence[Predicate], RenderContext], Iterable[SceneElement]]
 
@@ -750,7 +744,7 @@ The default `AsciiTheme` renders GIVEN and DERIVED identically (golden fidelity)
 ```python
 # aspuzzle/rendering/ascii/geometry.py
 @dataclass(frozen=True)
-class AsciiLayoutNeeds:   # = scene.LayoutNeeds, re-exported
+class LayoutNeeds:   # defined in scene.py; one name, no re-export
     edges: frozenset[Edge] = frozenset()       # ASCII-visible stroked edges
     vertices: frozenset[Vertex] = frozenset()  # ASCII-visible vertex marks
     label_margins: Mapping[str, int] = field(default_factory=dict)
@@ -766,22 +760,19 @@ class AsciiGeometry(Protocol):
     def paint_base(self, canvas: CharCanvas) -> None: ...
     def paint(self, canvas: CharCanvas, element: SceneElement) -> None: ...
     def resolve_junctions(self, canvas: CharCanvas) -> None: ...
-
-    # building blocks shared by paint(); useful to geometry subclasses
-    def content_span(self, cell: GridCell) -> TextSpan: ...      # CellGlyph target
-    def interior_spans(self, cell: GridCell) -> Sequence[TextSpan]: ...  # CellFill footprint
-    def vertex_pos(self, vertex: Vertex) -> CharPos: ...
-    def path_glyph(self, cell: GridCell, directions: frozenset[str]) -> str: ...
-    def label_span(self, direction: str, index: int, offset: int, width: int) -> TextSpan: ...
 ```
 
-`interior_spans` (plural) and width-carrying `content_span` exist for hex/tri, where a cell's interior is multiple character runs and content is wider than one char.
+The shipped protocol is exactly these four methods — the renderer's whole
+vocabulary. Building blocks the earlier sketch listed here (`content_span`,
+`interior_spans` plural for multi-run hex/tri interiors, `vertex_pos`,
+`path_glyph`, `label_span`) live as private methods of the concrete
+rectangular geometry; the shared surface re-emerges with the
+`AsciiGeometryBase` extraction when the hex geometry lands (§11), shaped by
+two real implementations instead of one.
 
-### 5.3 Rectangular geometry: two layouts, one junction algorithm
+### 5.3 Rectangular geometry: one lane-collapsing engine
 
-**Compact layout** — chosen when the scene's *ASCII-visible* elements include no edge/vertex elements, no frame, no labels: cell `(r, c)` → char `(r-1, (c-1)·(1+gap))` (gap 0 when packed, else 1). Byte-for-byte reproduces today's `join_char` output for Numberlink, Galaxies, Tents, Minesweeper, Hitori, etc. Goldens gate this. Note the visibility interaction: a scene *containing* `EdgeSegment`s that are all `SVG_ONLY` still renders compact in ASCII — this is the intended lever for solvers that prefer today's tight terminal output while giving SVG the full drawing (§7.6).
-
-**Expanded layout** — chosen whenever the ASCII-visible elements contain any `EdgeSegment`, `VertexMark`, a frame-bearing lattice setting, or labels: the interleaved lattice with **collapsible lanes**. Edge lanes interleave cell rows/columns (vertices at lane intersections); a lane with no stroked edge in it and not required by the frame collapses to zero height / gap width. Sudoku's classic look — thin grid, lines only at block boundaries and the frame — falls out of collapsing rather than special-cased `rows_per_box` arithmetic; Slitherlink keeps all lanes because its loop populates them.
+One layout engine serves every look. Edge lanes interleave cell rows/columns (vertices at lane intersections); a lane materializes only where something ASCII-visible uses it (a stroked edge, a vertex, the lattice, a dot) and otherwise collapses to zero height / gap width. The **all-collapsed degenerate case is the compact layout**: cell `(r, c)` → char `(r-1, (c-1)·(1+gap))` (gap 0 when packed, else 1), byte-for-byte reproducing the first pipeline's `join_char` output for Numberlink, Galaxies, Tents, Minesweeper, Hitori, etc. — goldens gate this; there is no mode branch. Note the visibility interaction: a scene *containing* `EdgeSegment`s that are all `SVG_ONLY` still renders compact in ASCII — this is the intended lever for solvers that prefer tight terminal output while giving SVG the full drawing (§7.6). Sudoku's classic look — thin grid, lines only at block boundaries and the frame — falls out of collapsing rather than special-cased `rows_per_box` arithmetic; Slitherlink keeps all lanes because its loop populates them.
 
 **Junction resolution via direction flags.** Painting an `EdgeSegment` never chooses `─`/`│`/`┌` directly. The geometry stamps direction flags onto lattice positions: a horizontal edge marks its run `{e,w}` and contributes `e`/`w` flags to its two flanking vertex positions; the frame and block borders do the same. `resolve_junctions` converts each flagged position's accumulated `frozenset[str]` into a character via the box-drawing table (today's `line_characters` content, moved here, re-keyed by direction *sets*, extended with the double-line family `═║╔…` for HEAVY; mixed weights fall back to "heavy wins" initially). One mechanism produces `├ ┬ ┼ ┘` correctly for Sudoku boxes meeting the frame, a Slitherlink loop crossing lanes, and any combination of independent edge sources — replacing `_build_horizontal_line`'s hand-rolled cases.
 
@@ -851,7 +842,10 @@ class SvgGeometry(Protocol):
     def cell_center(self, cell: GridCell) -> Point: ...
     def edge_endpoints(self, edge: Edge) -> tuple[Point, Point]: ...
     def vertex_point(self, vertex: Vertex) -> Point: ...
-    def outside_anchor(self, direction: str, index: int, offset: int) -> Point: ...
+    def outside_anchor(self, direction: str, index: int, offset: int) -> tuple[Point, TextAnchor]: ...
+        # amended at contract-freeze time: the anchor point alone cannot
+        # say which way the text extends; TextAnchor ("start"|"middle"|
+        # "end") travels with it
 
 # aspuzzle/rendering/svg/renderer.py
 class SvgRenderer:
@@ -859,6 +853,22 @@ class SvgRenderer:
     def __init__(self, theme: SvgTheme = DEFAULT_SVG_THEME, cell_size: float = 32): ...
     def render(self, scene: Scene) -> str: ...   # iterates scene.sorted_elements(Backend.SVG)
 ```
+
+Two decisions to settle when the renderer is written, recorded here while
+the contracts are still implementation-free:
+- **Out-of-drawable elements.** Solution dicts genuinely carry
+  outside-border cells (Slitherlink's `outside` atoms). ASCII handles this
+  inside the geometry (`_cell_pos` → None, skip silently); `SvgGeometry`
+  has no None channel. Preferred resolution: the renderer pre-filters with
+  `grid.cell_at(grid.cell_coords(cell)) is None` before asking the
+  geometry, keeping geometry methods total over in-grid inputs and the
+  protocol unchanged.
+- **Whether `bounds` stays on the geometry.** As specified it forces every
+  per-grid geometry to dispatch over all seven element kinds. Alternative:
+  the renderer folds bounds from the points it already requests per
+  visible element, plus a padding constant — then `bounds` shrinks or
+  disappears. Decide at implementation; the dbpuzzles auto-extent note
+  (§6.0) favors the fold.
 
 Element mapping is mechanical because the scene is already geometric: `CellFill` → `<polygon fill=…>`; `CellGlyph` → centered `<text>` (full text — no letter compaction needed); `EdgeSegment` → `<line>` (HEAVY → larger stroke-width); `CellPath` → polyline from edge midpoints through the cell center (*exact* on hex/tri, where ASCII is best-effort — same scene, better output); `CellLink` → connector line + glyphs; `VertexMark` → `<circle>`/`<text>`; `OutsideLabel` → anchored `<text>`. Layers become ordered `<g data-layer=…>` groups; every element additionally carries `data-provenance="given"|"derived"`, and `SvgTheme` may style the classes differently — the intended default is **bold clue glyphs, lighter solution values**, giving printed/exported puzzles the familiar published-puzzle look with zero solver involvement. `SvgTheme` maps `PaletteColor` → curated hex, `Rgb` verbatim. Per grid, the geometry is ~30 lines (unit squares; six-corner polygons from offset coords; three-corner triangles).
 
@@ -906,6 +916,8 @@ Element mapping (the renderer's documented contract, per visibility rule 5):
 - `CellPath` → the geometry's path glyph as cell text (box-drawing characters paste fine as text); `CellLink` → its glyph in both cells; `OutsideLabel` → text in a reserved margin row/column — outside clues are a *natural* fit for sheets, they become real cells you can reference in formulas.
 - `CellFill`, `EdgeSegment`, `VertexMark`, colors, `EdgeWeight` → **documented no-ops** (plain-text paste cannot carry them). This is contract, not silent skipping: the backend's stated fidelity is "textual content only". Solvers that want region structure visible in sheets emit `SHEET_ONLY` glyph alternatives (e.g. a `GlyphRule` writing region ids).
 - `Provenance` → ignored (no styling channel), retained in the scene as always.
+- `SceneStyle.empty` → ignored by design: untouched cells are the renderer's `empty` string (`""` beats `"."` in a sheet). This is the one place a renderer overrides a style rather than honoring it at the choke point — stated here so rule 5's no-silent-skipping narrative stays intact.
+- **Structural characters**: a glyph's sheet text containing `\t` or `\n` would corrupt the paste's row/column structure. The renderer rejects them with a precise error (space-substitution would silently alter content). Leading `=` (spreadsheet formula injection) is deliberately allowed — hunt teams may want live formulas in the paste.
 
 Geometry per grid is a few lines: rectangular is the identity mapping (plus margins); hex uses its offset coordinates directly — the row stagger that costs half-cell shifts in ASCII is simply *dropped* in sheets, where adjacency is implied by the offset convention; triangular maps its `(row, col)` bands the same way. Coarser than ASCII, and exactly what a hunt spreadsheet wants.
 
@@ -993,9 +1005,10 @@ atoms=[PathRule("cell_directions", color=PaletteColor.CYAN, backends=SVG_ONLY),
 #         are deleted (also from Stitches and Starbattle).
 def get_render_spec(self) -> RenderSpec:
     center = CellStyle  # color=None → terminal default (was Color.RESET)
+    # (no "." clue entry: parse_grid drops "." as empty, so it can never
+    # match a clue key — empty-cell dots come from SceneStyle.empty)
     return RenderSpec(
-        clues={".": CellStyle(glyph=Glyph("."), color=PaletteColor.BRIGHT_WHITE),
-               "o": center(glyph=Glyph("o")), "^": center(glyph=Glyph("^")),
+        clues={"o": center(glyph=Glyph("o")), "^": center(glyph=Glyph("^")),
                "v": center(glyph=Glyph("v")), "<": center(glyph=Glyph("<")),
                ">": center(glyph=Glyph(">")),
                1: center(glyph=Glyph("/")), 2: center(glyph=Glyph("\\")),
@@ -1235,6 +1248,10 @@ Two seams were adjusted to satisfy the criterion: (1) **region coloring must be 
 - **Predicate references in rules are `type[Predicate] | str`** (`PredicateRef`). The solution dict is keyed by bare predicate name, which is ambiguous for same-name/different-arity and classically negated predicates (legal in ASP, unused in this repo); class references are loud on typos and isinstance-filter their bucket, defending rules against a mixed bucket. The true fix — signature-keyed solution dicts — is migration Step 12, deferred until something actually puts such predicates in shown output, because it changes the expected-solutions data format.
 - **Field names in rules are strings** (`value_field="size"`). Predicate fields are dynamic per-solver classes; full static typing would mean plumbing `type[Predicate]` generics through rules for marginal benefit. Instead `build_scene` validates field existence eagerly with precise errors. A conscious pragmatic stop.
 - **Open: vertex-clue puzzles and the dual grid (decided July 2026: not now, door left open).** Rendering needs only vertex *identity and position*, which the `(cell, corner)` canonicalization supplies for any tessellation from two local facts — deliberately the weakest mechanism that works. Puzzles with vertex entities in their ASP formulation (Slant-class: vertex clues, degree constraints) need far more — a vertex domain, incidence facts — and the canonical construction there is the **dual grid**, added at the ASP layer when the first such solver is written (for a rectangular primal: a second `RectangularGrid` of (rows+1)×(cols+1) plus +0/+1 incidence arithmetic, and a `vertex_cell(vertex) ↔ Vertex` bridge on the grid; the canonical spelling bijects with dual coordinates, so the bridge is mechanical and no scene/geometry API changes). The two mechanisms compose; they were deliberately NOT unified because the dual of a hex grid is a *triangular* grid — first-class dual coordinates would make hex vertex rendering wait on the deferred triangular machinery, when a corner mark needs nothing of the sort. (Slitherlink is the counter-example that cell-centric reformulation often beats native vertex encodings in ASP anyway.)
+- **Stacked label rings (`offset > 0`) — deferred.** The `OutsideLabel.offset` field ships, but `LineLabels` rejects nonzero offsets at construction and the rectangular geometry raises if one reaches `_label_span`; `LayoutNeeds.label_margins` is keyed per direction only. Trigger: the first solver needing a second ring (e.g. two clue rows on one side). The known change: `label_margins` keys widen to `(direction, offset)` — worth landing *before* the sheet geometry freezes the narrow shape into a third consumer.
+- **`AsciiGeometryBase` extraction — deferred to hex time.** The `AsciiGeometry` protocol shipped as the four renderer-facing methods only; the layout building blocks (`_content_span`, `_vertex_pos`, `_path_glyph`, `_label_span`) are private to the rectangular geometry. The shared base class is extracted when `HexAsciiGeometry` shows which pieces are genuinely common, not speculated from one implementation.
+- **Grid-class config resolution for orientation subclasses — decide before hex.** `Solver.create_grid` derives the module name from the class name (`"RectangularGrid"` → `aspuzzle.grids.rectangulargrid`); `"grid_type": "FlatTopHexGrid"` would try to import `aspuzzle.grids.flattophexgrid` and fail, since the plan puts all hex classes in `hexgrid.py`. Options: a registry in `aspuzzle/grids/__init__.py` consulted before the module convention, or one-module-per-concrete-class. Config-format-facing, so it deserves a recorded decision when hex lands.
+- **Width-1 glyphs are a spec-level contract, independent of geometry width.** `glyph_for_value`/`_value_glyph` compact values to one char at scene-build time, before any geometry exists — so on a 2-char-wide hex cell, 12 still renders as `C` and 40 as `#` even though the literal digits would fit. Decided: keep it — scene building stays geometry-free, and per-backend `Glyph` variants remain the escape hatch. Revisit only if hex renders prove illegible.
 - **Open:** module-contributed spec fragments (`Module.render_rules()` — a SymbolSet knows its symbol names) — additive later. A `ColorMode` (ANSI16/256/truecolor) theme upgrade with `Rgb` passthrough — additive later. JSON-serializing scenes for an interactive HTML viewer — nothing blocks it (a scene is a list of frozen dataclasses, and because visibility filters at query time, a serialized scene carries *all* backends' content). Whether `Provenance` should grow a third member for scaffold/debug overlays — deferred until a consumer exists.
 
 ---
