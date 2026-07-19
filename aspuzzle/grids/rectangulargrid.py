@@ -352,11 +352,11 @@ class RectangularGrid(Grid):
         assert isinstance(cell, RectangularCell)
         if direction not in self.orthogonal_direction_names:
             raise ValueError(f"{direction!r} is not an edge direction of a rectangular grid")
-        row_step, col_step = dict(self.direction_vectors)[direction]
-        row, col = cell.row + row_step, cell.col + col_step
-        if 1 <= row <= self.rows and 1 <= col <= self.cols:
-            return self.Cell(row=row, col=col)
-        return None
+        row_step, col_step = self.direction_vector(direction)
+        row, col = self.cell_coords(cell)
+        adjacent = self.cell_at((row + row_step, col + col_step))
+        assert adjacent is None or isinstance(adjacent, RectangularCell)
+        return adjacent
 
     @property
     def corner_names(self) -> Sequence[str]:

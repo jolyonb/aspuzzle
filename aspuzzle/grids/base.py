@@ -91,6 +91,12 @@ class Grid(Module, ABC):
         """Initialize a base grid module."""
         super().__init__(puzzle, name, primary_namespace)
         self._has_outside_border: bool = False
+        # Topology memos: grid geometry is immutable after construction, and
+        # rendering calls these per scene element, so results are cached
+        self._coords_cache: dict[GridCell, tuple[int, ...]] = {}
+        self._cell_by_coords: dict[tuple[int, ...], GridCell] | None = None
+        self._opposites: dict[str, str] | None = None
+        self._vectors: dict[str, tuple[int, ...]] | None = None
 
     @abstractmethod
     def with_new_puzzle(self, puzzle: Puzzle) -> Grid:
@@ -431,7 +437,22 @@ class Grid(Module, ABC):
 
     def cell_coords(self, cell: GridCell) -> tuple[int, ...]:
         """Concrete coordinates of a grounded cell, in cell_fields order."""
-        return tuple(cell[field].value for field in self.cell_fields)
+        coords = self._coords_cache.get(cell)
+        if coords is None:
+            coords = tuple(cell[field].value for field in self.cell_fields)
+            self._coords_cache[cell] = coords
+        return coords
+
+    def cell_at(self, coords: tuple[int, ...]) -> GridCell | None:
+        """
+        The in-grid cell at concrete coordinates (cell_fields order), or
+        None when no such cell exists (outside-border cells count as
+        off-grid here). Every call returns the same grounded instance, so
+        cells obtained this way compare by identity for free.
+        """
+        if self._cell_by_coords is None:
+            self._cell_by_coords = {self.cell_coords(cell): cell for cell in self.all_cells()}
+        return self._cell_by_coords.get(coords)
 
     @abstractmethod
     def neighbor(self, cell: GridCell, direction: str) -> GridCell | None:
@@ -458,12 +479,23 @@ class Grid(Module, ABC):
         generic vertex-canonicalization walk in vertex().
         """
 
+    def direction_vector(self, direction: str) -> tuple[int, ...]:
+        """The concrete step vector for a direction name, per direction_vectors."""
+        if self._vectors is None:
+            self._vectors = dict(self.direction_vectors)
+        try:
+            return self._vectors[direction]
+        except KeyError:
+            raise ValueError(f"No vector defined for direction {direction!r}") from None
+
     def opposite_direction(self, direction: str) -> str:
         """The opposite of `direction`, per opposite_directions."""
-        for name, opposite in self.opposite_directions:
-            if name == direction:
-                return opposite
-        raise ValueError(f"No opposite defined for direction {direction!r}")
+        if self._opposites is None:
+            self._opposites = dict(self.opposite_directions)
+        try:
+            return self._opposites[direction]
+        except KeyError:
+            raise ValueError(f"No opposite defined for direction {direction!r}") from None
 
     def edge(self, cell: GridCell, direction: str) -> Edge:
         """
