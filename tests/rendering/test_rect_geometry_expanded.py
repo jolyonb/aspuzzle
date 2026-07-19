@@ -1,8 +1,8 @@
 """
 The expanded rectangular ASCII layout: lanes, collapsing, junction
 resolution, substrate lattices, vertex marks, and outside-label margins —
-pinned as exact scene-to-picture pairs, plus byte-equality against the
-boxed output of the previous renderer.
+pinned as exact scene-to-picture pairs (including a captured literal of
+the first pipeline's boxed output).
 """
 
 import pytest

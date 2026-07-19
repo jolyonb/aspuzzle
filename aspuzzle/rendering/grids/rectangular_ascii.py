@@ -237,7 +237,7 @@ class RectangularAsciiGeometry:
             raise ValueError(f"{vertex} lies in a collapsed lane")
         return CharPos(self._lane_y[row_boundary], self._lane_x[col_boundary])
 
-    def _path_glyph(self, cell: GridCell, directions: frozenset[str]) -> str:
+    def _path_glyph(self, directions: frozenset[str]) -> str:
         glyph = BOX_CHARS.get(directions)
         if glyph is None:
             raise ValueError(f"No path glyph for direction set {sorted(directions)} on a rectangular grid")
@@ -347,7 +347,7 @@ class RectangularAsciiGeometry:
                     canvas.put_text(TextSpan(pos.row, pos.col, 1), glyph.for_backend(Backend.ASCII), fg=color)
             case CellPath(cell=cell, directions=directions, color=color):
                 if (pos := self._cell_pos(cell)) is not None:
-                    canvas.put(pos, char=self._path_glyph(cell, directions), fg=color)
+                    canvas.put(pos, char=self._path_glyph(directions), fg=color)
             case CellLink(cell1=cell1, cell2=cell2, glyph=glyph, color=color):
                 text = glyph.for_backend(Backend.ASCII) if glyph is not None else None
                 for cell in (cell1, cell2):

@@ -200,11 +200,15 @@ type SceneElement = CellFill | CellGlyph | CellPath | CellLink | EdgeSegment | V
 
 @dataclass(frozen=True)
 class CellStyle:
-    """Style for a clue value from the input grid."""
+    """Style for a clue value from the input grid. Clue glyphs default to
+    ANNOTATION so a solution atom covering the cell cannot repaint the
+    given value in solution colors; lower `layer` to Layer.GLYPH when the
+    solution's repaint is the desired look."""
 
     glyph: Glyph | None = None
     color: ColorSpec | None = None
     fill: ColorSpec | None = None
+    layer: int = Layer.ANNOTATION
     backends: BackendSet = ALL_BACKENDS
 
 
@@ -220,7 +224,9 @@ class SceneStyle:
     lattice: Lattice = Lattice.NONE
     frame_weight: EdgeWeight = EdgeWeight.NORMAL  # HEAVY = bold outer boundary
     vertex_dots: bool = False  # substrate dot at every vertex
-    packed: bool = False  # True: cells touch (fills merge); False: one space between cells
+    # packed=True: cells touch, so fills merge into solid blocks — the
+    # traditional tight terminal look; False: one space between cells
+    packed: bool = False
     empty: CellStyle = field(default_factory=lambda: CellStyle(glyph=Glyph(".")))  # untouched cells
 
 

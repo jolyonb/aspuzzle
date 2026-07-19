@@ -26,7 +26,10 @@ def test_puzzle_solves(puzzle_file: Path) -> None:
 
     solver = Solver.from_config(config)
     solver.construct_puzzle()
-    solutions, result = solver.solve()
+    # Solve exhaustively: validate_solutions demands exact set equality
+    # against the config's expected solutions, so this also proves no
+    # unlisted model exists (uniqueness, for single-solution puzzles)
+    solutions, result = solver.solve(models=0)
 
     assert result.satisfiable, f"Puzzle {puzzle_file.name} should be satisfiable"
 

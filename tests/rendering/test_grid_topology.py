@@ -103,11 +103,12 @@ def test_bad_directions_and_corners_raise() -> None:
         grid.opposite_direction("q")
 
 
-def test_neighbor_matches_asp_orthogonal_facts() -> None:
+@pytest.mark.parametrize("grid_factory", ALL_GRID_FACTORIES)
+def test_neighbor_matches_asp_orthogonal_facts(grid_factory: Callable[[], Grid]) -> None:
     """The ASP-vs-Python skew check: neighbor() must restate exactly the
     OrthogonalDir facts the grid grounds."""
-    puzzle = Puzzle()
-    grid = RectangularGrid(puzzle, rows=3, cols=3)
+    grid = grid_factory()
+    puzzle = grid.puzzle
     OrthogonalDir = grid.OrthogonalDir
     puzzle.show(OrthogonalDir)
 

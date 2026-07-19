@@ -16,7 +16,7 @@ from aspuzzle.rendering.ascii import AsciiRenderer
 class Solver(ABC):
     default_config: ClassVar[dict[str, Any]] = {}
     solver_name: str = "Puzzle solver"
-    supported_grid_types: tuple[type] = (Grid,)  # Support all grids by default
+    supported_grid_types: tuple[type[Grid], ...] = (Grid,)  # Support all grids by default
     supported_symbols: tuple[
         str | int, ...
     ] = ()  # Symbols allowed in the grid definition; solvers may override per instance

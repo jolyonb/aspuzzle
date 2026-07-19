@@ -10,11 +10,6 @@ by adding one entry to BACKENDS.
 After reviewing an intentional visual change, re-bless with:
 
     pytest tests/test_golden_renders.py --update-goldens
-
-Galaxies/Stitches/Starbattle goldens additionally depend on the region-
-coloring solve, which today carries no determinism contract; if one of those
-flaps, that is the known cause (a determinism contract arrives with the
-rendering redesign).
 """
 
 import json

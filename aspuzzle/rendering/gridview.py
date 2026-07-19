@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from aspuzzle.grids.base import GridCell
     from aspuzzle.rendering.ascii.geometry import AsciiGeometry
     from aspuzzle.rendering.scene import Edge, LayoutNeeds, SceneStyle, Vertex
+    from aspuzzle.rendering.sheet.geometry import SheetGeometry
     from aspuzzle.rendering.svg.geometry import SvgGeometry
 
 
@@ -29,16 +30,9 @@ class RenderGrid(Protocol):
         parsed coordinates (grid.Cell(*coords))."""
         ...
 
-    # -- direction and line vocabulary --
+    # -- direction vocabulary --
     @property
     def orthogonal_direction_names(self) -> list[str]: ...
-
-    @property
-    def line_direction_names(self) -> list[str]: ...
-
-    def get_line_count(self, direction: str) -> int: ...
-
-    def opposite_direction(self, direction: str) -> str: ...
 
     # -- topology --
     def neighbor(self, cell: GridCell, direction: str) -> GridCell | None: ...
@@ -61,3 +55,5 @@ class RenderGrid(Protocol):
     def ascii_geometry(self, needs: LayoutNeeds, style: SceneStyle) -> AsciiGeometry: ...
 
     def svg_geometry(self) -> SvgGeometry: ...
+
+    def sheet_geometry(self, needs: LayoutNeeds) -> SheetGeometry: ...

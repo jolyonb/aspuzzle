@@ -20,6 +20,7 @@ from aspuzzle.rendering.scene import Edge, Vertex
 if TYPE_CHECKING:
     from aspuzzle.rendering.ascii.geometry import AsciiGeometry
     from aspuzzle.rendering.scene import LayoutNeeds, SceneStyle
+    from aspuzzle.rendering.sheet.geometry import SheetGeometry
     from aspuzzle.rendering.svg.geometry import SvgGeometry
 
 # Representing a location and a value
@@ -562,6 +563,10 @@ class Grid(Module, ABC):
     def svg_geometry(self) -> SvgGeometry:
         """The SVG geometry for this grid; grids without one raise NotImplementedError."""
         raise NotImplementedError(f"{type(self).__name__} has no SVG geometry yet")
+
+    def sheet_geometry(self, needs: LayoutNeeds) -> SheetGeometry:
+        """The sheet (TSV) geometry for this grid; grids without one raise NotImplementedError."""
+        raise NotImplementedError(f"{type(self).__name__} has no sheet geometry yet")
 
     @abstractmethod
     def add_vector_to_cell(self, cell_pred: GridCell, vector_pred: GridCell) -> GridCell:

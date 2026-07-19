@@ -1,12 +1,13 @@
 """
 Per-solver render specs as pure data: construct the solver from its
 checked-in puzzle config (no solving, no clingo), inspect the spec, and
-build scenes from hand-written solution dicts. Grows a section per solver
-as each ports to the scene pipeline.
+build scenes from hand-written solution dicts.
 """
 
 import json
 from pathlib import Path
+
+import pytest
 
 from aspalchemy import Predicate
 from aspuzzle.rendering import (
@@ -92,9 +93,6 @@ def test_tents_scene_from_hand_written_solution() -> None:
     assert not any(isinstance(element, CellLink) for element in scene.visible(Backend.ASCII))  # ...only
 
 
-# -- Wave 1 --
-
-
 def test_minesweeper_spec() -> None:
     spec = load_solver("minesweeper").get_render_spec()
     assert len(spec.clues) == 9  # digits 0-8
@@ -138,9 +136,6 @@ def test_sudoku_blocks_render_in_preview() -> None:
     assert borders and all(element.provenance is Provenance.GIVEN for element in borders)
     # 9x9 with 3x3 blocks: two interior boundaries each way, nine cells each
     assert len(borders) == 2 * 9 * 2
-
-
-# -- Wave 2 --
 
 
 def test_numberlink_spec() -> None:
@@ -206,9 +201,6 @@ def test_fillomino_large_solution_sizes_follow_the_overflow_convention() -> None
     assert glyphs[0].glyph.for_backend(Backend.SHEET) == "40"
 
 
-# -- Wave 3 --
-
-
 def test_galaxies_spec() -> None:
     spec = load_solver("galaxies").get_render_spec()
     (fill,) = spec.atoms
@@ -237,3 +229,35 @@ def test_starbattle_spec() -> None:
     assert isinstance(region_fill, RegionFillRule) and isinstance(region_fill.source, FromClues)
     assert isinstance(star, GlyphRule)
     assert star.glyph is not None and star.glyph.for_backend(Backend.SVG) == "⭐"
+
+
+# -- cross-solver guardrails --
+
+
+def _string_refs(solver: Solver) -> set[str]:
+    """Every string predicate reference in the solver's spec (rule
+    predicates and FromPredicate sources)."""
+    refs: set[str] = set()
+    for rule in solver.get_render_spec().atoms:
+        predicate = getattr(rule, "predicate", None)
+        if isinstance(predicate, str):
+            refs.add(predicate)
+        source = getattr(rule, "source", None)
+        if isinstance(source, FromPredicate) and isinstance(source.predicate, str):
+            refs.add(source.predicate)
+    return refs
+
+
+@pytest.mark.parametrize("puzzle_file", sorted(PUZZLES.glob("*.json")), ids=lambda p: p.name)
+def test_string_predicate_refs_name_real_solution_predicates(puzzle_file: Path) -> None:
+    """A typo'd string reference renders silently empty (an absent
+    predicate is legitimate), so every string ref must name a predicate the
+    puzzle's expected solutions actually contain."""
+    config = json.loads(puzzle_file.read_text())
+    if not config.get("solutions"):
+        pytest.skip("config carries no expected solutions")
+    solver = Solver.from_config(config)
+    missing = _string_refs(solver) - set(config["solutions"][0])
+    assert not missing, (
+        f"{puzzle_file.name}: spec references {sorted(missing)} but the expected solutions never contain them"
+    )

@@ -15,7 +15,7 @@ RENDERING = Path(__file__).parent.parent.parent / "aspuzzle" / "rendering"
 # Every module directly under rendering/ is backend-agnostic by layout;
 # backend-specific code lives in the subpackages
 BACKEND_AGNOSTIC = sorted(path.name for path in Path(__file__).parents[2].glob("aspuzzle/rendering/*.py"))
-BACKEND_PACKAGES = ("aspuzzle.rendering.ascii", "aspuzzle.rendering.svg")
+BACKEND_PACKAGES = ("aspuzzle.rendering.ascii", "aspuzzle.rendering.svg", "aspuzzle.rendering.sheet")
 
 
 def runtime_imports(path: Path) -> list[str]:

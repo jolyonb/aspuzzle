@@ -57,6 +57,8 @@ from aspuzzle.rendering.spec import (
     RenderSpec,
     build_scene,
     digit_clues,
+    overflow_clues,
+    symbol_clues,
 )
 
 __all__ = [
@@ -109,4 +111,6 @@ __all__ = [
     "build_scene",
     "digit_clues",
     "glyph_for_value",
+    "overflow_clues",
+    "symbol_clues",
 ]

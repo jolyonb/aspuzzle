@@ -79,19 +79,21 @@ def _ref_name(ref: PredicateRef) -> str:
     return ref if isinstance(ref, str) else ref.get_name()
 
 
-def _check_ref_fields(rule: object, ref: PredicateRef, fields: Sequence[str | None]) -> None:
-    """Class references carry their field set, so a bad field name fails at
-    spec construction; string references can only be checked against atoms
-    at build time."""
-    if isinstance(ref, str):
-        return
-    available = ref.field_names()
+def _require_fields(rule: object, ref: PredicateRef, fields: Sequence[str | None], available: Sequence[str]) -> None:
     for name in fields:
         if name is not None and name not in available:
             raise ValueError(
                 f"{type(rule).__name__} on predicate {_ref_name(ref)!r}: "
                 f"no field {name!r} (available: {', '.join(available)})"
             )
+
+
+def _check_ref_fields(rule: object, ref: PredicateRef, fields: Sequence[str | None]) -> None:
+    """Class references carry their field set, so a bad field name fails at
+    spec construction; string references can only be checked against atoms
+    at build time."""
+    if not isinstance(ref, str):
+        _require_fields(rule, ref, fields, ref.field_names())
 
 
 def _checked_atoms(rule: object, ref: PredicateRef, context: RenderContext, fields: Sequence[str]) -> list[Predicate]:
@@ -104,13 +106,7 @@ def _checked_atoms(rule: object, ref: PredicateRef, context: RenderContext, fiel
         atoms = [atom for atom in atoms if isinstance(atom, ref)]
     atoms = sorted(atoms, key=str)
     if atoms:
-        available = atoms[0].field_names()
-        for name in fields:
-            if name not in available:
-                raise ValueError(
-                    f"{type(rule).__name__} on predicate {_ref_name(ref)!r}: "
-                    f"no field {name!r} (available: {', '.join(available)})"
-                )
+        _require_fields(rule, ref, fields, atoms[0].field_names())
     return atoms
 
 
@@ -472,11 +468,6 @@ class LineLabels(RuleBase):
     direction: str
     values: Sequence[int | str | None] = ()
     color: ColorSpec | None = None
-    offset: int = 0
-
-    def __post_init__(self) -> None:
-        if self.offset != 0:
-            raise ValueError("Stacked label rings (offset > 0) are not supported")
 
     def apply(self, scene: Scene, context: RenderContext) -> None:
         for index, value in enumerate(self.values, 1):
@@ -488,7 +479,6 @@ class LineLabels(RuleBase):
                     index,
                     Glyph(str(value)),
                     color=self.color,
-                    offset=self.offset,
                     backends=self.backends,
                     provenance=Provenance.GIVEN,
                 )
@@ -508,10 +498,46 @@ type AtomRule = (
 )
 
 
-def digit_clues(values: Iterable[int], color: ColorSpec | None = None) -> dict[int | str, CellStyle]:
+type ClueColor = ColorSpec | Callable[[int], ColorSpec] | None
+"""One color for every clue, a per-value callable, or the terminal default."""
+
+
+def _clue_color(color: ClueColor, value: int) -> ColorSpec | None:
+    return color(value) if callable(color) else color
+
+
+def digit_clues(
+    values: Iterable[int], color: ClueColor = None, layer: int = Layer.ANNOTATION
+) -> dict[int | str, CellStyle]:
     """The common clue table: each value styled with its single-character
-    glyph (glyph_for_value) in one shared color."""
-    return {value: CellStyle(glyph=glyph_for_value(value), color=color) for value in values}
+    glyph (glyph_for_value)."""
+    return {
+        value: CellStyle(glyph=glyph_for_value(value), color=_clue_color(color, value), layer=layer) for value in values
+    }
+
+
+def overflow_clues(
+    values: Iterable[int], color: ClueColor = None, layer: int = Layer.ANNOTATION
+) -> dict[int | str, CellStyle]:
+    """Clue table for values past the single-character range: # on
+    character grids, the literal number in sheets."""
+    return {
+        value: CellStyle(glyph=Glyph("#", sheet=str(value)), color=_clue_color(color, value), layer=layer)
+        for value in values
+    }
+
+
+def symbol_clues(grid_data: Sequence[GridCellData], palette: Sequence[ColorSpec]) -> dict[int | str, CellStyle]:
+    """Clue table for opaque symbols (Numberlink-style pair labels): each
+    distinct grid value styled as its literal text, colored in
+    first-appearance order, cycling the palette."""
+    symbols: list[int | str] = []
+    for _coords, symbol in grid_data:
+        if symbol not in symbols:
+            symbols.append(symbol)
+    return {
+        symbol: CellStyle(glyph=Glyph(str(symbol)), color=palette[i % len(palette)]) for i, symbol in enumerate(symbols)
+    }
 
 
 @dataclass(frozen=True)
@@ -533,7 +559,14 @@ def _apply_clues(spec: RenderSpec, scene: Scene, grid_data: Sequence[GridCellDat
         cell = scene.grid.Cell(*coords)
         if style.glyph is not None:
             scene.add(
-                CellGlyph(cell, style.glyph, color=style.color, backends=style.backends, provenance=Provenance.GIVEN)
+                CellGlyph(
+                    cell,
+                    style.glyph,
+                    color=style.color,
+                    layer=style.layer,
+                    backends=style.backends,
+                    provenance=Provenance.GIVEN,
+                )
             )
         if style.fill is not None:
             scene.add(CellFill(cell, style.fill, backends=style.backends, provenance=Provenance.GIVEN))

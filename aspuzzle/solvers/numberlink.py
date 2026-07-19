@@ -1,7 +1,7 @@
 from aspalchemy import ANY, Choice, Count, Field, Predicate, PredicateArg, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.rendering import CellStyle, Glyph, PathRule, RenderSpec, SceneStyle
 from aspuzzle.rendering import PaletteColor as Color
+from aspuzzle.rendering import PathRule, RenderSpec, SceneStyle, symbol_clues
 from aspuzzle.solvers.base import Solver
 
 
@@ -144,15 +144,8 @@ class Numberlink(Solver):
             Color.BRIGHT_GREEN,
             Color.BRIGHT_RED,
         )
-        clue_symbols: list[int | str] = []
-        for _loc, symbol in self.grid_data:
-            if symbol not in clue_symbols:
-                clue_symbols.append(symbol)
         return RenderSpec(
-            clues={
-                symbol: CellStyle(glyph=Glyph(str(symbol)), color=palette[i % len(palette)])
-                for i, symbol in enumerate(clue_symbols)
-            },
+            clues=symbol_clues(self.grid_data, palette),
             atoms=[PathRule(CellDirections, color=Color.CYAN)],
             style=SceneStyle(packed=True),
         )

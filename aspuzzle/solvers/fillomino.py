@@ -1,7 +1,7 @@
 from aspalchemy import Field, Predicate, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.regionconstructor import RegionConstructor
-from aspuzzle.rendering import CellStyle, Glyph, GlyphRule, RenderSpec, SceneStyle, glyph_for_value
+from aspuzzle.rendering import GlyphRule, Layer, RenderSpec, SceneStyle, digit_clues, overflow_clues
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 
@@ -136,15 +136,14 @@ class Fillomino(Solver):
             return palette[(atom["size"].value - 1) % 9]
 
         # Letters cover clues up to 35; larger clues render as # (the sheet
-        # backend still shows the number)
-        clues: dict[int | str, CellStyle] = {
-            value: CellStyle(glyph=glyph_for_value(value), color=palette[(value - 1) % 9])
-            for value in range(1, min(self.max_num, 35) + 1)
-        }
-        clues |= {
-            value: CellStyle(glyph=Glyph("#", sheet=str(value)), color=palette[(value - 1) % 9])
-            for value in range(36, self.max_num + 1)
-        }
+        # backend still shows the number). Clues stay at Layer.GLYPH: their
+        # color matches the region fill, so the solution's white repaint is
+        # the readable look
+        def size_color(value: int) -> Color:
+            return palette[(value - 1) % 9]
+
+        clues = digit_clues(range(1, min(self.max_num, 35) + 1), size_color, layer=Layer.GLYPH)
+        clues |= overflow_clues(range(36, self.max_num + 1), size_color, layer=Layer.GLYPH)
         return RenderSpec(
             clues=clues,
             atoms=[GlyphRule(Number, value_field="size", color=Color.BRIGHT_WHITE, fill=size_fill)],

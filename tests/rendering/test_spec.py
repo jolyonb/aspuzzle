@@ -281,7 +281,8 @@ def test_custom_rule_gets_sorted_atoms_and_backend_stamp() -> None:
     atoms = [Star(loc=grid.Cell(2, 2)), Star(loc=grid.Cell(1, 1))]
     scene = build_scene(grid, spec, [], {"star": atoms})
     assert seen == sorted(seen)  # delivered in sorted order
-    first, second = scene._elements
+    (first,) = scene.visible(Backend.SVG)
+    (second,) = scene.visible(Backend.ASCII)
     assert first.backends == SVG_ONLY  # rule stamp applied to the defaulted element
     assert second.backends == frozenset({Backend.ASCII})  # explicit choice preserved
 
@@ -300,11 +301,6 @@ def test_labels_and_styles_flow_through() -> None:
     labels = [element for element in scene.visible(Backend.SVG) if isinstance(element, OutsideLabel)]
     assert len(labels) == 1 and labels[0].index == 1 and labels[0].provenance is Provenance.GIVEN
     assert not list(scene.visible(Backend.ASCII))  # SVG-only labels invisible to ASCII
-
-
-def test_line_labels_reject_offset_at_construction() -> None:
-    with pytest.raises(ValueError, match="rings"):
-        LineLabels("s", [1], offset=1)
 
 
 def test_value_glyph_falls_back_to_literal_text_outside_convention() -> None:

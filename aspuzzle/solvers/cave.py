@@ -1,7 +1,7 @@
 from aspalchemy import ANY, Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell, do_not_show_outside
 from aspuzzle.grids.rectangulargrid import RectangularGrid
-from aspuzzle.rendering import CellStyle, FillRule, Glyph, RenderSpec, SceneStyle, digit_clues
+from aspuzzle.rendering import FillRule, RenderSpec, SceneStyle, digit_clues, overflow_clues
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
@@ -92,8 +92,7 @@ class Cave(Solver):
 
     def get_render_spec(self) -> RenderSpec:
         # Digits as-is; numbers 10+ as # with a distinctive color
-        clues = digit_clues(range(1, 10), Color.BRIGHT_BLUE)
-        clues |= {value: CellStyle(glyph=Glyph("#", sheet=str(value)), color=Color.RED) for value in range(10, 30)}
+        clues = digit_clues(range(1, 10), Color.BRIGHT_BLUE) | overflow_clues(range(10, 30), Color.RED)
         return RenderSpec(
             clues=clues,
             atoms=[FillRule("wall", fill=Color.BRIGHT_BLACK)],
