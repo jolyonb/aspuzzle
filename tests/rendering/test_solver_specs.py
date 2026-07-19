@@ -189,6 +189,23 @@ def test_fillomino_large_clues_still_render() -> None:
     assert big.glyph.for_backend(Backend.SHEET) == "40"
 
 
+def test_fillomino_large_solution_sizes_follow_the_overflow_convention() -> None:
+    """Solved region sizes past the single-char range render as # (with the
+    number kept for sheets) instead of crashing the character grid —
+    reachable even without a large clue, via hidden regions."""
+    solver = load_solver("fillomino")
+    solution: dict[str, list[Predicate]] = {"number": [Number(loc=solver.grid.Cell(1, 1), size=40)]}
+    scene = solver.build_scene(solution)
+    glyphs = [
+        element
+        for element in scene.visible(Backend.ASCII)
+        if isinstance(element, CellGlyph) and element.provenance is Provenance.DERIVED
+    ]
+    assert len(glyphs) == 1
+    assert glyphs[0].glyph.for_backend(Backend.ASCII) == "#"
+    assert glyphs[0].glyph.for_backend(Backend.SHEET) == "40"
+
+
 # -- Wave 3 --
 
 

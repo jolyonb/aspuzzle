@@ -109,6 +109,15 @@ def test_glyph_rule_value_field_and_colorer() -> None:
     assert len(fills) == 2
 
 
+def test_glyph_rule_values_past_the_single_char_range_render_as_overflow() -> None:
+    grid = make_grid()
+    solution = {"number": [Number(loc=grid.Cell(1, 1), value=42)]}
+    scene = build_scene(grid, RenderSpec(atoms=[GlyphRule("number", value_field="value")]), [], solution)
+    (glyph,) = (element for element in scene.visible(Backend.ASCII) if isinstance(element, CellGlyph))
+    assert glyph.glyph.for_backend(Backend.ASCII) == "#"
+    assert glyph.glyph.for_backend(Backend.SHEET) == "42"
+
+
 def test_glyph_rule_requires_exactly_one_glyph_source() -> None:
     grid = make_grid()
     with pytest.raises(ValueError, match="exactly one"):
@@ -222,6 +231,18 @@ def test_region_border_rule_requires_one_source() -> None:
     grid = make_grid()
     with pytest.raises(ValueError, match="exactly one"):
         build_scene(grid, RenderSpec(atoms=[RegionBorderRule()]), [], None)
+
+
+def test_region_border_boundary_skips_regionless_cells() -> None:
+    """include_boundary outlines only classified cells: a partial region
+    source must not draw the whole grid frame."""
+    grid = make_grid()
+    solution = {"region_atom": [RegionAtom(loc=grid.Cell(1, 1), id=1)]}
+    spec = RenderSpec(atoms=[RegionBorderRule(source=FromPredicate(RegionAtom), include_boundary=True)])
+    scene = build_scene(grid, spec, [], solution)
+    segments = {element.edge for element in scene.visible(Backend.ASCII) if isinstance(element, EdgeSegment)}
+    expected = {grid.edge(grid.Cell(1, 1), direction) for direction in ("n", "s", "e", "w")}
+    assert segments == expected  # the single member's outline, nothing else
 
 
 def test_region_fill_rules_from_clues_and_predicate() -> None:

@@ -10,10 +10,13 @@ import pytest
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.puzzle import Puzzle
 from aspuzzle.rendering import (
+    SVG_ONLY,
     Backend,
     CellFill,
     CellGlyph,
+    CellLink,
     CellPath,
+    CellStyle,
     EdgeSegment,
     EdgeWeight,
     Glyph,
@@ -169,6 +172,48 @@ def test_wide_top_labels_widen_pitch_instead_of_crashing() -> None:
     scene.add(OutsideLabel("s", 1, Glyph("12")), OutsideLabel("s", 2, Glyph("10")))
     out = render(scene)
     assert out.splitlines()[0] == "12 10"
+
+
+def test_wide_top_labels_widen_materialized_lanes_too() -> None:
+    """Column pitch honors the label width even when every boundary
+    materializes as a lane; padding keeps the wireframe solid."""
+    _, scene = make_scene(rows=3, cols=3, style=SceneStyle(lattice=Lattice.FULL))
+    for index, value in enumerate((100, 200, 300), start=1):
+        scene.add(OutsideLabel("s", index, Glyph(str(value))))
+    lines = render(scene).splitlines()
+    assert lines[0] == " 100 200 300"
+    assert lines[1].rstrip() == "┌──┬───┬──┐"
+    assert lines[2].rstrip() == "│. │ . │ .│"
+
+
+def test_wide_bottom_labels_widen_materialized_lanes_too() -> None:
+    _, scene = make_scene(rows=2, cols=3, style=SceneStyle(lattice=Lattice.FULL))
+    for index, value in enumerate((111, 222, 333), start=1):
+        scene.add(OutsideLabel("n", index, Glyph(str(value))))
+    assert render(scene).splitlines()[-1] == " 111 222 333"
+
+
+def test_wide_labels_stay_separate_across_a_single_materialized_lane() -> None:
+    grid, scene = make_scene(rows=2, cols=4)
+    scene.add(
+        EdgeSegment(grid.edge(grid.Cell(1, 2), "e")),
+        EdgeSegment(grid.edge(grid.Cell(2, 2), "e")),
+    )
+    for index, value in enumerate((10, 20, 30, 40), start=1):
+        scene.add(OutsideLabel("s", index, Glyph(str(value))))
+    assert render(scene).splitlines()[0] == "10 20 30 40"
+
+
+def test_svg_only_empty_style_paints_nothing_in_ascii() -> None:
+    _, scene = make_scene(style=SceneStyle(empty=CellStyle(glyph=Glyph("."), backends=SVG_ONLY)))
+    assert render(scene).strip() == ""
+
+
+def test_cell_link_multichar_glyph_raises_the_precise_width_error() -> None:
+    grid, scene = make_scene()
+    scene.add(CellLink(grid.Cell(1, 1), grid.Cell(1, 2), glyph=Glyph("ab")))
+    with pytest.raises(ValueError, match="2 chars but the target span is 1 wide"):
+        render(scene)
 
 
 def test_isolated_edge_covers_only_its_own_cell() -> None:

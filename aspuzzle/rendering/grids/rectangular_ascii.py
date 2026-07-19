@@ -22,6 +22,7 @@ direction set and picks the character: {e,w} → ─, {e,s} → ┌,
 correctly no matter which of them supplied which line.
 """
 
+import itertools
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Final
 
@@ -137,13 +138,21 @@ class RectangularAsciiGeometry:
         # -- char coordinates: cells and materialized lanes interleave;
         #    unmaterialized column boundaries collapse to gap spaces,
         #    unmaterialized row boundaries to nothing --
+        # An internal lane normally replaces the boundary's gap; when labels
+        # widened the pitch, padding around the lane keeps the pitch at
+        # 1 + column_gap everywhere so neighboring labels cannot collide
+        lane_pad = max(0, column_gap - 1)
         self._col_x: dict[int, int] = {}
         self._lane_x: dict[int, int] = {}
         x = self._margin_left
         for boundary in range(grid.cols + 1):
             if boundary in v_lanes:
+                if 0 < boundary < grid.cols:
+                    x += lane_pad // 2
                 self._lane_x[boundary] = x
                 x += 1
+                if 0 < boundary < grid.cols:
+                    x += lane_pad - lane_pad // 2
             elif 0 < boundary < grid.cols:
                 x += column_gap
             if boundary < grid.cols:
@@ -309,15 +318,16 @@ class RectangularAsciiGeometry:
 
     def paint_base(self, canvas: CharCanvas) -> None:
         empty = self.style.empty
-        text = empty.glyph.for_backend(Backend.ASCII) if empty.glyph is not None else None
-        for cell in self.grid.all_cells():
-            span = self._content_span(cell)
-            if text is not None:
-                canvas.put_text(span, text, fg=empty.color)
-            if empty.fill is not None:
-                canvas.paint_bg(span, empty.fill)
-                row, col = self.grid.cell_coords(cell)
-                self._cell_fills[(row, col)] = empty.fill
+        if Backend.ASCII in empty.backends:
+            text = empty.glyph.for_backend(Backend.ASCII) if empty.glyph is not None else None
+            for cell in self.grid.all_cells():
+                span = self._content_span(cell)
+                if text is not None:
+                    canvas.put_text(span, text, fg=empty.color)
+                if empty.fill is not None:
+                    canvas.paint_bg(span, empty.fill)
+                    row, col = self.grid.cell_coords(cell)
+                    self._cell_fills[(row, col)] = empty.fill
         if self.style.vertex_dots:
             for y in self._lane_y.values():
                 for x in self._lane_x.values():
@@ -342,7 +352,10 @@ class RectangularAsciiGeometry:
                 text = glyph.for_backend(Backend.ASCII) if glyph is not None else None
                 for cell in (cell1, cell2):
                     if (pos := self._cell_pos(cell)) is not None:
-                        canvas.put(pos, char=text, fg=color)
+                        if text is not None:
+                            canvas.put_text(TextSpan(pos.row, pos.col, 1), text, fg=color)
+                        else:
+                            canvas.put(pos, fg=color)
             case EdgeSegment(edge=edge, color=color, weight=weight):
                 self._stamp_edge(edge, weight, color)
             case VertexMark(vertex=vertex, glyph=glyph, color=color):
@@ -366,20 +379,22 @@ class RectangularAsciiGeometry:
             canvas.put(pos, char=table[frozenset(directions)], fg=self._flag_color.get(pos))
 
     def _bridge_horizontal_runs(self) -> None:
-        """The gap between two cells in a lane is drawn only when both
-        cells carry a stroked run there, so an isolated edge never claims
-        a neighboring column."""
+        """The chars between two neighboring anchors in a lane (cell chars
+        and materialized vertices) are drawn only when both anchors carry a
+        stroke pointing into the gap, so an isolated edge never claims a
+        neighboring column."""
+        anchors = sorted(set(self._col_x.values()) | set(self._lane_x.values()))
         for y in self._lane_y.values():
-            for col in range(1, self.grid.cols):
-                if col in self._lane_x:
-                    continue  # a lane column between them: the vertex flags own continuity
-                left = CharPos(y, self._col_x[col])
-                right = CharPos(y, self._col_x[col + 1])
+            for left_x, right_x in itertools.pairwise(anchors):
+                if right_x - left_x < 2:
+                    continue
+                left = CharPos(y, left_x)
+                right = CharPos(y, right_x)
                 if "e" in self._flags.get(left, ()) and "w" in self._flags.get(right, ()):
                     heavy = left in self._flag_heavy or right in self._flag_heavy
                     weight = EdgeWeight.HEAVY if heavy else EdgeWeight.NORMAL
                     color = self._flag_color.get(left, self._flag_color.get(right))
-                    for x in range(left.col + 1, right.col):
+                    for x in range(left_x + 1, right_x):
                         self._stamp(CharPos(y, x), {"e", "w"}, weight, color)
 
     def _resolve_fills(self, canvas: CharCanvas) -> None:

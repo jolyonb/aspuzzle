@@ -119,11 +119,15 @@ def _resolve(color: ColorLike | None, atom: Predicate) -> ColorSpec | None:
 
 
 def _value_glyph(value: object) -> Glyph:
-    """Single-char convention where it applies; the literal text otherwise
-    (multi-char text renders in width-free backends and raises the canvas's
-    precise width error on character grids)."""
-    if isinstance(value, int) and 0 <= value <= 35:
-        return glyph_for_value(value)
+    """Single-char convention where it applies; ints past it follow the
+    overflow-clue convention (# in character grids, the literal number in
+    sheets); other values render as their literal text (which renders in
+    width-free backends and raises the canvas's precise width error on
+    character grids)."""
+    if isinstance(value, int):
+        if 0 <= value <= 35:
+            return glyph_for_value(value)
+        return Glyph("#", sheet=str(value))
     return Glyph(str(value))
 
 
@@ -342,8 +346,11 @@ class RegionBorderRule(RuleBase):
     """EdgeSegments wherever a cell classification changes between
     neighbors — block borders, cages, region outlines. Exactly one of
     `by` (a classification of every cell; runs without a solution) or
-    `source` must be given. Boundary edges (neighbor off-grid) are
-    included when include_boundary=True (usually the frame covers them)."""
+    `source` must be given. A None classification means regionless: such
+    cells draw no edges of their own (edges against classified neighbors
+    still draw, charged to the classified side). Boundary edges (neighbor
+    off-grid) are included when include_boundary=True (usually the frame
+    covers them)."""
 
     by: Callable[[GridCell], object] | None = None
     source: RegionSource | None = None
@@ -381,7 +388,7 @@ class RegionBorderRule(RuleBase):
             for direction in grid.orthogonal_direction_names:
                 neighbor = grid.neighbor(cell, direction)
                 if neighbor is None:
-                    if not self.include_boundary:
+                    if not self.include_boundary or classify(cell) is None:
                         continue
                 elif classify(cell) == classify(neighbor):
                     continue
