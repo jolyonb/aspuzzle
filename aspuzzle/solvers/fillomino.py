@@ -1,9 +1,8 @@
-from typing import Any
-
 from aspalchemy import Field, Predicate, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.grids.rendering import BgColor, Color, RenderItem, RenderSymbol
 from aspuzzle.regionconstructor import RegionConstructor
+from aspuzzle.rendering import CellStyle, Glyph, GlyphRule, RenderSpec, SceneStyle, glyph_for_value
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 
 
@@ -117,64 +116,37 @@ class Fillomino(Solver):
             raise ValueError(f"Unsupported symbol '{symbol}' at position {loc}. Supported symbols: numbers and '.'")
         self.max_num = max_num
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Fillomino solver.
+    # Value-cycled palette shared by clue foregrounds and region backgrounds
+    RENDER_PALETTE = (
+        Color.BLUE,
+        Color.GREEN,
+        Color.RED,
+        Color.MAGENTA,
+        Color.CYAN,
+        Color.YELLOW,
+        Color.BRIGHT_BLUE,
+        Color.BRIGHT_GREEN,
+        Color.BRIGHT_RED,
+    )
 
-        Returns:
-            Dictionary with rendering configuration for Fillomino
-        """
-        # Colors for the initial clues
-        colors = [
-            Color.BLUE,  # 1
-            Color.GREEN,  # 2
-            Color.RED,  # 3
-            Color.MAGENTA,  # 4
-            Color.CYAN,  # 5
-            Color.YELLOW,  # 6
-            Color.BRIGHT_BLUE,  # 7
-            Color.BRIGHT_GREEN,  # 8
-            Color.BRIGHT_RED,  # 9
-        ]
+    def get_render_spec(self) -> RenderSpec:
+        palette = self.RENDER_PALETTE
 
-        # Background colors for solved regions
-        backgrounds = [
-            BgColor.BLUE,  # 1
-            BgColor.GREEN,  # 2
-            BgColor.RED,  # 3
-            BgColor.MAGENTA,  # 4
-            BgColor.CYAN,  # 5
-            BgColor.YELLOW,  # 6
-            BgColor.BRIGHT_BLUE,  # 7
-            BgColor.BRIGHT_GREEN,  # 8
-            BgColor.BRIGHT_RED,  # 9
-        ]
+        def size_fill(atom: Predicate) -> Color:
+            return palette[(atom["size"].value - 1) % 9]
 
-        # Map initial clues to symbols with colors
-        puzzle_symbols = {
-            i: RenderSymbol(
-                symbol=str(i) if i < 10 else "#",
-                color=colors[(i - 1) % 9],
-            )
-            for i in range(1, self.max_num)
+        # Letters cover clues up to 35; larger clues render as # (the sheet
+        # backend still shows the number)
+        clues: dict[int | str, CellStyle] = {
+            value: CellStyle(glyph=glyph_for_value(value), color=palette[(value - 1) % 9])
+            for value in range(1, min(self.max_num, 35) + 1)
         }
-
-        # Setup predicates for rendering
-        predicates = {
-            "number": {
-                "custom_renderer": lambda pred: [
-                    RenderItem(
-                        loc=pred["loc"],
-                        symbol=str(pred["size"].value),
-                        color=Color.BRIGHT_WHITE,
-                        background=backgrounds[(pred["size"].value - 1) % 9],  # Cycle colors for large regions
-                    )
-                ],
-            }
+        clues |= {
+            value: CellStyle(glyph=Glyph("#", sheet=str(value)), color=palette[(value - 1) % 9])
+            for value in range(36, self.max_num + 1)
         }
-
-        return {
-            "puzzle_symbols": puzzle_symbols,
-            "predicates": predicates,
-            "join_char": "",  # No space between cells
-        }
+        return RenderSpec(
+            clues=clues,
+            atoms=[GlyphRule(Number, value_field="size", color=Color.BRIGHT_WHITE, fill=size_fill)],
+            style=SceneStyle(packed=True),
+        )

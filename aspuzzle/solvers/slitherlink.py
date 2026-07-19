@@ -1,9 +1,8 @@
-from typing import Any
-
 from aspalchemy import Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell, do_not_show_outside
 from aspuzzle.grids.rectangulargrid import RectangularGrid
-from aspuzzle.grids.rendering import BgColor, Color, RenderSymbol
+from aspuzzle.rendering import CellStyle, FillRule, Glyph, RegionBoundaryRule, RenderSpec, SceneStyle, digit_clues
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
 
@@ -100,24 +99,17 @@ class Slitherlink(Solver):
         if isinstance(grid, RectangularGrid):
             grid.forbid_checkerboard(symbols["inside"], segment=symbols.segment)
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Slitherlink solver.
-
-        Returns:
-            Dictionary with rendering configuration for Slitherlink
-        """
-        return {
-            "puzzle_symbols": {
-                0: RenderSymbol("0", Color.BRIGHT_BLUE),
-                1: RenderSymbol("1", Color.BRIGHT_BLUE),
-                2: RenderSymbol("2", Color.BRIGHT_BLUE),
-                3: RenderSymbol("3", Color.BRIGHT_BLUE),
-                "S": RenderSymbol("S", Color.BRIGHT_WHITE),
-                "W": RenderSymbol("W", Color.BRIGHT_RED),
-            },
-            "predicates": {
-                "inside": {"symbol": None, "background": BgColor.BRIGHT_GREEN},
-            },
-            "join_char": "",
+    def get_render_spec(self) -> RenderSpec:
+        clues = digit_clues(range(4), Color.BRIGHT_BLUE)
+        clues |= {
+            "S": CellStyle(glyph=Glyph("S", svg="🐑"), color=Color.BRIGHT_WHITE),
+            "W": CellStyle(glyph=Glyph("W", svg="🐺"), color=Color.BRIGHT_RED),
         }
+        return RenderSpec(
+            clues=clues,
+            atoms=[
+                FillRule("inside", fill=Color.BRIGHT_GREEN),
+                RegionBoundaryRule("inside", color=Color.BRIGHT_YELLOW),
+            ],
+            style=SceneStyle(packed=True),
+        )

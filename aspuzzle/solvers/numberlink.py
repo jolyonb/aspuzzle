@@ -1,8 +1,7 @@
-from typing import Any
-
 from aspalchemy import ANY, Choice, Count, Field, Predicate, PredicateArg, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.grids.rendering import Color, RenderSymbol
+from aspuzzle.rendering import CellStyle, Glyph, PathRule, RenderSpec, SceneStyle
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 
 
@@ -131,16 +130,10 @@ class Numberlink(Solver):
             D1 < D2,
         ).derive(CellDirections(loc=cell, dir1=D1, dir2=D2))
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Numberlink solver.
-
-        Returns:
-            Dictionary with rendering configuration for Numberlink
-        """
+    def get_render_spec(self) -> RenderSpec:
         # Symbols are opaque labels (numbers or strings); color them in
         # first-appearance order, cycling the palette
-        colors = [
+        palette = (
             Color.BLUE,
             Color.GREEN,
             Color.RED,
@@ -150,24 +143,19 @@ class Numberlink(Solver):
             Color.BRIGHT_BLUE,
             Color.BRIGHT_GREEN,
             Color.BRIGHT_RED,
-        ]
-
+        )
         clue_symbols: list[int | str] = []
-        for _loc, sym in self.grid_data:
-            if sym not in clue_symbols:
-                clue_symbols.append(sym)
-
-        puzzle_symbols = {
-            sym: RenderSymbol(symbol=str(sym), color=colors[i % len(colors)]) for i, sym in enumerate(clue_symbols)
-        }
-
-        return {
-            "puzzle_symbols": puzzle_symbols,
-            "predicates": {
-                "cell_directions": {"loop_directions": True, "color": Color.CYAN},
+        for _loc, symbol in self.grid_data:
+            if symbol not in clue_symbols:
+                clue_symbols.append(symbol)
+        return RenderSpec(
+            clues={
+                symbol: CellStyle(glyph=Glyph(str(symbol)), color=palette[i % len(palette)])
+                for i, symbol in enumerate(clue_symbols)
             },
-            "join_char": "",
-        }
+            atoms=[PathRule(CellDirections, color=Color.CYAN)],
+            style=SceneStyle(packed=True),
+        )
 
     def validate_config(self) -> None:
         """Validate the puzzle configuration."""

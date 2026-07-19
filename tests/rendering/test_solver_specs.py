@@ -21,9 +21,13 @@ from aspuzzle.rendering import (
     LinkRule,
     OutsideLabel,
     PaletteColor,
+    PathRule,
     Provenance,
+    RegionBoundaryRule,
 )
 from aspuzzle.solvers.base import Solver
+from aspuzzle.solvers.fillomino import Number
+from aspuzzle.solvers.numberlink import CellDirections
 from aspuzzle.solvers.nurikabe import Stream
 from aspuzzle.solvers.tents import Tent, TieDestination
 
@@ -128,3 +132,52 @@ def test_sudoku_blocks_render_in_preview() -> None:
     assert borders and all(element.provenance is Provenance.GIVEN for element in borders)
     # 9x9 with 3x3 blocks: two interior boundaries each way, nine cells each
     assert len(borders) == 2 * 9 * 2
+
+
+# -- Wave 2 --
+
+
+def test_numberlink_spec() -> None:
+    spec = load_solver("numberlink").get_render_spec()
+    (path,) = spec.atoms
+    assert isinstance(path, PathRule) and path.predicate is CellDirections
+    assert spec.style.packed
+    assert len(spec.clues) == len({value for _, value in load_solver("numberlink").grid_data})
+
+
+def test_slitherlink_spec_draws_fill_and_loop() -> None:
+    spec = load_solver("slitherlink").get_render_spec()
+    fill, boundary = spec.atoms
+    assert isinstance(fill, FillRule) and fill.predicate == "inside"
+    assert isinstance(boundary, RegionBoundaryRule) and boundary.predicate == "inside"
+    sheep = spec.clues["S"]
+    assert sheep.glyph is not None and sheep.glyph.for_backend(Backend.SVG) == "🐑"
+
+
+def test_fillomino_spec_cycles_fills_by_size() -> None:
+    solver = load_solver("fillomino")
+    spec = solver.get_render_spec()
+    (rule,) = spec.atoms
+    assert isinstance(rule, GlyphRule) and rule.predicate is Number
+    assert callable(rule.fill)
+    assert rule.fill(Number(loc=solver.grid.Cell(1, 1), size=1)) == rule.fill(
+        Number(loc=solver.grid.Cell(2, 2), size=10)
+    )
+    # every clue value present in the grid has a style (the old config hid the largest)
+    assert all(value in spec.clues for _, value in solver.grid_data)
+
+
+def test_fillomino_large_clues_still_render() -> None:
+    config = {
+        "puzzle_type": "Fillomino",
+        "grid_type": "RectangularGrid",
+        "grid": [[40, 0]],
+        "grid_params": {"rows": 1, "cols": 2},
+    }
+    config["grid"] = [[40, "."]]
+    solver = Solver.from_config(config)
+    spec = solver.get_render_spec()
+    big = spec.clues[40]
+    assert big.glyph is not None
+    assert big.glyph.for_backend(Backend.ASCII) == "#"
+    assert big.glyph.for_backend(Backend.SHEET) == "40"

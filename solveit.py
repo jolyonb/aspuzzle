@@ -92,8 +92,8 @@ def solve(
         with open(output_path, "w") as f:
             f.write(asp_program)
 
-        if not quiet:
-            print(f"\n% (Script program written to {output_path})")
+        if render and not quiet:
+            print(f"\n(Script program written to {output_path})")
 
         # Annotated sidecar: provenance notes churn on unrelated edits, so
         # they never go into the canonical (checked-in) .lp
@@ -107,7 +107,7 @@ def solve(
             with open(annotated_path, "w") as f:
                 f.write(solver.render_program(annotate=True))
             if not quiet:
-                print(f"% (Annotated program written to {annotated_path})")
+                print(f"(Annotated program written to {annotated_path})")
 
     try:
         # Analyze the grounding if requested
