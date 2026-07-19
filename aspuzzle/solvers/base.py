@@ -1,6 +1,7 @@
 import importlib
 import json
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from functools import wraps
 from itertools import islice
 from typing import Any, ClassVar, cast
@@ -9,6 +10,8 @@ from aspalchemy import GroundedProgram, Predicate, SolveResult
 from aspuzzle.grids.base import Grid, GridCellData
 from aspuzzle.grids.rendering import RenderItem, RenderSymbol
 from aspuzzle.puzzle import Puzzle
+from aspuzzle.rendering import LineLabels, RenderSpec, Scene, build_scene
+from aspuzzle.rendering.ascii import AsciiRenderer
 
 
 class Solver(ABC):
@@ -361,16 +364,41 @@ class Solver(ABC):
         if count > 2:
             print(f"    (... suppressed {count - 2} more)")
 
-    def render_puzzle(self, solution: dict[str, list[Predicate]] | None = None) -> str:
+    def get_render_spec(self) -> RenderSpec:
+        """
+        The solver's declarative rendering description (see
+        aspuzzle.rendering.spec). One spec serves every backend and both
+        render states: the preview (no solution) and the solved render.
+        Default: a bare grid.
+        """
+        return RenderSpec()
+
+    def build_scene(self, solution: dict[str, list[Predicate]] | None = None) -> Scene:
+        """
+        The scene for a solution (or the preview, when None). Override —
+        call super(), then scene.add(...) — only for elements the spec
+        cannot express.
+        """
+        return build_scene(self.grid, self.get_render_spec(), self.grid_data, solution)
+
+    def render_puzzle(self, solution: dict[str, list[Predicate]] | None = None, *, use_colors: bool = True) -> str:
         """
         Render a solution as ASCII text.
 
         Args:
             solution: Solution dictionary mapping predicate names to lists of predicate instances
+            use_colors: Whether to emit ANSI colors (scene pipeline only)
 
         Returns:
             ASCII representation of the solution
         """
+        # Dispatch bridge, deleted when the last solver ports: a solver on
+        # the scene pipeline declares itself by overriding get_render_spec
+        # or build_scene; everything else takes the original path,
+        # byte-identically
+        if type(self).get_render_spec is not Solver.get_render_spec or type(self).build_scene is not Solver.build_scene:
+            return AsciiRenderer(use_colors=use_colors).render(self.build_scene(solution))
+
         # Perform any additional preprocessing before rendering
         self._preprocess_for_rendering(solution)
 
@@ -506,6 +534,18 @@ class Solver(ABC):
             "puzzle_symbols": {},  # Map puzzle values to RenderSymbol objects
             "predicates": {},  # Map predicate names to rendering info
         }
+
+    def line_clues(self, direction: str) -> Sequence[int | None]:
+        """The config clue list for a line direction, per the naming
+        convention validate_line_clues enforces ("e" -> row_clues, ...)."""
+        clues = self.config[f"{self.grid.line_direction_descriptions[direction]}_clues"]
+        assert isinstance(clues, list)
+        return clues
+
+    def clue_labels(self) -> list[LineLabels]:
+        """Outside labels for every line clue in the config, placed at
+        the start of each line."""
+        return [LineLabels(direction, self.line_clues(direction)) for direction in self.grid.line_direction_names]
 
     def validate_line_clues(self) -> None:
         """

@@ -1,8 +1,7 @@
-from typing import Any
-
 from aspalchemy import ANY, Choice, Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.grids.rendering import Color, RenderSymbol
+from aspuzzle.rendering import SVG_ONLY, CellStyle, Glyph, GlyphRule, LinkRule, RenderSpec
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 
 
@@ -19,7 +18,7 @@ class Tie(Predicate, show=False):
     dir: Field[str]
 
 
-class TieDestination(Predicate, show=False):
+class TieDestination(Predicate):
     tree_loc: Field[GridCell]
     tent_loc: Field[GridCell]
 
@@ -98,18 +97,13 @@ class Tents(Solver):
         """Validate the puzzle configuration."""
         self.validate_line_clues()
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Tents solver.
-
-        Returns:
-            Dictionary with rendering configuration for Tents
-        """
-        return {
-            "puzzle_symbols": {
-                "T": RenderSymbol("T", Color.GREEN),
-            },
-            "predicates": {
-                "tent": {"symbol": "A", "color": Color.YELLOW},
-            },
-        }
+    def get_render_spec(self) -> RenderSpec:
+        return RenderSpec(
+            clues={"T": CellStyle(glyph=Glyph("T", svg="🌳"), color=Color.GREEN)},
+            atoms=[
+                GlyphRule(Tent, glyph=Glyph("A", svg="⛺"), color=Color.YELLOW),
+                # Tree-to-tent connectors; nothing to add in a character grid
+                LinkRule(TieDestination, loc_fields=("tree_loc", "tent_loc"), backends=SVG_ONLY),
+            ],
+            labels=self.clue_labels(),
+        )

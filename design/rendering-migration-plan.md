@@ -144,6 +144,8 @@ Both old and new pipelines coexist untouched from Step 2 through Step 10; Steps 
 
 **Verify:** `python solveit.py tents --no-render --no-output-file` — eyeball margins in preview *and* solution; `uv run pytest` (13 solvers' goldens must be untouched — that is the bridge working).
 
+**Port conventions (set at the Tents pilot):** import the palette as `from aspuzzle.rendering import PaletteColor as Color`, so specs read `Color.GREEN` like the old configs did; solvers on the `row_clues`/`column_clues` convention render their outside clues with `labels=self.clue_labels()` (backed by `Solver.line_clues(direction)`, which owns the config-key naming alongside `validate_line_clues`).
+
 ## Step 8 — Wave 1: pure-table solvers (behavior changes only where listed)
 
 One commit per solver (or one PR, per-solver commits), each: delete `get_render_config`, add `get_render_spec`, regenerate that solver's goldens, extend `test_solver_specs.py`.
