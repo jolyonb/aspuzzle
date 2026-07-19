@@ -5,9 +5,9 @@ knowledge, behind the AsciiGeometry protocol.
 One layout engine serves every look. Cell content occupies one character;
 edge LANES — character rows/columns interleaved between the cells at grid
 boundaries — materialize only where something uses them (a stroked edge, a
-vertex, the lattice, a dot), and collapse to plain cell_gap spacing (or
-zero height) elsewhere. The all-collapsed case is the compact layout:
-cells joined by cell_gap spaces.
+vertex, the lattice, a dot), and collapse to plain gap spacing (or zero
+height) elsewhere. The all-collapsed case is the compact layout: cells
+separated by one space, or touching when the style is packed.
 
 Edge characters are chosen in two passes, because no single edge knows
 what character a position needs: where a horizontal border crosses a
@@ -99,7 +99,7 @@ class RectangularAsciiGeometry:
     def __init__(self, grid: RectangularGrid, needs: LayoutNeeds, style: SceneStyle) -> None:
         self.grid = grid
         self.style = style
-        self.gap = style.cell_gap
+        self.gap = 0 if style.packed else 1
 
         # -- which lanes materialize --
         # Horizontal lanes are indexed by row boundary 0..rows (lane rb sits
@@ -129,7 +129,7 @@ class RectangularAsciiGeometry:
         self._margin_bottom = 1 if "n" in needs.label_margins else 0
 
         # -- char coordinates: cells and materialized lanes interleave;
-        #    unmaterialized column boundaries collapse to cell_gap spaces,
+        #    unmaterialized column boundaries collapse to gap spaces,
         #    unmaterialized row boundaries to nothing --
         self._col_x: dict[int, int] = {}
         self._lane_x: dict[int, int] = {}

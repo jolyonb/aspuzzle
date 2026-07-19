@@ -104,7 +104,7 @@ def test_stroke_meeting_frame() -> None:
 
 def test_closed_loop_with_gap_zero() -> None:
     """A Slitherlink-shaped loop around one cell of a 2x2 grid."""
-    grid, scene = make_scene(style=SceneStyle(cell_gap=0))
+    grid, scene = make_scene(style=SceneStyle(packed=True))
     for direction in ("n", "e", "s", "w"):
         scene.add(EdgeSegment(grid.edge(grid.Cell(1, 1), direction)))
     assert render(scene) == "┌─┐ \n│.│.\n└─┘ \n . ."

@@ -9,8 +9,22 @@ import json
 from pathlib import Path
 
 from aspalchemy import Predicate
-from aspuzzle.rendering import Backend, CellGlyph, CellLink, GlyphRule, LineLabels, LinkRule, OutsideLabel, Provenance
+from aspuzzle.rendering import (
+    Backend,
+    CellGlyph,
+    CellLink,
+    EdgeSegment,
+    FillRule,
+    GlyphRule,
+    Lattice,
+    LineLabels,
+    LinkRule,
+    OutsideLabel,
+    PaletteColor,
+    Provenance,
+)
 from aspuzzle.solvers.base import Solver
+from aspuzzle.solvers.nurikabe import Stream
 from aspuzzle.solvers.tents import Tent, TieDestination
 
 PUZZLES = Path(__file__).parents[2] / "puzzles"
@@ -66,3 +80,45 @@ def test_tents_scene_from_hand_written_solution() -> None:
     links = [element for element in scene.visible(Backend.SVG) if isinstance(element, CellLink)]
     assert len(links) == 1  # the tie connector renders in SVG...
     assert not any(isinstance(element, CellLink) for element in scene.visible(Backend.ASCII))  # ...only
+
+
+# -- Wave 1 --
+
+
+def test_minesweeper_spec() -> None:
+    spec = load_solver("minesweeper").get_render_spec()
+    assert len(spec.clues) == 9  # digits 0-8
+    (mine,) = spec.atoms
+    assert isinstance(mine, GlyphRule)
+    assert mine.glyph is not None and mine.glyph.for_backend(Backend.SVG) == "💣"
+
+
+def test_hitori_and_cave_and_nurikabe_fill_rules() -> None:
+    for name, predicate in (("hitori", "black"), ("cave", "wall")):
+        (rule,) = load_solver(name).get_render_spec().atoms
+        assert isinstance(rule, FillRule) and rule.predicate == predicate
+    (rule,) = load_solver("nurikabe").get_render_spec().atoms
+    assert isinstance(rule, FillRule) and rule.predicate is Stream
+
+
+def test_skyscrapers_labels_all_four_sides() -> None:
+    spec = load_solver("skyscrapers").get_render_spec()
+    assert {label.direction for label in spec.labels} == {"n", "e", "s", "w"}
+    assert all(label.color is PaletteColor.BRIGHT_WHITE for label in spec.labels)
+    assert spec.style.lattice is Lattice.FRAME
+
+
+def test_starbattle_shapeless_spec() -> None:
+    spec = load_solver("starbattle_shapeless").get_render_spec()
+    (star,) = spec.atoms
+    assert isinstance(star, GlyphRule)
+    assert star.glyph is not None and star.glyph.for_backend(Backend.ASCII) == "★"
+
+
+def test_sudoku_blocks_render_in_preview() -> None:
+    solver = load_solver("sudoku")
+    preview = solver.build_scene(None)
+    borders = [element for element in preview.visible(Backend.ASCII) if isinstance(element, EdgeSegment)]
+    assert borders and all(element.provenance is Provenance.GIVEN for element in borders)
+    # 9x9 with 3x3 blocks: two interior boundaries each way, nine cells each
+    assert len(borders) == 2 * 9 * 2

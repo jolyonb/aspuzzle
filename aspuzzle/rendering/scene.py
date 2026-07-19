@@ -220,7 +220,7 @@ class SceneStyle:
     lattice: Lattice = Lattice.NONE
     frame_weight: EdgeWeight = EdgeWeight.NORMAL  # HEAVY = bold outer boundary
     vertex_dots: bool = False  # substrate dot at every vertex
-    cell_gap: int = 1  # inter-cell spacing in character-grid backends
+    packed: bool = False  # True: cells touch (fills merge); False: one space between cells
     empty: CellStyle = field(default_factory=lambda: CellStyle(glyph=Glyph(".")))  # untouched cells
 
 

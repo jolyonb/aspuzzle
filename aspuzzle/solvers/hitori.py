@@ -1,8 +1,7 @@
-from typing import Any
-
 from aspalchemy import Field, Predicate, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.grids.rendering import BgColor, Color, RenderSymbol
+from aspuzzle.rendering import CellStyle, FillRule, Glyph, RenderSpec, SceneStyle
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
 
@@ -61,28 +60,9 @@ class Hitori(Solver):
         puzzle.section("Rule 3: All white cells must be connected")
         symbols.make_contiguous("white")
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Hitori solver.
-
-        Returns:
-            Dictionary with rendering configuration for Hitori
-        """
-        return {
-            "puzzle_symbols": {
-                1: RenderSymbol("1", Color.BLUE),
-                2: RenderSymbol("2", Color.BLUE),
-                3: RenderSymbol("3", Color.BLUE),
-                4: RenderSymbol("4", Color.BLUE),
-                5: RenderSymbol("5", Color.BLUE),
-                6: RenderSymbol("6", Color.BLUE),
-                7: RenderSymbol("7", Color.BLUE),
-                8: RenderSymbol("8", Color.BLUE),
-                9: RenderSymbol("9", Color.BLUE),
-            },
-            "predicates": {
-                "black": {"symbol": None, "background": BgColor.WHITE},
-                "white": {"symbol": None, "background": None},
-            },
-            "join_char": "",
-        }
+    def get_render_spec(self) -> RenderSpec:
+        return RenderSpec(
+            clues={value: CellStyle(glyph=Glyph(str(value)), color=Color.BLUE) for value in range(1, 10)},
+            atoms=[FillRule("black", fill=Color.WHITE)],
+            style=SceneStyle(packed=True),
+        )

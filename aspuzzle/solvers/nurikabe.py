@@ -1,9 +1,8 @@
-from typing import Any
-
 from aspalchemy import ANY, Field, Predicate, Term, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.grids.rendering import BgColor, Color, RenderSymbol
 from aspuzzle.regionconstructor import RegionConstructor
+from aspuzzle.rendering import CellStyle, FillRule, RenderSpec, SceneStyle, glyph_for_value
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 
 
@@ -70,21 +69,9 @@ class Nurikabe(Solver):
         puzzle.when(region_constructor.Regionless(loc=C)).derive(Stream(loc=C))
         puzzle.when(region_constructor.Region(loc=C, anchor=ANY)).derive(Island(loc=C))
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Nurikabe solver.
-
-        Returns:
-            Dictionary with rendering configuration for Nurikabe
-        """
-        # For clue numbers, use the digits as is
-        puzzle_symbols = {i: RenderSymbol(str(i), Color.BRIGHT_BLUE) for i in range(1, 100)}
-
-        return {
-            "puzzle_symbols": puzzle_symbols,
-            "predicates": {
-                "stream": {"symbol": None, "background": BgColor.BRIGHT_BLACK},
-                "island": {"symbol": None, "background": None},
-            },
-            "join_char": "",
-        }
+    def get_render_spec(self) -> RenderSpec:
+        return RenderSpec(
+            clues={value: CellStyle(glyph=glyph_for_value(value), color=Color.BRIGHT_BLUE) for value in range(1, 100)},
+            atoms=[FillRule(Stream, fill=Color.BRIGHT_BLACK)],
+            style=SceneStyle(packed=True),
+        )

@@ -32,8 +32,8 @@ def test_fill_under_glyph_golden() -> None:
     assert AsciiRenderer(use_colors=False).render(scene) == "5 .\n. ."
 
 
-def test_cell_gap_zero() -> None:
-    grid, scene = make_scene(style=SceneStyle(cell_gap=0))
+def test_packed_cells_touch() -> None:
+    grid, scene = make_scene(style=SceneStyle(packed=True))
     scene.add(CellGlyph(grid.Cell(1, 1), Glyph("5")))
     assert AsciiRenderer(use_colors=False).render(scene) == "5.\n.."
 
@@ -56,7 +56,7 @@ def test_colored_output_matches_old_render_grid_simple() -> None:
 
 
 def test_path_glyphs_use_box_chars() -> None:
-    grid, scene = make_scene(style=SceneStyle(cell_gap=0))
+    grid, scene = make_scene(style=SceneStyle(packed=True))
     scene.add(
         CellPath(grid.Cell(1, 1), frozenset({"e", "s"})),
         CellPath(grid.Cell(1, 2), frozenset({"s", "w"})),

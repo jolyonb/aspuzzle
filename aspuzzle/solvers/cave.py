@@ -1,9 +1,8 @@
-from typing import Any
-
 from aspalchemy import ANY, Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell, do_not_show_outside
 from aspuzzle.grids.rectangulargrid import RectangularGrid
-from aspuzzle.grids.rendering import BgColor, Color, RenderSymbol
+from aspuzzle.rendering import CellStyle, FillRule, Glyph, RenderSpec, SceneStyle
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
 
@@ -91,25 +90,14 @@ class Cave(Solver):
         if isinstance(grid, RectangularGrid):
             grid.forbid_checkerboard(symbols["cave"], segment=symbols.segment)
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Cave puzzle solver.
-
-        Returns:
-            Dictionary with rendering configuration
-        """
-        # For numbers 1-9, use the digit as is
-        puzzle_symbols = {i: RenderSymbol(str(i), Color.BRIGHT_BLUE) for i in range(1, 10)}
-
-        # For numbers 10+, use # with a distinctive color
-        for i in range(10, 30):
-            puzzle_symbols[i] = RenderSymbol("#", Color.RED)
-
-        return {
-            "puzzle_symbols": puzzle_symbols,
-            "predicates": {
-                "cave": {"symbol": None, "background": None},
-                "wall": {"symbol": None, "background": BgColor.BRIGHT_BLACK},
-            },
-            "join_char": "",
+    def get_render_spec(self) -> RenderSpec:
+        # Digits as-is; numbers 10+ as # with a distinctive color
+        clues: dict[int | str, CellStyle] = {
+            value: CellStyle(glyph=Glyph(str(value)), color=Color.BRIGHT_BLUE) for value in range(1, 10)
         }
+        clues |= {value: CellStyle(glyph=Glyph("#"), color=Color.RED) for value in range(10, 30)}
+        return RenderSpec(
+            clues=clues,
+            atoms=[FillRule("wall", fill=Color.BRIGHT_BLACK)],
+            style=SceneStyle(packed=True),
+        )

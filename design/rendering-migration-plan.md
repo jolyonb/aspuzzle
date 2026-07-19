@@ -94,14 +94,14 @@ Both old and new pipelines coexist untouched from Step 2 through Step 10; Steps 
 - `aspuzzle/rendering/ascii/theme.py` — `AsciiTheme` (constructor-injected mapping; `Rgb`→nearest-palette quantization), `DEFAULT_THEME` with **exactly** today's SGR strings from `grids/rendering.py` (`"\033[34m"` etc.) so ported output is byte-identical.
 - `aspuzzle/rendering/ascii/geometry.py` — `AsciiGeometry` Protocol (re-exports `AsciiLayoutNeeds`).
 - `aspuzzle/rendering/ascii/renderer.py` — `AsciiRenderer` exactly per design §5.1.
-- `aspuzzle/rendering/grids/rectangular_ascii.py` — `RectangularAsciiGeometry`, **compact layout only** in this step: cell `(r,c)` → char `(r-1,(c-1)·(1+cell_gap))`, painting `CellFill`/`CellGlyph`/`CellPath`/`CellLink`; the box-drawing table from `RectangularGrid.line_characters` moves here **re-keyed by `frozenset[str]`** (killing the `"ew"/"we"` duplicate keys); `path_glyph` for `CellPath`. (Placement decision: per-grid geometry implementations live in `aspuzzle/rendering/grids/` — one module per (grid type, backend) pair, distinct from the ASP-emitting classes in `aspuzzle/grids/`; the grid class runtime-imports its geometry for the factory, the geometry only type-imports the grid.)
+- `aspuzzle/rendering/grids/rectangular_ascii.py` — `RectangularAsciiGeometry`, **compact layout only** in this step: cell `(r,c)` → char `(r-1,(c-1)·(1+gap))` (gap 0 when packed, else 1), painting `CellFill`/`CellGlyph`/`CellPath`/`CellLink`; the box-drawing table from `RectangularGrid.line_characters` moves here **re-keyed by `frozenset[str]`** (killing the `"ew"/"we"` duplicate keys); `path_glyph` for `CellPath`. (Placement decision: per-grid geometry implementations live in `aspuzzle/rendering/grids/` — one module per (grid type, backend) pair, distinct from the ASP-emitting classes in `aspuzzle/grids/`; the grid class runtime-imports its geometry for the factory, the geometry only type-imports the grid.)
 - `aspuzzle/rendering/svg/__init__.py`, `aspuzzle/rendering/svg/geometry.py` — `Point`, `SvgGeometry` Protocol only (contracts frozen now, renderer later).
 - `aspuzzle/rendering/gridview.py` — **`RenderGrid`**, a structural Protocol listing exactly the grid surface rendering may touch (`neighbor`, `edge`, `vertex`, `corner_names`, `corner_across`, `orthogonal_direction_names`, `all_cells`, `cell_coords`, `opposite_direction`, the geometry factories, and the line vocabulary for labels). `Grid` satisfies it structurally — no inheritance, no companion class. `Scene.grid`, renderers, and geometries type against `RenderGrid`, so the type checkers PROVE rendering code cannot reach the statement verbs or cached predicates. (Placement detail: the protocol may reference `AsciiGeometry`/`SvgGeometry` under `TYPE_CHECKING` only, keeping the runtime import-boundary tests honest.)
 - `tests/rendering/test_canvas.py`, `tests/rendering/test_ascii_renderer.py`, `tests/rendering/test_import_boundaries.py`.
 
 **Modify:** `RectangularGrid.ascii_geometry()` returns `RectangularAsciiGeometry(self, needs, style)`.
 
-**Tests landing with this step:** the design's `test_ascii_fill_under_glyph_golden` (`"5 .\n. ."`); `cell_gap=0` joins; fill-preserves-glyph and glyph-preserves-fill on `CharCanvas`; SGR placement with an injected two-entry theme; the **guardrail tests**: `scene.py`/`spec.py`/`color.py`/`glyph.py` import nothing from `aspuzzle.rendering.ascii` (checked via module `__dict__`/AST), and no `"\033"` literal anywhere in `aspuzzle/rendering/` except `ascii/theme.py`.
+**Tests landing with this step:** the design's `test_ascii_fill_under_glyph_golden` (`"5 .\n. ."`); packed joins; fill-preserves-glyph and glyph-preserves-fill on `CharCanvas`; SGR placement with an injected two-entry theme; the **guardrail tests**: `scene.py`/`spec.py`/`color.py`/`glyph.py` import nothing from `aspuzzle.rendering.ascii` (checked via module `__dict__`/AST), and no `"\033"` literal anywhere in `aspuzzle/rendering/` except `ascii/theme.py`.
 
 **Verify:** full suite green; old pipeline untouched.
 
@@ -138,7 +138,7 @@ Both old and new pipelines coexist untouched from Step 2 through Step 10; Steps 
 
 **Modify `aspuzzle/solvers/tents.py`:** delete `get_render_config` (lines 101–115), add `get_render_spec` per design §7.1 (clue `T`, `GlyphRule("tent", glyph=Glyph("A"), color=PaletteColor.YELLOW)`, `LineLabels` for both line directions from `row_clues`/`column_clues`).
 
-**Modify goldens:** regenerate `tests/goldens/ascii/tents/*` — intentional delta: row/column counts appear in margins for the first time, in **both preview and solution**; cell area otherwise identical (default `cell_gap=1` ≡ `join_char=" "`).
+**Modify goldens:** regenerate `tests/goldens/ascii/tents/*` — intentional delta: row/column counts appear in margins for the first time, in **both preview and solution**; cell area otherwise identical (default unpacked ≡ `join_char=" "`).
 
 **Create `tests/rendering/test_solver_specs.py`** (grows each wave): Tents spec is pure data — two `LineLabels`, one `GlyphRule`; preview scene contains `GIVEN` tree glyphs + labels and zero `DERIVED` elements; solved scene from a hand-written `{"tent": [...]}` dict contains yellow "A" glyphs. No clingo in the loop.
 
@@ -165,8 +165,8 @@ Galaxies (deletes `_preprocess_for_rendering` + `_region_colors` + the `region_r
 | Solver | Step | Old config → new spec | Nontrivial? / intentional golden deltas |
 |---|---|---|---|
 | **Tents** | 7 | `puzzle_symbols{T}` → `clues`; `tent` dict → `GlyphRule`; **+ `LineLabels` ×2** | Easy. Delta: row/col counts newly rendered (preview + solved) |
-| **Minesweeper** | 8 | 0–8 `RenderSymbol` → `CellStyle` table; `mine` → `GlyphRule(glyph=Glyph("*"), color=RED)` | Trivial; byte-identical (compact, `cell_gap=1`) |
-| **Hitori** | 8 | digit clues → table; `black: {symbol:None, background:WHITE}` → `FillRule("black", fill=PaletteColor.WHITE)` | Trivial; byte-identical (`cell_gap=0`; `CellFill` preserves glyph = old `symbol:None`) |
+| **Minesweeper** | 8 | 0–8 `RenderSymbol` → `CellStyle` table; `mine` → `GlyphRule(glyph=Glyph("*"), color=RED)` | Trivial; byte-identical (compact, unpacked) |
+| **Hitori** | 8 | digit clues → table; `black: {symbol:None, background:WHITE}` → `FillRule("black", fill=PaletteColor.WHITE)` | Trivial; byte-identical (packed; `CellFill` preserves glyph = old `symbol:None`) |
 | **Cave** | 8 | 1–9 digits BRIGHT_BLUE, 10–29 `"#"` RED → `CellStyle` table (keep `"#"`, no letter switch — table expresses it directly); drop the no-op `cave` entry; `wall` → `FillRule(BRIGHT_BLACK)` | Trivial; byte-identical |
 | **Nurikabe** | 8 | clues 1–99 → `CellStyle(glyph_for_value(i), BRIGHT_BLUE)`; `stream` → `FillRule(BRIGHT_BLACK)` | Delta: clues ≥10 become letters (today `str(i)` emits 2 chars and breaks columns — reviewed fix) |
 | **Skyscrapers** | 8 | letter-map duplicate → `glyph_for_value`; `height` → `GlyphRule(value_field="value")`; **+ `LineLabels` ×4** (`s/n/e/w` per the existing `clue_mapping`), `SceneStyle(frame=True)` per §7.5 | Flagged: edge clues newly rendered; frame added — reviewed delta in both modes |
@@ -199,6 +199,8 @@ for p in puzzles/*.json; do python solveit.py "$p" --no-render --no-output-file;
 eyeballing each preview + solution pair one last time.
 
 ---
+
+**Post-Step-11 checkpoint:** re-run the four-lens adversarial audit (correctness with mandatory repros, simplification, design fidelity, forward-looking) over the final state — the first run (July 2026, mid-migration after Wave 1) caught a label-width crash, the striped-fill interaction, glyph_for_value overflow, and colorer scaling limits; the rerun validates the deletion step and the accumulated fixes.
 
 ## Step 12 — Signature-keyed solution dicts (deferred hardening)
 

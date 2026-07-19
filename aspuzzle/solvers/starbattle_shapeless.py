@@ -2,7 +2,8 @@ from typing import Any, ClassVar
 
 from aspalchemy import ANY, Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.grids.rendering import Color, RenderSymbol
+from aspuzzle.rendering import CellStyle, Glyph, GlyphRule, RenderSpec
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
 
@@ -44,18 +45,8 @@ class Starbattle_Shapeless(Solver):
         puzzle.section("Star adjacency constraints")
         puzzle.when(grid.vertex_sharing(suffix_2="adj")).forbid(symbols["star"](cell), symbols["star"](cell_adj))
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Star Battle solver.
-
-        Returns:
-            Dictionary with rendering configuration for Star Battle
-        """
-        return {
-            "puzzle_symbols": {
-                "#": RenderSymbol("#", Color.WHITE),
-            },
-            "predicates": {
-                "star": {"symbol": "★", "color": Color.BRIGHT_RED},
-            },
-        }
+    def get_render_spec(self) -> RenderSpec:
+        return RenderSpec(
+            clues={"#": CellStyle(glyph=Glyph("#"), color=Color.WHITE)},
+            atoms=[GlyphRule("star", glyph=Glyph("★", svg="⭐"), color=Color.BRIGHT_RED)],
+        )

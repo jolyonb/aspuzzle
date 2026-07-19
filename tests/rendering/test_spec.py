@@ -270,12 +270,12 @@ def test_labels_and_styles_flow_through() -> None:
     svg_style = SceneStyle(lattice=Lattice.FULL)
     spec = RenderSpec(
         labels=[LineLabels("e", [4, None], color=PaletteColor.WHITE, backends=SVG_ONLY)],
-        style=SceneStyle(cell_gap=0),
+        style=SceneStyle(packed=True),
         backend_styles={Backend.SVG: svg_style},
     )
     scene = build_scene(grid, spec, [], None)
     assert scene.style_for(Backend.SVG) is svg_style
-    assert scene.style_for(Backend.ASCII).cell_gap == 0
+    assert scene.style_for(Backend.ASCII).packed
     labels = [element for element in scene.visible(Backend.SVG) if isinstance(element, OutsideLabel)]
     assert len(labels) == 1 and labels[0].index == 1 and labels[0].provenance is Provenance.GIVEN
     assert not list(scene.visible(Backend.ASCII))  # SVG-only labels invisible to ASCII

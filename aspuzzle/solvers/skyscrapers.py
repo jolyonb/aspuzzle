@@ -1,8 +1,7 @@
-from typing import Any
-
 from aspalchemy import ANY, Count, Field, Predicate, RangePool, V
 from aspuzzle.grids.rectangulargrid import RectangularGrid
-from aspuzzle.grids.rendering import Color, RenderSymbol
+from aspuzzle.rendering import CellStyle, GlyphRule, Lattice, LineLabels, RenderSpec, SceneStyle, glyph_for_value
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
 
@@ -124,27 +123,22 @@ class Skyscrapers(Solver):
             Count(Pos, condition=Visible(dir=Dir, index=Idx, position=Pos)) == N
         )
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Skyscrapers solver.
-
-        Returns:
-            Dictionary with rendering configuration for Skyscrapers
-        """
+    def get_render_spec(self) -> RenderSpec:
         assert isinstance(self.grid, RectangularGrid)
         grid_size = self.grid.rows
-
-        puzzle_symbols = {
-            i: RenderSymbol(
-                symbol=str(i) if i <= 9 else chr(ord("A") + i - 10),
-                color=Color.GREEN,
-            )
-            for i in range(1, grid_size + 1)
-        }
-
-        return {
-            "puzzle_symbols": puzzle_symbols,
-            "predicates": {
-                "height": {"value": "value", "color": Color.BRIGHT_BLUE},
+        return RenderSpec(
+            clues={
+                value: CellStyle(glyph=glyph_for_value(value), color=Color.GREEN) for value in range(1, grid_size + 1)
             },
-        }
+            atoms=[GlyphRule("height", value_field="value", color=Color.BRIGHT_BLUE)],
+            labels=[
+                # The direction is which way the clue looks, not where it
+                # sits — a top clue looks south down its column. Same
+                # convention as construct_puzzle's Clue facts.
+                LineLabels("s", self.config["top_clues"], color=Color.BRIGHT_WHITE),
+                LineLabels("n", self.config["bottom_clues"], color=Color.BRIGHT_WHITE),
+                LineLabels("e", self.config["left_clues"], color=Color.BRIGHT_WHITE),
+                LineLabels("w", self.config["right_clues"], color=Color.BRIGHT_WHITE),
+            ],
+            style=SceneStyle(lattice=Lattice.FRAME),
+        )

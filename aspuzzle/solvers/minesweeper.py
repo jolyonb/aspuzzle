@@ -2,7 +2,8 @@ from typing import Any, ClassVar
 
 from aspalchemy import ANY, Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.grids.rendering import Color, RenderSymbol
+from aspuzzle.rendering import CellStyle, Glyph, GlyphRule, RenderSpec
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
 
@@ -49,26 +50,19 @@ class Minesweeper(Solver):
             puzzle.section("Mine count constraint")
             puzzle.require(Count(cell, condition=symbols["mine"](loc=cell)) == config["num_mines"])
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Minesweeper solver.
-
-        Returns:
-            Dictionary with rendering configuration for Minesweeper
-        """
-        return {
-            "puzzle_symbols": {
-                0: RenderSymbol("0", Color.WHITE),
-                1: RenderSymbol("1", Color.BLUE),
-                2: RenderSymbol("2", Color.GREEN),
-                3: RenderSymbol("3", Color.RED),
-                4: RenderSymbol("4", Color.MAGENTA),
-                5: RenderSymbol("5", Color.CYAN),
-                6: RenderSymbol("6", Color.YELLOW),
-                7: RenderSymbol("7", Color.WHITE),
-                8: RenderSymbol("8", Color.WHITE),
-            },
-            "predicates": {
-                "mine": {"symbol": "*", "color": Color.RED},
-            },
+    def get_render_spec(self) -> RenderSpec:
+        digit_colors = {
+            0: Color.WHITE,
+            1: Color.BLUE,
+            2: Color.GREEN,
+            3: Color.RED,
+            4: Color.MAGENTA,
+            5: Color.CYAN,
+            6: Color.YELLOW,
+            7: Color.WHITE,
+            8: Color.WHITE,
         }
+        return RenderSpec(
+            clues={value: CellStyle(glyph=Glyph(str(value)), color=color) for value, color in digit_colors.items()},
+            atoms=[GlyphRule("mine", glyph=Glyph("*", svg="💣"), color=Color.RED)],
+        )

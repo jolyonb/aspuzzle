@@ -140,7 +140,7 @@ def test_convenience_emitters() -> None:
 
 def test_scene_style_defaults() -> None:
     style = SceneStyle()
-    assert style.cell_gap == 1
+    assert not style.packed
     assert style.lattice is Lattice.NONE
     assert not style.vertex_dots
     assert style.empty == CellStyle(glyph=Glyph("."))
@@ -148,7 +148,7 @@ def test_scene_style_defaults() -> None:
 
 def test_style_for_whole_style_replacement() -> None:
     grid = make_grid()
-    ascii_style = SceneStyle(cell_gap=0)
+    ascii_style = SceneStyle(packed=True)
     svg_style = SceneStyle(lattice=Lattice.FULL, vertex_dots=True)
     scene = Scene(grid, style=ascii_style, backend_styles={Backend.SVG: svg_style})
     assert scene.style_for(Backend.ASCII) is ascii_style

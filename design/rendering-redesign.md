@@ -445,7 +445,7 @@ class SceneStyle:
     lattice: Lattice = Lattice.NONE
     frame_weight: EdgeWeight = EdgeWeight.NORMAL   # HEAVY = bold outer boundary
     vertex_dots: bool = False    # substrate dot at every vertex (loop puzzles)
-    cell_gap: int = 1            # character-grid backends only (join_char " " → 1, "" → 0)
+    packed: bool = False         # character-grid backends only: cells touch (old join_char "")
     empty: CellStyle = CellStyle(glyph=Glyph("."))   # character-grid backends only
 
 @dataclass
@@ -779,9 +779,9 @@ class AsciiGeometry(Protocol):
 
 ### 5.3 Rectangular geometry: two layouts, one junction algorithm
 
-**Compact layout** — chosen when the scene's *ASCII-visible* elements include no edge/vertex elements, no frame, no labels: cell `(r, c)` → char `(r-1, (c-1)·(1+cell_gap))`. Byte-for-byte reproduces today's `join_char` output for Numberlink, Galaxies, Tents, Minesweeper, Hitori, etc. Goldens gate this. Note the visibility interaction: a scene *containing* `EdgeSegment`s that are all `SVG_ONLY` still renders compact in ASCII — this is the intended lever for solvers that prefer today's tight terminal output while giving SVG the full drawing (§7.6).
+**Compact layout** — chosen when the scene's *ASCII-visible* elements include no edge/vertex elements, no frame, no labels: cell `(r, c)` → char `(r-1, (c-1)·(1+gap))` (gap 0 when packed, else 1). Byte-for-byte reproduces today's `join_char` output for Numberlink, Galaxies, Tents, Minesweeper, Hitori, etc. Goldens gate this. Note the visibility interaction: a scene *containing* `EdgeSegment`s that are all `SVG_ONLY` still renders compact in ASCII — this is the intended lever for solvers that prefer today's tight terminal output while giving SVG the full drawing (§7.6).
 
-**Expanded layout** — chosen whenever the ASCII-visible elements contain any `EdgeSegment`, `VertexMark`, `style.frame`, or labels: the interleaved lattice with **collapsible lanes**. Edge lanes interleave cell rows/columns (vertices at lane intersections); a lane with no stroked edge in it and not required by the frame collapses to zero height / `cell_gap` width. Sudoku's classic look — thin grid, lines only at block boundaries and the frame — falls out of collapsing rather than special-cased `rows_per_box` arithmetic; Slitherlink keeps all lanes because its loop populates them.
+**Expanded layout** — chosen whenever the ASCII-visible elements contain any `EdgeSegment`, `VertexMark`, a frame-bearing lattice setting, or labels: the interleaved lattice with **collapsible lanes**. Edge lanes interleave cell rows/columns (vertices at lane intersections); a lane with no stroked edge in it and not required by the frame collapses to zero height / gap width. Sudoku's classic look — thin grid, lines only at block boundaries and the frame — falls out of collapsing rather than special-cased `rows_per_box` arithmetic; Slitherlink keeps all lanes because its loop populates them.
 
 **Junction resolution via direction flags.** Painting an `EdgeSegment` never chooses `─`/`│`/`┌` directly. The geometry stamps direction flags onto lattice positions: a horizontal edge marks its run `{e,w}` and contributes `e`/`w` flags to its two flanking vertex positions; the frame and block borders do the same. `resolve_junctions` converts each flagged position's accumulated `frozenset[str]` into a character via the box-drawing table (today's `line_characters` content, moved here, re-keyed by direction *sets*, extended with the double-line family `═║╔…` for HEAVY; mixed weights fall back to "heavy wins" initially). One mechanism produces `├ ┬ ┼ ┘` correctly for Sudoku boxes meeting the frame, a Slitherlink loop crossing lanes, and any combination of independent edge sources — replacing `_build_horizontal_line`'s hand-rolled cases.
 
@@ -967,7 +967,7 @@ def get_render_spec(self) -> RenderSpec:
         clues={s: CellStyle(glyph=Glyph(str(s)), color=CLUE_PALETTE[i % len(CLUE_PALETTE)])
                for i, s in enumerate(clue_syms)},
         atoms=[PathRule("cell_directions", color=PaletteColor.CYAN)],
-        style=SceneStyle(cell_gap=0),
+        style=SceneStyle(packed=True),
     )
 ```
 
@@ -999,7 +999,7 @@ def get_render_spec(self) -> RenderSpec:
         atoms=[RegionFillRule(FromPredicate("galaxy"),
                               palette=(PaletteColor.YELLOW, PaletteColor.BRIGHT_BLUE,
                                        PaletteColor.GREEN, PaletteColor.RED))],
-        style=SceneStyle(cell_gap=0),
+        style=SceneStyle(packed=True),
     )
 ```
 
@@ -1053,7 +1053,7 @@ def get_render_spec(self) -> RenderSpec:
             FillRule("inside", fill=PaletteColor.BRIGHT_GREEN),
             RegionBoundaryRule("inside", color=PaletteColor.BRIGHT_YELLOW),
         ],
-        style=SceneStyle(cell_gap=0),
+        style=SceneStyle(packed=True),
     )
 ```
 
@@ -1096,7 +1096,7 @@ def get_render_spec(self) -> RenderSpec:
         ],
         labels=[LineLabels(d, self.config[f"{self.grid.line_direction_descriptions[d]}_clues"])
                 for d in self.grid.line_direction_names],
-        style=SceneStyle(cell_gap=0),
+        style=SceneStyle(packed=True),
     )
 ```
 
@@ -1129,7 +1129,7 @@ atoms=[FillRule("black", fill=PaletteColor.WHITE)]
 | Fillomino/Galaxies `custom_renderer` closures | typed `Colorer` / `RegionFillRule` |
 | region_coloring + `_region_colors` stash (Galaxies, Stitches, Starbattle) | `RegionFillRule(FromPredicate|FromClues)` |
 | `draw_box`/`rows_per_box`/`cols_per_box` | `SceneStyle.frame` + `RegionBorderRule(by=…)` |
-| `join_char` | `SceneStyle.cell_gap` |
+| `join_char` | `SceneStyle.packed` |
 | `"."` default dot via `puzzle_symbols` | `SceneStyle.empty` |
 | `grid.line_characters` string-concat keys | geometry table keyed by `frozenset[str]` + junction flags |
 | preview + solved renders (implicit, incomplete previews) | one pipeline via `build_scene(solution)`; data-driven rules make previews complete; `Provenance` GIVEN/DERIVED typed |

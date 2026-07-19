@@ -3,7 +3,8 @@ from typing import Any, ClassVar
 from aspalchemy import Field, Predicate, RangePool, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rectangulargrid import RectangularGrid
-from aspuzzle.grids.rendering import Color, RenderSymbol
+from aspuzzle.rendering import CellStyle, GlyphRule, Lattice, RegionBorderRule, RenderSpec, SceneStyle, glyph_for_value
+from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
 
@@ -135,30 +136,24 @@ class Sudoku(Solver):
         clues = puzzle.add_segment("Clues")
         clues.fact(*[Number(loc=grid.Cell(*loc), value=value) for loc, value in grid_data])
 
-    def get_render_config(self) -> dict[str, Any]:
-        """
-        Get the rendering configuration for the Sudoku solver.
-
-        Returns:
-            Dictionary with rendering configuration for Sudoku
-        """
+    def get_render_spec(self) -> RenderSpec:
         assert isinstance(self.grid, RectangularGrid)
         grid_size = self.grid.rows
+        block_rows, block_cols = self.block_rows, self.block_cols
+        assert block_rows is not None and block_cols is not None  # resolved by validate_config
+        grid = self.grid
 
-        puzzle_symbols = {
-            i: RenderSymbol(
-                symbol=str(i) if i <= 9 else chr(ord("A") + i - 10),
-                color=Color.BLUE,
-            )
-            for i in range(1, grid_size + 1)
-        }
+        def block_id(cell: GridCell) -> tuple[int, int]:
+            row, col = grid.cell_coords(cell)
+            return (row - 1) // block_rows, (col - 1) // block_cols
 
-        return {
-            "puzzle_symbols": puzzle_symbols,
-            "predicates": {
-                "number": {"value": "value", "color": Color.GREEN},
+        return RenderSpec(
+            clues={
+                value: CellStyle(glyph=glyph_for_value(value), color=Color.BLUE) for value in range(1, grid_size + 1)
             },
-            "draw_box": True,
-            "rows_per_box": self.block_rows,
-            "cols_per_box": self.block_cols,
-        }
+            atoms=[
+                GlyphRule("number", value_field="value", color=Color.GREEN),
+                RegionBorderRule(by=block_id),
+            ],
+            style=SceneStyle(lattice=Lattice.FRAME),
+        )
