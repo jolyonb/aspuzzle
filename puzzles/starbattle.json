@@ -11,7 +11,7 @@
   "star_count": 1,
   "solutions": [
     {
-      "star": [
+      "star/1": [
         "star(loc=cell(row=1, col=5))",
         "star(loc=cell(row=2, col=3))",
         "star(loc=cell(row=3, col=1))",

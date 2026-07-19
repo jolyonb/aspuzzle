@@ -63,6 +63,6 @@ class Hitori(Solver):
     def get_render_spec(self) -> RenderSpec:
         return RenderSpec(
             clues=digit_clues(range(1, 10), Color.BLUE),
-            atoms=[FillRule("black", fill=Color.WHITE)],
+            atoms=[FillRule("black/1", fill=Color.WHITE)],
             style=SceneStyle(packed=True),
         )

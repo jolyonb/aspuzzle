@@ -150,7 +150,7 @@ class Sudoku(Solver):
         return RenderSpec(
             clues=digit_clues(range(1, grid_size + 1), Color.BLUE),
             atoms=[
-                GlyphRule("number", value_field="value", color=Color.GREEN),
+                GlyphRule("number/2", value_field="value", color=Color.GREEN),
                 RegionBorderRule(by=block_id),
             ],
             style=SceneStyle(lattice=Lattice.FRAME),

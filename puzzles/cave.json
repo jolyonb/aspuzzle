@@ -15,7 +15,7 @@
   ],
   "solutions": [
     {
-      "cave": [
+      "cave/1": [
         "cave(loc=cell(row=1, col=2))",
         "cave(loc=cell(row=1, col=4))",
         "cave(loc=cell(row=1, col=5))",
@@ -63,7 +63,7 @@
         "cave(loc=cell(row=9, col=8))",
         "cave(loc=cell(row=9, col=9))"
       ],
-      "wall": [
+      "wall/1": [
         "wall(loc=cell(row=1, col=1))",
         "wall(loc=cell(row=1, col=3))",
         "wall(loc=cell(row=1, col=6))",

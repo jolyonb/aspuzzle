@@ -11,7 +11,7 @@
   "num_mines": 7,
   "solutions": [
     {
-      "mine": [
+      "mine/1": [
         "mine(loc=cell(row=1, col=4))",
         "mine(loc=cell(row=2, col=1))",
         "mine(loc=cell(row=2, col=2))",

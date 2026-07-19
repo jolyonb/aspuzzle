@@ -64,5 +64,5 @@ class Minesweeper(Solver):
         }
         return RenderSpec(
             clues={value: CellStyle(glyph=Glyph(str(value)), color=color) for value, color in digit_colors.items()},
-            atoms=[GlyphRule("mine", glyph=Glyph("*", svg="💣"), color=Color.RED)],
+            atoms=[GlyphRule("mine/1", glyph=Glyph("*", svg="💣"), color=Color.RED)],
         )

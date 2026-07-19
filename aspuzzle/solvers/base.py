@@ -240,8 +240,11 @@ class Solver(ABC):
 
     def solve(self, models: int = 1, timeout: int = 0) -> tuple[list[dict[str, list[Predicate]]], SolveResult]:
         """
-        Solve the puzzle; returns the collected name-keyed solutions (the shape
-        the renderer and expected-solutions files use) and the SolveResult.
+        Solve the puzzle; returns the collected signature-keyed solutions
+        ("name/arity", the shape the renderer and expected-solutions files
+        use) and the SolveResult. Classically negated atoms are dropped:
+        no renderer can draw one, and a solver that wants -p visible
+        derives a positive alias instead.
 
         models caps the collection (0 collects every model) — a consumer-side
         limit on the unbounded stream.
@@ -250,10 +253,13 @@ class Solver(ABC):
         stream = islice(result, models) if models else result
         solutions = []
         for model in stream:
-            by_name: dict[str, list[Predicate]] = {}
+            by_signature: dict[str, list[Predicate]] = {}
             for atom in model.atoms():
-                by_name.setdefault(type(atom).get_name(), []).append(atom)
-            solutions.append({name: sorted(atoms, key=str) for name, atoms in by_name.items()})
+                if atom.negated:
+                    continue
+                cls = type(atom)
+                by_signature.setdefault(f"{cls.get_name()}/{cls.get_arity()}", []).append(atom)
+            solutions.append({name: sorted(atoms, key=str) for name, atoms in by_signature.items()})
 
         # islice stops the LOOP, not the search: the generator stays
         # suspended and its finally (statistics snapshot, native handle

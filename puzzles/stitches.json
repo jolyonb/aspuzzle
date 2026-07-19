@@ -25,7 +25,7 @@
   ],
   "solutions": [
     {
-      "stitch": [
+      "stitch/2": [
         "stitch(loc1=cell(row=1, col=1), loc2=cell(row=1, col=2))",
         "stitch(loc1=cell(row=1, col=3), loc2=cell(row=1, col=4))",
         "stitch(loc1=cell(row=2, col=1), loc2=cell(row=2, col=2))",

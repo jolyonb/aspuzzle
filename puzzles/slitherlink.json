@@ -10,7 +10,7 @@
   ],
   "solutions": [
     {
-      "inside": [
+      "inside/1": [
         "inside(loc=cell(row=1, col=1))",
         "inside(loc=cell(row=1, col=3))",
         "inside(loc=cell(row=1, col=5))",
@@ -29,7 +29,7 @@
         "inside(loc=cell(row=5, col=3))",
         "inside(loc=cell(row=5, col=5))"
       ],
-      "outside": [
+      "outside/1": [
         "outside(loc=cell(row=1, col=2))",
         "outside(loc=cell(row=1, col=4))",
         "outside(loc=cell(row=3, col=2))",

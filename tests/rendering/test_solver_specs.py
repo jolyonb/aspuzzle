@@ -77,8 +77,8 @@ def test_tents_preview_is_given_only() -> None:
 def test_tents_scene_from_hand_written_solution() -> None:
     solver = load_solver("tents")
     solution: dict[str, list[Predicate]] = {
-        "tent": [Tent(loc=solver.grid.Cell(1, 5))],
-        "tie_destination": [TieDestination(tree_loc=solver.grid.Cell(1, 6), tent_loc=solver.grid.Cell(1, 5))],
+        "tent/1": [Tent(loc=solver.grid.Cell(1, 5))],
+        "tie_destination/2": [TieDestination(tree_loc=solver.grid.Cell(1, 6), tent_loc=solver.grid.Cell(1, 5))],
     }
     scene = solver.build_scene(solution)
     tents = [
@@ -102,7 +102,7 @@ def test_minesweeper_spec() -> None:
 
 
 def test_hitori_and_cave_and_nurikabe_fill_rules() -> None:
-    for name, predicate in (("hitori", "black"), ("cave", "wall")):
+    for name, predicate in (("hitori", "black/1"), ("cave", "wall/1")):
         (rule,) = load_solver(name).get_render_spec().atoms
         assert isinstance(rule, FillRule) and rule.predicate == predicate
     nurikabe_spec = load_solver("nurikabe").get_render_spec()
@@ -149,8 +149,8 @@ def test_numberlink_spec() -> None:
 def test_slitherlink_spec_draws_fill_and_loop() -> None:
     spec = load_solver("slitherlink").get_render_spec()
     fill, boundary = spec.atoms
-    assert isinstance(fill, FillRule) and fill.predicate == "inside"
-    assert isinstance(boundary, RegionBoundaryRule) and boundary.predicate == "inside"
+    assert isinstance(fill, FillRule) and fill.predicate == "inside/1"
+    assert isinstance(boundary, RegionBoundaryRule) and boundary.predicate == "inside/1"
     sheep = spec.clues["S"]
     assert sheep.glyph is not None and sheep.glyph.for_backend(Backend.SVG) == "🐑"
 
@@ -189,7 +189,7 @@ def test_fillomino_large_solution_sizes_follow_the_overflow_convention() -> None
     number kept for sheets) instead of crashing the character grid —
     reachable even without a large clue, via hidden regions."""
     solver = load_solver("fillomino")
-    solution: dict[str, list[Predicate]] = {"number": [Number(loc=solver.grid.Cell(1, 1), size=40)]}
+    solution: dict[str, list[Predicate]] = {"number/2": [Number(loc=solver.grid.Cell(1, 1), size=40)]}
     scene = solver.build_scene(solution)
     glyphs = [
         element

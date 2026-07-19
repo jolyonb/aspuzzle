@@ -13,7 +13,7 @@
   ],
   "solutions": [
     {
-      "number": [
+      "number/2": [
         "number(loc=cell(row=1, col=1), size=2)",
         "number(loc=cell(row=1, col=2), size=2)",
         "number(loc=cell(row=1, col=3), size=4)",

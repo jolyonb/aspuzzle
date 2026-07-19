@@ -95,6 +95,6 @@ class Cave(Solver):
         clues = digit_clues(range(1, 10), Color.BRIGHT_BLUE) | overflow_clues(range(10, 30), Color.RED)
         return RenderSpec(
             clues=clues,
-            atoms=[FillRule("wall", fill=Color.BRIGHT_BLACK)],
+            atoms=[FillRule("wall/1", fill=Color.BRIGHT_BLACK)],
             style=SceneStyle(packed=True),
         )

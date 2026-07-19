@@ -56,7 +56,7 @@ class Starbattle(Solver):
         return RenderSpec(
             atoms=[
                 RegionFillRule(FromClues(), palette=(Color.BRIGHT_BLUE, Color.GREEN, Color.RED, Color.CYAN)),
-                GlyphRule("star", glyph=Glyph("★", svg="⭐"), color=Color.BRIGHT_YELLOW),
+                GlyphRule("star/1", glyph=Glyph("★", svg="⭐"), color=Color.BRIGHT_YELLOW),
             ],
             style=SceneStyle(packed=True),
         )

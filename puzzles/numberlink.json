@@ -14,7 +14,7 @@
   ],
   "solutions": [
     {
-      "cell_directions": [
+      "cell_directions/3": [
         "cell_directions(loc=cell(row=1, col=1), dir1=\"e\", dir2=\"s\")",
         "cell_directions(loc=cell(row=1, col=2), dir1=\"e\", dir2=\"w\")",
         "cell_directions(loc=cell(row=1, col=3), dir1=\"e\", dir2=\"w\")",

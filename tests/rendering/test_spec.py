@@ -60,9 +60,9 @@ def test_clues_emit_first_and_given() -> None:
     grid = make_grid()
     spec = RenderSpec(
         clues={5: CellStyle(glyph=Glyph("5"), color=PaletteColor.BLUE, fill=PaletteColor.WHITE)},
-        atoms=[GlyphRule("star", glyph=Glyph("*"))],
+        atoms=[GlyphRule("star/1", glyph=Glyph("*"))],
     )
-    scene = build_scene(grid, spec, [((1, 1), 5)], {"star": [Star(loc=grid.Cell(1, 1))]})
+    scene = build_scene(grid, spec, [((1, 1), 5)], {"star/1": [Star(loc=grid.Cell(1, 1))]})
     elements = list(scene.visible(Backend.ASCII))
     assert isinstance(elements[0], CellGlyph) and elements[0].provenance is Provenance.GIVEN
     assert isinstance(elements[1], CellFill) and elements[1].provenance is Provenance.GIVEN
@@ -74,7 +74,7 @@ def test_preview_runs_without_solution() -> None:
     spec = RenderSpec(
         clues={"T": CellStyle(glyph=Glyph("T"))},
         atoms=[
-            GlyphRule("star", glyph=Glyph("*")),
+            GlyphRule("star/1", glyph=Glyph("*")),
             RegionBorderRule(by=lambda cell: grid.cell_coords(cell)[0] <= 1),
         ],
         labels=[LineLabels("s", [1, None, 2])],
@@ -91,14 +91,14 @@ def test_glyph_rule_value_field_and_colorer() -> None:
     spec = RenderSpec(
         atoms=[
             GlyphRule(
-                "number",
+                "number/2",
                 value_field="value",
                 color=lambda atom: PaletteColor.RED if atom["value"].value > 9 else PaletteColor.GREEN,
                 fill=PaletteColor.BLACK,
             )
         ]
     )
-    solution = {"number": [Number(loc=grid.Cell(1, 1), value=7), Number(loc=grid.Cell(1, 2), value=12)]}
+    solution = {"number/2": [Number(loc=grid.Cell(1, 1), value=7), Number(loc=grid.Cell(1, 2), value=12)]}
     scene = build_scene(grid, spec, [], solution)
     glyphs = [element for element in scene.visible(Backend.ASCII) if isinstance(element, CellGlyph)]
     by_text = {glyph.glyph.for_backend(Backend.ASCII): glyph for glyph in glyphs}
@@ -111,8 +111,8 @@ def test_glyph_rule_value_field_and_colorer() -> None:
 
 def test_glyph_rule_values_past_the_single_char_range_render_as_overflow() -> None:
     grid = make_grid()
-    solution = {"number": [Number(loc=grid.Cell(1, 1), value=42)]}
-    scene = build_scene(grid, RenderSpec(atoms=[GlyphRule("number", value_field="value")]), [], solution)
+    solution = {"number/2": [Number(loc=grid.Cell(1, 1), value=42)]}
+    scene = build_scene(grid, RenderSpec(atoms=[GlyphRule("number/2", value_field="value")]), [], solution)
     (glyph,) = (element for element in scene.visible(Backend.ASCII) if isinstance(element, CellGlyph))
     assert glyph.glyph.for_backend(Backend.ASCII) == "#"
     assert glyph.glyph.for_backend(Backend.SHEET) == "42"
@@ -121,13 +121,13 @@ def test_glyph_rule_values_past_the_single_char_range_render_as_overflow() -> No
 def test_glyph_rule_requires_exactly_one_glyph_source() -> None:
     grid = make_grid()
     with pytest.raises(ValueError, match="exactly one"):
-        build_scene(grid, RenderSpec(atoms=[GlyphRule("star")]), [], {"star": [Star(loc=grid.Cell(1, 1))]})
+        build_scene(grid, RenderSpec(atoms=[GlyphRule("star/1")]), [], {"star/1": [Star(loc=grid.Cell(1, 1))]})
     with pytest.raises(ValueError, match="exactly one"):
         build_scene(
             grid,
-            RenderSpec(atoms=[GlyphRule("number", glyph=Glyph("x"), value_field="value")]),
+            RenderSpec(atoms=[GlyphRule("number/2", glyph=Glyph("x"), value_field="value")]),
             [],
-            {"number": [Number(loc=grid.Cell(1, 1), value=1)]},
+            {"number/2": [Number(loc=grid.Cell(1, 1), value=1)]},
         )
 
 
@@ -136,39 +136,39 @@ def test_class_reference_filters_by_instance() -> None:
     bare = Bare(id=1)
     # A hand-built bucket whose name matches but whose atoms are another
     # class entirely: a class-referenced rule filters them out silently...
-    scene = build_scene(grid, RenderSpec(atoms=[GlyphRule(Star, glyph=Glyph("*"))]), [], {"star": [bare]})
+    scene = build_scene(grid, RenderSpec(atoms=[GlyphRule(Star, glyph=Glyph("*"))]), [], {"star/1": [bare]})
     assert not list(scene.visible(Backend.ASCII))
     # ...while a string-referenced rule takes the bucket at its word and
     # trips field validation
     with pytest.raises(ValueError, match="no field 'loc'"):
-        build_scene(grid, RenderSpec(atoms=[GlyphRule("star", glyph=Glyph("*"))]), [], {"star": [bare]})
+        build_scene(grid, RenderSpec(atoms=[GlyphRule("star/1", glyph=Glyph("*"))]), [], {"star/1": [bare]})
 
 
 def test_class_reference_resolves_name() -> None:
     grid = make_grid()
     spec = RenderSpec(atoms=[GlyphRule(Star, glyph=Glyph("*"))])
-    scene = build_scene(grid, spec, [], {"star": [Star(loc=grid.Cell(1, 1))]})
+    scene = build_scene(grid, spec, [], {"star/1": [Star(loc=grid.Cell(1, 1))]})
     assert len(list(scene.visible(Backend.ASCII))) == 1
 
 
 def test_unknown_field_error_is_precise() -> None:
     grid = make_grid()
-    spec = RenderSpec(atoms=[GlyphRule("star", glyph=Glyph("*"), loc_field="location")])
+    spec = RenderSpec(atoms=[GlyphRule("star/1", glyph=Glyph("*"), loc_field="location")])
     with pytest.raises(ValueError, match="no field 'location' \\(available: loc\\)"):
-        build_scene(grid, spec, [], {"star": [Star(loc=grid.Cell(1, 1))]})
+        build_scene(grid, spec, [], {"star/1": [Star(loc=grid.Cell(1, 1))]})
 
 
 def test_absent_predicate_emits_nothing() -> None:
     grid = make_grid()
-    spec = RenderSpec(atoms=[GlyphRule("star", glyph=Glyph("*")), FillRule("inside", fill=PaletteColor.GREEN)])
+    spec = RenderSpec(atoms=[GlyphRule("star/1", glyph=Glyph("*")), FillRule("inside/1", fill=PaletteColor.GREEN)])
     scene = build_scene(grid, spec, [], {"unrelated": []})
     assert not list(scene.visible(Backend.ASCII))
 
 
 def test_path_rule_builds_direction_sets() -> None:
     grid = make_grid()
-    spec = RenderSpec(atoms=[PathRule("cell_directions", color=PaletteColor.CYAN)])
-    solution = {"cell_directions": [Directions(loc=grid.Cell(2, 2), dir1="e", dir2="s")]}
+    spec = RenderSpec(atoms=[PathRule("cell_directions/3", color=PaletteColor.CYAN)])
+    solution = {"cell_directions/3": [Directions(loc=grid.Cell(2, 2), dir1="e", dir2="s")]}
     scene = build_scene(grid, spec, [], solution)
     (path,) = scene.visible(Backend.ASCII)
     assert isinstance(path, CellPath)
@@ -177,8 +177,8 @@ def test_path_rule_builds_direction_sets() -> None:
 
 def test_edge_rule_canonicalizes() -> None:
     grid = make_grid()
-    spec = RenderSpec(atoms=[EdgeRule("border")])
-    solution = {"border": [Border(loc=grid.Cell(1, 2), direction="w")]}
+    spec = RenderSpec(atoms=[EdgeRule("border/2")])
+    solution = {"border/2": [Border(loc=grid.Cell(1, 2), direction="w")]}
     scene = build_scene(grid, spec, [], solution)
     (segment,) = scene.visible(Backend.ASCII)
     assert isinstance(segment, EdgeSegment)
@@ -188,13 +188,13 @@ def test_edge_rule_canonicalizes() -> None:
 def test_link_rule_palette_is_deterministic() -> None:
     grid = make_grid()
     palette = (PaletteColor.RED, PaletteColor.BLUE)
-    spec = RenderSpec(atoms=[LinkRule("stitch", glyph=Glyph("X"), palette=palette)])
+    spec = RenderSpec(atoms=[LinkRule("stitch/2", glyph=Glyph("X"), palette=palette)])
     atoms = [
         Stitch(loc1=grid.Cell(1, 1), loc2=grid.Cell(1, 2)),
         Stitch(loc1=grid.Cell(2, 1), loc2=grid.Cell(2, 2)),
     ]
-    forward = build_scene(grid, spec, [], {"stitch": atoms})
-    reversed_input = build_scene(grid, spec, [], {"stitch": list(reversed(atoms))})
+    forward = build_scene(grid, spec, [], {"stitch/2": atoms})
+    reversed_input = build_scene(grid, spec, [], {"stitch/2": list(reversed(atoms))})
     colors_forward = [element.color for element in forward.visible(Backend.ASCII) if isinstance(element, CellLink)]
     colors_reversed = [
         element.color for element in reversed_input.visible(Backend.ASCII) if isinstance(element, CellLink)
@@ -206,8 +206,8 @@ def test_link_rule_palette_is_deterministic() -> None:
 def test_region_boundary_rule_traces_the_perimeter() -> None:
     grid = make_grid()
     plus = [(1, 2), (2, 1), (2, 2), (2, 3), (3, 2)]
-    solution = {"inside": [Inside(loc=grid.Cell(*coords)) for coords in plus]}
-    scene = build_scene(grid, RenderSpec(atoms=[RegionBoundaryRule("inside")]), [], solution)
+    solution = {"inside/1": [Inside(loc=grid.Cell(*coords)) for coords in plus]}
+    scene = build_scene(grid, RenderSpec(atoms=[RegionBoundaryRule("inside/1")]), [], solution)
     segments = [element for element in scene.visible(Backend.ASCII) if isinstance(element, EdgeSegment)]
     assert len(segments) == 12  # the perimeter of a plus pentomino
     assert EdgeSegment(grid.edge(grid.Cell(1, 2), "n")) in segments  # closes at the grid border
@@ -237,7 +237,7 @@ def test_region_border_boundary_skips_regionless_cells() -> None:
     """include_boundary outlines only classified cells: a partial region
     source must not draw the whole grid frame."""
     grid = make_grid()
-    solution = {"region_atom": [RegionAtom(loc=grid.Cell(1, 1), id=1)]}
+    solution = {"region_atom/2": [RegionAtom(loc=grid.Cell(1, 1), id=1)]}
     spec = RenderSpec(atoms=[RegionBorderRule(source=FromPredicate(RegionAtom), include_boundary=True)])
     scene = build_scene(grid, spec, [], solution)
     segments = {element.edge for element in scene.visible(Backend.ASCII) if isinstance(element, EdgeSegment)}
@@ -259,9 +259,11 @@ def test_region_fill_rules_from_clues_and_predicate() -> None:
     assert fills[(1, 1)].color != fills[(1, 2)].color  # adjacent regions differ
 
     solution = {
-        "region_atom": [RegionAtom(loc=grid.Cell(*coords), id=1 if value == "a" else 2) for coords, value in grid_data]
+        "region_atom/2": [
+            RegionAtom(loc=grid.Cell(*coords), id=1 if value == "a" else 2) for coords, value in grid_data
+        ]
     }
-    scene2 = build_scene(grid, RenderSpec(atoms=[RegionFillRule(FromPredicate("region_atom"))]), [], solution)
+    scene2 = build_scene(grid, RenderSpec(atoms=[RegionFillRule(FromPredicate("region_atom/2"))]), [], solution)
     fills2 = [element for element in scene2.visible(Backend.ASCII) if isinstance(element, CellFill)]
     assert len(fills2) == 4
     assert all(element.provenance is Provenance.DERIVED for element in fills2)
@@ -277,9 +279,9 @@ def test_custom_rule_gets_sorted_atoms_and_backend_stamp() -> None:
         yield CellGlyph(grid.Cell(1, 1), Glyph("!"))
         yield CellGlyph(grid.Cell(1, 2), Glyph("?"), backends=frozenset({Backend.ASCII}))
 
-    spec = RenderSpec(atoms=[CustomRule("star", make, backends=SVG_ONLY)])
+    spec = RenderSpec(atoms=[CustomRule("star/1", make, backends=SVG_ONLY)])
     atoms = [Star(loc=grid.Cell(2, 2)), Star(loc=grid.Cell(1, 1))]
-    scene = build_scene(grid, spec, [], {"star": atoms})
+    scene = build_scene(grid, spec, [], {"star/1": atoms})
     assert seen == sorted(seen)  # delivered in sorted order
     (first,) = scene.visible(Backend.SVG)
     (second,) = scene.visible(Backend.ASCII)
@@ -305,8 +307,8 @@ def test_labels_and_styles_flow_through() -> None:
 
 def test_value_glyph_falls_back_to_literal_text_outside_convention() -> None:
     grid = make_grid()
-    solution = {"number": [Number(loc=grid.Cell(1, 1), value=-3), Number(loc=grid.Cell(1, 2), value=99)]}
-    scene = build_scene(grid, RenderSpec(atoms=[GlyphRule("number", value_field="value")]), [], solution)
+    solution = {"number/2": [Number(loc=grid.Cell(1, 1), value=-3), Number(loc=grid.Cell(1, 2), value=99)]}
+    scene = build_scene(grid, RenderSpec(atoms=[GlyphRule("number/2", value_field="value")]), [], solution)
     texts = {
         element.glyph.for_backend(Backend.SHEET)
         for element in scene.visible(Backend.SHEET)
@@ -328,5 +330,12 @@ def test_class_reference_field_typo_fails_at_construction() -> None:
     with pytest.raises(ValueError, match="no field 'lco'"):
         GlyphRule(Star, glyph=Glyph("*"), loc_field="lco")
     # String references cannot be checked until atoms exist
-    rule = GlyphRule("star", glyph=Glyph("*"), loc_field="lco")
+    rule = GlyphRule("star/1", glyph=Glyph("*"), loc_field="lco")
     assert rule.loc_field == "lco"
+
+
+def test_string_refs_must_carry_arity() -> None:
+    with pytest.raises(ValueError, match="carry their arity"):
+        GlyphRule("star", glyph=Glyph("*"))
+    with pytest.raises(ValueError, match="carry their arity"):
+        FromPredicate("galaxy")

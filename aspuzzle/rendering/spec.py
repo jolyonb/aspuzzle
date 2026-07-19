@@ -19,6 +19,7 @@ argument) raise at spec construction; data mistakes (a bad field name)
 raise at build time with a precise message.
 """
 
+import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import KW_ONLY, dataclass, field, replace
 from typing import TYPE_CHECKING
@@ -54,9 +55,13 @@ type ColorLike = ColorSpec | Colorer
 
 # Rules name their predicate either by the class the solver holds (loud on
 # typos, refactorable, and atoms are isinstance-filtered — robust even if a
-# solution bucket ever mixes same-named predicates) or by its rendered name
-# (matching the name-keyed solution dict).
+# solution bucket ever mixes same-named predicates) or by its signature
+# string "name/arity" (matching the signature-keyed solution dict; the
+# arity is required, so a typo or arity mismatch cannot silently match
+# nothing).
 type PredicateRef = type[Predicate] | str
+
+_SIGNATURE_SHAPE = re.compile(r"[A-Za-z_]\w*/\d+")
 
 
 @dataclass(frozen=True)
@@ -76,7 +81,7 @@ class RenderContext:
 
 
 def _ref_name(ref: PredicateRef) -> str:
-    return ref if isinstance(ref, str) else ref.get_name()
+    return ref if isinstance(ref, str) else f"{ref.get_name()}/{ref.get_arity()}"
 
 
 def _require_fields(rule: object, ref: PredicateRef, fields: Sequence[str | None], available: Sequence[str]) -> None:
@@ -90,9 +95,15 @@ def _require_fields(rule: object, ref: PredicateRef, fields: Sequence[str | None
 
 def _check_ref_fields(rule: object, ref: PredicateRef, fields: Sequence[str | None]) -> None:
     """Class references carry their field set, so a bad field name fails at
-    spec construction; string references can only be checked against atoms
-    at build time."""
-    if not isinstance(ref, str):
+    spec construction; string references are shape-checked here (they must
+    spell the full signature) and validated against atoms at build time."""
+    if isinstance(ref, str):
+        if not _SIGNATURE_SHAPE.fullmatch(ref):
+            raise ValueError(
+                f"{type(rule).__name__}: string predicate references carry their arity, "
+                f'like "{ref.split("/")[0]}/2" — got {ref!r}'
+            )
+    else:
         _require_fields(rule, ref, fields, ref.field_names())
 
 

@@ -48,5 +48,5 @@ class Starbattle_Shapeless(Solver):
     def get_render_spec(self) -> RenderSpec:
         return RenderSpec(
             clues={"#": CellStyle(glyph=Glyph("#"), color=Color.WHITE)},
-            atoms=[GlyphRule("star", glyph=Glyph("★", svg="⭐"), color=Color.BRIGHT_RED)],
+            atoms=[GlyphRule("star/1", glyph=Glyph("★", svg="⭐"), color=Color.BRIGHT_RED)],
         )

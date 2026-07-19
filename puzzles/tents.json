@@ -27,7 +27,7 @@
   ],
   "solutions": [
     {
-      "tie_destination": [
+      "tie_destination/2": [
         "tie_destination(tree_loc=cell(row=1, col=6), tent_loc=cell(row=1, col=5))",
         "tie_destination(tree_loc=cell(row=2, col=4), tent_loc=cell(row=2, col=3))",
         "tie_destination(tree_loc=cell(row=3, col=1), tent_loc=cell(row=4, col=1))",
@@ -36,7 +36,7 @@
         "tie_destination(tree_loc=cell(row=6, col=3), tent_loc=cell(row=6, col=2))",
         "tie_destination(tree_loc=cell(row=6, col=5), tent_loc=cell(row=6, col=6))"
       ],
-      "tent": [
+      "tent/1": [
         "tent(loc=cell(row=1, col=5))",
         "tent(loc=cell(row=2, col=3))",
         "tent(loc=cell(row=4, col=1))",

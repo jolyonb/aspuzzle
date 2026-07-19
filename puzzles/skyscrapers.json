@@ -31,7 +31,7 @@
   ],
   "solutions": [
     {
-      "height": [
+      "height/2": [
         "height(loc=cell(row=1, col=1), value=1)",
         "height(loc=cell(row=1, col=2), value=4)",
         "height(loc=cell(row=1, col=3), value=3)",

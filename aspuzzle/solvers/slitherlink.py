@@ -108,8 +108,8 @@ class Slitherlink(Solver):
         return RenderSpec(
             clues=clues,
             atoms=[
-                FillRule("inside", fill=Color.BRIGHT_GREEN),
-                RegionBoundaryRule("inside", color=Color.BRIGHT_YELLOW),
+                FillRule("inside/1", fill=Color.BRIGHT_GREEN),
+                RegionBoundaryRule("inside/1", color=Color.BRIGHT_YELLOW),
             ],
             style=SceneStyle(packed=True),
         )

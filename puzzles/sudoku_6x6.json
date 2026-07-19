@@ -13,7 +13,7 @@
   "block_cols": 3,
   "solutions": [
     {
-      "number": [
+      "number/2": [
         "number(loc=cell(row=1, col=1), value=6)",
         "number(loc=cell(row=1, col=2), value=2)",
         "number(loc=cell(row=1, col=3), value=4)",

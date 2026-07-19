@@ -133,7 +133,7 @@ class Skyscrapers(Solver):
         grid_size = self.grid.rows
         return RenderSpec(
             clues=digit_clues(range(1, grid_size + 1), Color.GREEN),
-            atoms=[GlyphRule("height", value_field="value", color=Color.BRIGHT_BLUE)],
+            atoms=[GlyphRule("height/2", value_field="value", color=Color.BRIGHT_BLUE)],
             labels=[
                 LineLabels(direction, self.config[key], color=Color.BRIGHT_WHITE)
                 for direction, key in self.CLUE_DIRECTIONS

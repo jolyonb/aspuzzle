@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from aspuzzle.solvers.base import Solver
+from aspuzzle.solvers.tents import Tent
 
 
 def get_puzzle_files() -> list[Path]:
@@ -38,3 +39,19 @@ def test_puzzle_solves(puzzle_file: Path) -> None:
 
     if "solutions" in config:
         assert solver.validate_solutions(solutions), f"Solutions for {puzzle_file.name} do not match expected solutions"
+
+
+def test_solution_dicts_are_signature_keyed_and_drop_negated_atoms() -> None:
+    """Solution dicts key by "name/arity", and classically negated shown
+    atoms are dropped — no renderer can draw one; a solver that wants -p
+    visible derives a positive alias instead."""
+    with open(Path(__file__).parent.parent / "puzzles" / "tents.json") as f:
+        config = json.load(f)
+    solver = Solver.from_config(config)
+    solver.construct_puzzle()
+    # A consistent negated shown fact: the unique solution has no tent here
+    solver.puzzle.fact(-Tent(loc=solver.grid.Cell(row=1, col=1)))
+    solutions, result = solver.solve()
+    assert result.satisfiable
+    assert set(solutions[0]) == {"tent/1", "tie_destination/2"}
+    assert not any(atom.negated for atoms in solutions[0].values() for atom in atoms)
