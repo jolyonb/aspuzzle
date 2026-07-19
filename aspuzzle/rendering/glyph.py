@@ -1,3 +1,10 @@
+"""
+Renderable text marks. A Glyph carries a width-constrained baseline plus
+optional per-backend variants (svg=, sheet=), resolved by each renderer via
+for_backend(); glyph_for_value is the single home of the 0-9/A+ digit
+convention for character grids.
+"""
+
 from dataclasses import dataclass
 
 from aspuzzle.rendering.backend import Backend

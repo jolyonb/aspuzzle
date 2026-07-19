@@ -1,3 +1,13 @@
+"""
+The scene model: the backend-agnostic intermediate representation between
+solvers and renderers. Typed elements (fills, glyphs, paths, links, edge
+segments, vertex marks, outside labels) at abstract grid locations, with
+per-backend visibility and GIVEN/DERIVED provenance. One Scene holds
+everything; renderers consume it through the two filtered views
+(sorted_elements / layout_needs), the single choke point where backend
+visibility applies.
+"""
+
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import KW_ONLY, dataclass, field
 from enum import Enum, IntEnum, auto
@@ -10,14 +20,15 @@ from aspuzzle.rendering.glyph import Glyph
 if TYPE_CHECKING:
     # Type-only: grids import scene types at runtime (Edge/Vertex
     # construction), so the runtime dependency must point one way only
-    from aspuzzle.grids.base import Grid, GridCell
+    from aspuzzle.grids.base import GridCell
+    from aspuzzle.rendering.gridview import RenderGrid
 
 
 class Provenance(Enum):
     """
     Where an element's information came from. Backends may style the two
     classes differently (e.g. SVG: bold clue digits, lighter solution
-    values); the ASCII default theme ignores it, preserving today's look.
+    values); the default ASCII theme ignores it.
     Provenance is meaning, not paint order — it never affects layering.
     """
 
@@ -191,7 +202,7 @@ class CellStyle:
 @dataclass(frozen=True)
 class SceneStyle:
     frame: bool = False  # outer border
-    cell_gap: int = 1  # inter-cell spacing in ASCII (old join_char " " = 1, "" = 0)
+    cell_gap: int = 1  # inter-cell spacing in character-grid backends
     empty: CellStyle = field(default_factory=lambda: CellStyle(glyph=Glyph(".")))  # untouched cells
 
 
@@ -222,7 +233,7 @@ class Scene:
     can never disagree about what a backend sees.
     """
 
-    grid: Grid
+    grid: RenderGrid
     style: SceneStyle = field(default_factory=SceneStyle)
     _elements: list[SceneElement] = field(default_factory=list, repr=False)
 

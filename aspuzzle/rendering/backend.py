@@ -1,3 +1,8 @@
+"""
+The closed set of rendering backends and the visibility constants used to
+restrict scene elements to a subset of them.
+"""
+
 from enum import Enum, auto
 from typing import Final
 

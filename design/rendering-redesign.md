@@ -75,13 +75,20 @@ New package layout:
 ```
 aspuzzle/rendering/
     __init__.py       re-exports the solver-facing vocabulary
+    backend.py        Backend, BackendSet, visibility constants (leaf module)
     color.py          PaletteColor, Rgb, ColorSpec
-    glyph.py          Glyph, glyph_for_value
-    scene.py          Backend, Provenance, Layer, Edge, Vertex,
-                      element dataclasses, Scene, SceneStyle
+    glyph.py          Glyph (per-backend variants), glyph_for_value
+    scene.py          Provenance, Layer, Edge, Vertex, element dataclasses,
+                      Scene, SceneStyle, LayoutNeeds
+    gridview.py       RenderGrid protocol (the typed rendering/ASP boundary)
     spec.py           RenderSpec, CellStyle, LineLabels, rule dataclasses, build_scene
     regioncolor.py    region coloring core (moved from grids/region_coloring.py,
                       ColorSpec-typed, deterministic)
+    grids/            per-grid geometry implementations, one module per
+                      (grid type, backend) pair — no ASP anywhere here
+        rectangular_ascii.py   RectangularAsciiGeometry
+        hex_ascii.py           (with HexGrid)
+        rectangular_svg.py     (with the SVG renderer)
     ascii/
         canvas.py     CharCanvas (styled-character compositing surface)
         geometry.py   AsciiGeometry protocol, CharPos, TextSpan, AsciiLayoutNeeds
@@ -427,17 +434,31 @@ class CellStyle:
     fill: ColorSpec | None = None
     backends: BackendSet = ALL_BACKENDS
 
+class Lattice(Enum):
+    """How much of the grid's own skeleton the substrate draws."""
+    NONE = auto()    # no cell borders (the compact terminal look)
+    FRAME = auto()   # outer boundary only
+    FULL = auto()    # every cell edge (wireframe / printed-grid look)
+
 @dataclass(frozen=True)
 class SceneStyle:
-    frame: bool = False          # outer border
-    cell_gap: int = 1            # inter-cell spacing (join_char " " → 1, "" → 0)
-    empty: CellStyle = CellStyle(glyph=Glyph("."))   # untouched cells
+    lattice: Lattice = Lattice.NONE
+    frame_weight: EdgeWeight = EdgeWeight.NORMAL   # HEAVY = bold outer boundary
+    vertex_dots: bool = False    # substrate dot at every vertex (loop puzzles)
+    cell_gap: int = 1            # character-grid backends only (join_char " " → 1, "" → 0)
+    empty: CellStyle = CellStyle(glyph=Glyph("."))   # character-grid backends only
 
 @dataclass
 class Scene:
-    grid: Grid
+    grid: RenderGrid
     style: SceneStyle = SceneStyle()
+    backend_styles: Mapping[Backend, SceneStyle] = ...   # whole-style override per backend
     _elements: list[SceneElement] = field(default_factory=list)
+
+    def style_for(self, backend: Backend) -> SceneStyle:
+        """backend_styles.get(backend, style) — whole-style replacement,
+        no field merging. layout_needs(backend) consults this, so (e.g.)
+        SVG-only vertex dots never force ASCII into the expanded layout."""
 
     def add(self, *elements: SceneElement) -> None: ...
     def extend(self, elements: Iterable[SceneElement]) -> None: ...
@@ -469,6 +490,8 @@ class Scene:
         from ASCII can neither force the expanded layout nor reserve
         margins."""
 ```
+
+**The substrate is the puzzle's request to the grid** (added July 2026, post-review): everything that isn't puzzle content — outer boundary, full wireframe lattice, vertex dots, plain — is `SceneStyle` vocabulary, painted by each geometry's `paint_base()` at `Layer.BASE` and interpreted per backend (ASCII `Lattice.FULL` = expanded layout with every lane stroked, junction-resolved; SVG `FULL` = light strokes on every cell polygon; sheet ignores lattice entirely). The same puzzle legitimately wants different substrates per backend — Slitherlink: compact fills in the terminal, dots-no-lines in SVG (`styles={Backend.SVG: SceneStyle(vertex_dots=True)}`); Sudoku: sparse heavy-framed boxes in ASCII, full printed lattice in SVG — hence `backend_styles` with whole-style replacement. Region borders (Sudoku blocks, cages) deliberately stay *content* (`RegionBorderRule` → `EdgeSegment`s), not substrate: they are puzzle-specific structure and already compose per backend via rule visibility. Implementation lands with migration Step 5 (ASCII) and the SVG renderer; `RenderSpec` grows the matching `style`/`styles` fields in Step 6.
 
 **Compositing semantics** (today's, now structural): elements paint in `(layer, insertion order)`. A `CellFill` touches only the background channel; a `CellGlyph` touches glyph + foreground. "Clue digit over region fill" composes with no `symbol=None` convention. Elements at locations outside the drawable area are skipped silently, preserving today's behavior for Slitherlink's outside-border atoms.
 
@@ -840,6 +863,19 @@ Element mapping is mechanical because the scene is already geometric: `CellFill`
 SVG is the **full-fidelity backend**: it renders every element kind exactly, so the visibility mechanism is expected to *hide from ASCII*, not from SVG — `SVG_ONLY` marks "too rich for the terminal" content, `ASCII_ONLY` marks its simplified stand-in, and a scene's SVG output is the superset view by construction whenever solvers follow that convention.
 
 Adding SVG is: two renderer/theme files, `svg_geometry()` per grid, `--svg out.svg` in `solveit.py`. **Zero solver edits** — requirement 2 discharged structurally, and enforced by a CI check that `scene.py`/`spec.py` import nothing from `ascii/`. (`Backend` names backends but carries no backend internals — it lives in `scene.py` and imports nothing.)
+
+### 6.0 Implementation notes salvaged from dbpuzzles (surveyed July 2026)
+
+`~/gitrepos/dbpuzzles` (`solvers/puzzledraw/`, the 2023 f-string SVG renderer; Jinja there generated clingo, not SVG) was surveyed for salvage. Adopt when building this backend:
+
+- **Auto-extent viewBox**: bounds from drawn content plus ¼-cell padding (`base.py:73-81`, `rectangulargrid.py:70-83`) — outside labels expand the canvas for free; matches `SvgGeometry.bounds(scene)` computed over `visible(Backend.SVG)`.
+- **Scale and centering constants**: 64 px/cell; cell centers at `(col−0.5, row−0.5)·cell`; text via `text-anchor:middle; dominant-baseline:middle`, font size by glyph length (3/2/1.5 rem) with a small hand-tuned baseline nudge (`styles.css:89-111`).
+- **Stroke settings**: `vector-effect:non-scaling-stroke` + `shape-rendering:geometricprecision` for hairline grids; `stroke-linejoin:bevel` for lattice lines, `round` for feature paths (`styles.css:7-38`).
+- **Glyph halo**: `paint-order="stroke fill"` with a 2px white stroke so text reads over fills (surviving only in the committed `solvers/test.svg:70`).
+- **Theme seeds**: SudokuPad-derived semantic colors (`--puzzle-given:#000`, `--puzzle-value:#1d6ae5`) and its 10-color categorical palette (`old_solvers/puzzledraw/httptest/style.css:500-537`, skip the negative-rgba row).
+- **Dev loop**: recreate the livereload SVG preview harness (`old_solvers/puzzledraw/httptest/serve.py`).
+- **Hex pointer**: dbpuzzles' own note recommends Red Blob Games doubled coordinates — weigh against axial when `HexGrid` is designed (both give uniform integer vectors).
+- **Anti-lessons**: escape or type-build all markup (dbpuzzles interpolated raw text into f-string SVG); no homegrown CSS dialects; a renderer not driven by the real pipeline drifts (their committed sample SVG was richer than the code that "produced" it). Its unbuilt `regions.py` boundary tracer is unnecessary here — `RegionBoundaryRule` + unordered canonical `EdgeSegment`s already cover it.
 
 ### 6.1 The sheet backend — TSV for spreadsheet solving (mystery hunts)
 

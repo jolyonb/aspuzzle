@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aspalchemy import (
     ANY,
@@ -17,6 +17,11 @@ from aspalchemy import (
 from aspuzzle.grids.rendering import RenderItem
 from aspuzzle.puzzle import Module, Puzzle, cached_predicate
 from aspuzzle.rendering.scene import Edge, Vertex
+
+if TYPE_CHECKING:
+    from aspuzzle.rendering.ascii.geometry import AsciiGeometry
+    from aspuzzle.rendering.scene import LayoutNeeds, SceneStyle
+    from aspuzzle.rendering.svg.geometry import SvgGeometry
 
 # Representing a location and a value
 type GridCellData = tuple[tuple[int, ...], int | str]
@@ -521,6 +526,17 @@ class Grid(Module, ABC):
     @abstractmethod
     def all_cells(self) -> Iterator[GridCell]:
         """Every in-grid cell as a grounded Cell instance (no outside border)."""
+
+    # -- geometry factories consumed by renderers --
+
+    @abstractmethod
+    def ascii_geometry(self, needs: LayoutNeeds, style: SceneStyle) -> AsciiGeometry:
+        """The ASCII geometry realizing this grid's cells/edges/vertices as
+        canvas characters, sized for the given layout needs and style."""
+
+    def svg_geometry(self) -> SvgGeometry:
+        """The SVG geometry for this grid; grids without one raise NotImplementedError."""
+        raise NotImplementedError(f"{type(self).__name__} has no SVG geometry yet")
 
     @abstractmethod
     def add_vector_to_cell(self, cell_pred: GridCell, vector_pred: GridCell) -> GridCell:

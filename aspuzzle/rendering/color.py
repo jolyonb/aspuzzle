@@ -1,3 +1,9 @@
+"""
+Semantic colors for the scene model. Solvers speak PaletteColor (16 named
+tokens) or exact Rgb; each backend's theme maps them to its own encoding
+(ANSI SGR, SVG hex). No escape codes or hex strings exist at this level.
+"""
+
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -34,8 +40,7 @@ class PaletteColor(Enum):
 class Rgb:
     """
     Exact color for backends that support it. The ASCII theme quantizes to
-    the nearest PaletteColor (truecolor emission is a later theme extension,
-    invisible to solvers).
+    the nearest PaletteColor.
     """
 
     r: int
