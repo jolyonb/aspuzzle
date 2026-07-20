@@ -25,6 +25,12 @@ direction("nw", cell(-1, -1)).
 vertex_sharing(cell(R, C), cell(R + R_vec, C + C_vec)) :- direction(_, cell(R_vec, C_vec)), cell(R, C), cell(R + R_vec, C + C_vec).
 
 
+% ===== symbols =====
+
+% Place symbols in the grid
+0 { star(cell(R, C)) } 1 :- cell(R, C), not excluded(cell(R, C)).
+
+
 % ===== Excluded cells =====
 
 excluded(cell(1, 1)).
@@ -42,19 +48,13 @@ excluded(cell(6, 2)).
 excluded(cell(6, 6)).
 
 
-% ===== symbols =====
-
-% Place symbols in the grid
-0 { star(cell(R, C)) } 1 :- cell(R, C), not excluded(cell(R, C)).
-
-
 % ===== Rules =====
 
 % Star placement rules
 :- line(Dir, N, _), #count{ cell(R, C) : star(cell(R, C)), line(Dir, N, cell(R, C)) } != star_count.
 
 % Star adjacency constraints
-:- vertex_sharing(cell(R, C), cell(R_adj, C_adj)), star(cell(R, C)), star(cell(R_adj, C_adj)).
+:- vertex_sharing(A, B), A < B, star(A), star(B).
 
 #show.
 #show star/1.

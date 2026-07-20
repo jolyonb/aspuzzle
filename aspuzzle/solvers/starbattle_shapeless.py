@@ -24,16 +24,17 @@ class Starbattle_Shapeless(Solver):
         star_count = puzzle.define_constant("star_count", config["star_count"])
 
         cell = grid.cell()
-        cell_adj = grid.cell(suffix="adj")
 
         N, Dir = V.N, V.Dir
 
-        # Define excluded area
-        excluded = puzzle.add_segment("Excluded cells")
-        excluded.fact(*[Excluded(loc=grid.Cell(*loc)) for loc, _ in grid_data])
-
         # Define star placement
-        symbols = SymbolSet(grid).add_symbol("star").excluded_symbol(Excluded(loc=cell))
+        symbols = SymbolSet(grid).add_symbol("star")
+
+        # Define excluded area
+        if grid_data:  # Don't have exclude rules on a completely open board
+            excluded = puzzle.add_segment("Excluded cells")
+            excluded.fact(*[Excluded(loc=grid.Cell(*loc)) for loc, _ in grid_data])
+            symbols.excluded_symbol(Excluded(loc=cell))
 
         # Rule 1: Place star_count stars on each line (row/column/etc)
         puzzle.section("Star placement rules")
@@ -43,7 +44,11 @@ class Starbattle_Shapeless(Solver):
 
         # Rule 2: Stars cannot share a vertex or edge
         puzzle.section("Star adjacency constraints")
-        puzzle.when(grid.vertex_sharing(suffix_2="adj")).forbid(symbols["star"](cell), symbols["star"](cell_adj))
+        A, B = V.A, V.B
+        puzzle.when(
+            grid.VertexSharing(cell1=A, cell2=B),
+            A < B,
+        ).forbid(symbols["star"](A), symbols["star"](B))
 
     def get_render_spec(self) -> RenderSpec:
         return RenderSpec(
