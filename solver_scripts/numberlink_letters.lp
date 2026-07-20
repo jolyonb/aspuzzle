@@ -85,7 +85,9 @@ connected(Cell1, Cell2) :- path(Cell1, D), orthogonal_dir(Cell1, D, Cell2).
 :- orthogonal_dir(Cell1, _, Cell2), propagated_symbol(Cell1, Sym), propagated_symbol(Cell2, Sym), not connected(Cell1, Cell2).
 
 % Solution extraction
-cell_directions(cell(R, C), D1, D2) :- cell(R, C), not has_symbol(cell(R, C)), path(cell(R, C), D1), path(cell(R, C), D2), D1 < D2.
+cell_directions(cell(R, C), D1, D2, Sym) :- cell(R, C), not has_symbol(cell(R, C)), propagated_symbol(cell(R, C), Sym), path(cell(R, C), D1), path(cell(R, C), D2), D1 < D2.
+endpoint_direction(Cell, D, Sym) :- symbol(Cell, Sym), path(Cell, D).
 
 #show.
-#show cell_directions/3.
+#show cell_directions/4.
+#show endpoint_direction/3.
