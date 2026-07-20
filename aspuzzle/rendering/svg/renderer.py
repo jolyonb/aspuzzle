@@ -10,7 +10,7 @@ edges and vertices through the geometry's lattice predicates.
 
 import math
 from itertools import groupby
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, assert_never
 
 from aspuzzle.rendering.backend import Backend
 from aspuzzle.rendering.color import ColorSpec
@@ -27,6 +27,7 @@ from aspuzzle.rendering.scene import (
     EdgeSegment,
     EdgeWeight,
     Layer,
+    MarkElement,
     OutsideLabel,
     Provenance,
     Scene,
@@ -253,7 +254,7 @@ class SvgPainter(ScenePainter):
         cx, cy = self._xy(self.geometry.cell_center(element.cell))
         parts: list[str] = []
         for direction in directions:
-            mx, my = self._xy(self._edge_midpoint(element.cell, direction))
+            mx, my = self._xy(self._edge_midpoint(self.grid.edge(element.cell, direction)))
             parts.append(f"M {_fmt(cx)} {_fmt(cy)} L {_fmt(mx)} {_fmt(my)}")
         stroke = self._color(element.color, element.provenance)
         width = _fmt(self.theme.path_width * self.cell)
@@ -282,18 +283,21 @@ class SvgPainter(ScenePainter):
         key = (stroke, fraction * self.cell, element.provenance.name.lower())
         self._edge_runs.setdefault(key, []).append(((_fmt(x1), _fmt(y1)), (_fmt(x2), _fmt(y2))))
 
-    def paint_cell_mark(self, element: CellMark) -> None:
-        point = self.geometry.cell_center(element.cell)
-        self._group.append(self._mark(point, element.glyph, element.color, element.ring, element.provenance))
+    def _mark_point(self, element: MarkElement) -> Point:
+        """What anchors a mark, in unit-cell coordinates."""
+        match element:
+            case CellMark(cell=cell):
+                return self.geometry.cell_center(cell)
+            case EdgeMark(edge=edge):
+                return self._edge_midpoint(edge)
+            case VertexMark(vertex=vertex):
+                return self.geometry.vertex_point(vertex)
+            case _:
+                assert_never(element)
 
-    def paint_edge_mark(self, element: EdgeMark) -> None:
-        p1, p2 = self.geometry.edge_endpoints(element.edge)
-        midpoint = Point((p1.x + p2.x) / 2, (p1.y + p2.y) / 2)
-        self._group.append(self._mark(midpoint, element.glyph, element.color, element.ring, element.provenance))
-
-    def paint_vertex_mark(self, element: VertexMark) -> None:
-        point = self.geometry.vertex_point(element.vertex)
-        self._group.append(self._mark(point, element.glyph, element.color, element.ring, element.provenance))
+    def paint_mark(self, element: MarkElement) -> None:
+        point = self._mark_point(element)
+        self._group.append(self._mark_markup(point, element.glyph, element.color, element.ring, element.provenance))
 
     def paint_label(self, element: OutsideLabel) -> None:
         anchored = self.geometry.outside_anchor(element.direction, element.index, element.offset)
@@ -304,8 +308,8 @@ class SvgPainter(ScenePainter):
             self._text(point, element.glyph.for_backend(Backend.SVG), element.color, element.provenance, anchor)
         )
 
-    def _edge_midpoint(self, cell: GridCell, direction: str) -> Point:
-        p1, p2 = self.geometry.edge_endpoints(self.grid.edge(cell, direction))
+    def _edge_midpoint(self, edge: Edge) -> Point:
+        p1, p2 = self.geometry.edge_endpoints(edge)
         return Point((p1.x + p2.x) / 2, (p1.y + p2.y) / 2)
 
     def flush_edges(self) -> list[str]:
@@ -318,7 +322,7 @@ class SvgPainter(ScenePainter):
         self._edge_runs.clear()
         return lines
 
-    def _mark(
+    def _mark_markup(
         self,
         point: Point,
         glyph: Glyph | None,

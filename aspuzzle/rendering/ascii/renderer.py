@@ -6,7 +6,7 @@ vocabulary come from the geometry, element semantics and junction/fill
 accumulation live here. Contains zero grid-specific knowledge.
 """
 
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, assert_never
 
 from aspuzzle.rendering.ascii.canvas import CharCanvas, CharPos
 from aspuzzle.rendering.ascii.geometry import VERTEX_DOT, AsciiGeometry, JunctionState
@@ -25,6 +25,7 @@ from aspuzzle.rendering.scene import (
     EdgeSegment,
     EdgeWeight,
     Lattice,
+    MarkElement,
     OutsideLabel,
     Scene,
     SceneStyle,
@@ -148,16 +149,23 @@ class AsciiPainter(ScenePainter):
     def paint_edge(self, element: EdgeSegment) -> None:
         self._stamp_edge(element.edge, element.weight, element.color)
 
-    def paint_cell_mark(self, element: CellMark) -> None:
-        self.canvas.put(self._cell_pos(element.cell), char=mark_char("CellMark", element.glyph), fg=element.color)
+    def _mark_pos(self, element: MarkElement) -> CharPos | None:
+        """Where a mark lands. None means the layout collapsed the lane the
+        mark needed — it never means an unhandled element kind."""
+        match element:
+            case CellMark(cell=cell):
+                return self._cell_pos(cell)
+            case EdgeMark(edge=edge):
+                return self.geometry.edge_mark_pos(edge)
+            case VertexMark(vertex=vertex):
+                return self.geometry.vertex_pos(vertex)
+            case _:
+                assert_never(element)
 
-    def paint_edge_mark(self, element: EdgeMark) -> None:
-        if (pos := self.geometry.edge_mark_pos(element.edge)) is not None:
-            self.canvas.put(pos, char=mark_char("EdgeMark", element.glyph), fg=element.color)
-
-    def paint_vertex_mark(self, element: VertexMark) -> None:
-        if (pos := self.geometry.vertex_pos(element.vertex)) is not None:
-            self.canvas.put(pos, char=mark_char("VertexMark", element.glyph), fg=element.color)
+    def paint_mark(self, element: MarkElement) -> None:
+        if (pos := self._mark_pos(element)) is not None:
+            char = mark_char(type(element).__name__, element.glyph)
+            self.canvas.put(pos, char=char, fg=element.color)
 
     def paint_label(self, element: OutsideLabel) -> None:
         text = element.glyph.for_backend(Backend.ASCII)

@@ -231,6 +231,11 @@ class OutsideLabel(SceneElementBase):
     layer: int = Layer.GLYPH
 
 
+# The three elements that place a mark somewhere: same glyph/color/ring
+# semantics, differing only in what anchors them. Painters resolve the
+# anchor and then treat them identically.
+type MarkElement = CellMark | EdgeMark | VertexMark
+
 type SceneElement = (
     CellFill | CellGlyph | CellMark | CellPath | CellLink | EdgeSegment | EdgeMark | VertexMark | OutsideLabel
 )

@@ -23,6 +23,7 @@ from aspuzzle.rendering.scene import (
     Edge,
     EdgeMark,
     EdgeSegment,
+    MarkElement,
     OutsideLabel,
     SceneElement,
     Vertex,
@@ -109,12 +110,8 @@ class ScenePainter(ABC):
                 self.paint_link(element, [cell for cell in (cell1, cell2) if self.in_grid(cell)])
             case EdgeSegment():
                 self.paint_edge(element)
-            case CellMark():
-                self.paint_cell_mark(element)
-            case EdgeMark():
-                self.paint_edge_mark(element)
-            case VertexMark():
-                self.paint_vertex_mark(element)
+            case CellMark() | EdgeMark() | VertexMark():
+                self.paint_mark(element)
             case OutsideLabel():
                 self.paint_label(element)
 
@@ -134,13 +131,10 @@ class ScenePainter(ABC):
     def paint_edge(self, element: EdgeSegment) -> None: ...
 
     @abstractmethod
-    def paint_cell_mark(self, element: CellMark) -> None: ...
-
-    @abstractmethod
-    def paint_edge_mark(self, element: EdgeMark) -> None: ...
-
-    @abstractmethod
-    def paint_vertex_mark(self, element: VertexMark) -> None: ...
+    def paint_mark(self, element: MarkElement) -> None:
+        """A cell, edge, or vertex mark. The three differ only in what
+        anchors them, so a backend resolves the anchor and paints one way."""
+        ...
 
     @abstractmethod
     def paint_label(self, element: OutsideLabel) -> None: ...
