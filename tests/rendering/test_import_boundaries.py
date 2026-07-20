@@ -14,7 +14,14 @@ RENDERING = Path(__file__).parent.parent.parent / "aspuzzle" / "rendering"
 
 # Every module directly under rendering/ is backend-agnostic by layout;
 # backend-specific code lives in the subpackages
-BACKEND_AGNOSTIC = sorted(path.name for path in Path(__file__).parents[2].glob("aspuzzle/rendering/*.py"))
+# The grids/ package holds per-backend leaf modules too, so only its
+# explicitly backend-agnostic members join the checked set
+BACKEND_AGNOSTIC = [
+    *sorted(path.name for path in Path(__file__).parents[2].glob("aspuzzle/rendering/*.py")),
+    "grids/__init__.py",
+    "grids/geometry.py",
+    "grids/rectangular.py",
+]
 BACKEND_PACKAGES = ("aspuzzle.rendering.ascii", "aspuzzle.rendering.svg", "aspuzzle.rendering.sheet")
 
 

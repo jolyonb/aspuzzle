@@ -4,9 +4,10 @@ onto the 2D plane for the SVG renderer.
 
 Geometries speak unit-cell coordinates (one cell spans one unit); the
 renderer scales every point by its cell_size and folds the viewBox from
-the points it actually draws, so geometries carry no bounds logic. All
-methods are total over in-grid inputs — the renderer pre-filters elements
-referencing out-of-grid cells before asking.
+the points it actually draws, so geometries carry no bounds logic. The
+shared core arbitrates paint-or-skip before asking (cell membership for
+cell content, the lattice predicates for edges and vertices), so these
+methods are total over arbitrated inputs.
 
 Shared points must come from shared arithmetic: the renderer chains edge
 segments by exact coordinate match (rounded to 1e-4), so two edges
@@ -18,6 +19,8 @@ into two butt-capped runs), not corrupt.
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, Protocol
+
+from aspuzzle.rendering.painter import CommonGeometry
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -39,7 +42,7 @@ class Point:
 type TextAnchor = Literal["start", "middle", "end"]
 
 
-class SvgGeometry(Protocol):
+class SvgGeometry(CommonGeometry, Protocol):
     def cell_polygon(self, cell: GridCell) -> Sequence[Point]: ...
 
     def cell_center(self, cell: GridCell) -> Point: ...
@@ -48,4 +51,7 @@ class SvgGeometry(Protocol):
 
     def vertex_point(self, vertex: Vertex) -> Point: ...
 
-    def outside_anchor(self, direction: str, index: int, offset: int) -> tuple[Point, TextAnchor]: ...
+    def outside_anchor(self, direction: str, index: int, offset: int) -> tuple[Point, TextAnchor] | None:
+        """Where a label goes and how it anchors, or None when `index`
+        addresses no line of this grid."""
+        ...

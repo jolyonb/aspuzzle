@@ -493,7 +493,7 @@ class Scene:
         force the expanded layout nor reserve margins."""
 ```
 
-**The substrate is the puzzle's request to the grid** (added July 2026, post-review): everything that isn't puzzle content — outer boundary, full wireframe lattice, vertex dots, plain — is `SceneStyle` vocabulary, painted by each geometry's `paint_base()` at `Layer.BASE` and interpreted per backend (ASCII `Lattice.FULL` = expanded layout with every lane stroked, junction-resolved; SVG `FULL` = light strokes on every cell polygon; sheet ignores lattice entirely). The same puzzle legitimately wants different substrates per backend — Slitherlink: compact fills in the terminal, dots-no-lines in SVG (`backend_styles={Backend.SVG: SceneStyle(vertex_dots=True)}`); Sudoku: sparse heavy-framed boxes in ASCII, full printed lattice in SVG — hence `backend_styles` with whole-style replacement. Region borders (Sudoku blocks, cages) deliberately stay *content* (`RegionBorderRule` → `EdgeSegment`s), not substrate: they are puzzle-specific structure and already compose per backend via rule visibility. Implementation lands with migration Step 5 (ASCII) and the SVG renderer; `RenderSpec` grows the matching `style`/`backend_styles` fields in Step 6.
+**The substrate is the puzzle's request to the grid** (added July 2026, post-review): everything that isn't puzzle content — outer boundary, full wireframe lattice, vertex dots, plain — is `SceneStyle` vocabulary, painted by each backend's painter at `Layer.BASE` and interpreted per backend (ASCII `Lattice.FULL` = expanded layout with every lane stroked, junction-resolved; SVG `FULL` = light strokes on every cell polygon; sheet ignores lattice entirely). The same puzzle legitimately wants different substrates per backend — Slitherlink: compact fills in the terminal, dots-no-lines in SVG (`backend_styles={Backend.SVG: SceneStyle(vertex_dots=True)}`); Sudoku: sparse heavy-framed boxes in ASCII, full printed lattice in SVG — hence `backend_styles` with whole-style replacement. Region borders (Sudoku blocks, cages) deliberately stay *content* (`RegionBorderRule` → `EdgeSegment`s), not substrate: they are puzzle-specific structure and already compose per backend via rule visibility. Implementation lands with migration Step 5 (ASCII) and the SVG renderer; `RenderSpec` grows the matching `style`/`backend_styles` fields in Step 6.
 
 **Compositing semantics** (today's, now structural): elements paint in `(layer, insertion order)`. A `CellFill` touches only the background channel; a `CellGlyph` touches glyph + foreground. "Clue digit over region fill" composes with no `symbol=None` convention. Elements at locations outside the drawable area are skipped silently, preserving today's behavior for Slitherlink's outside-border atoms.
 
@@ -710,6 +710,34 @@ class Solver(ABC):
 
 ## 5. ASCII rendering
 
+*Amended at the common-core rework (July 2026):* rendering now shares
+one scene-walking engine across backends. `rendering/painter.py` holds
+`ScenePainter` — per-kind dispatch, paint-or-skip arbitration, and
+`CellLink`/`CellPath` decomposition — with `AsciiPainter` and
+`SvgPainter` as its two leaves. (Backend filtering stays where it always
+was, `Scene.sorted_elements`; substrate enumeration lives on
+`GeometryBase` below.) Arbitration is split by location kind: cell
+content filters on cell membership, while edges and vertices — lattice
+items whose canonical spelling may carry an outside cell (a frame
+vertex) — filter through the geometry's `on_lattice`/`vertex_on_lattice`
+predicates, implemented once per grid shape, so both backends arbitrate
+identically; geometry methods are total over inputs that pass
+arbitration. The ASCII painter owns the per-render state
+(`JunctionState` flag accumulation, the fill registry); the geometry
+owns layout and character vocabulary only, and finishes the render
+(`finish()`: run bridging, fill continuity, junction characters). The
+`AsciiGeometry` protocol below reflects the reworked slim contract,
+superseding the four-method paint-everything protocol this section
+originally specified. Geometries themselves form a class hierarchy:
+`GeometryBase` (everything statable in pure grid topology: substrate
+enumeration `all/boundary/interior_edges` + `all_vertices`, the label
+bounds via the grids' line vocabulary) → `RectangularGeometryBase` (the
+lattice model — `_edge_lattice`/`_vertex_lattice`/`_on_lattice`, stated
+once) → per-backend leaves; the SVG leaf derives its edge endpoints and
+vertex points from the same lattice facts the ASCII leaf maps through
+its lanes. A new grid shape adds one lattice model plus two thin
+converters.
+
 ### 5.1 The renderer (grid-agnostic, the only painter)
 
 ```python
@@ -891,12 +919,12 @@ recorded at contract-freeze time:
   wanting a different SVG substrate without touching its character render
   overrides via `backend_styles` (Slitherlink: `hairline=False,
   vertex_dots=True, heavy_frame=False`).
-- **Recorded latent divergence** — `OutsideLabel` indices beyond the grid:
-  character geometries skip them silently, while SVG geometries are total
-  and would draw a stray label at the extrapolated position. Config
-  validation keeps label arrays grid-sized, so no emitter can hit this;
-  recorded rather than fixed because the skip needs grid knowledge the
-  grid-agnostic renderer deliberately lacks.
+- **Out-of-range `OutsideLabel` indices** — resolved at the common-core
+  rework: `outside_anchor` returns None past `line_limit`, matching the
+  character geometries' silent skip, so a stray label can no longer
+  inflate the viewBox. (Originally recorded as a latent divergence when
+  the skip had no grid-agnostic home; `GeometryBase.line_limit` gave it
+  one.)
 - **Output framing** — every render begins with
   `<!-- Generated by ASPuzzle https://github.com/jolyonb/aspuzzle -->`;
   one generated `<style>` block carries the theme's font/halo/substrate
@@ -1292,6 +1320,42 @@ Two seams were adjusted to satisfy the criterion: (1) **region coloring must be 
 
 ## 11. Risks and open questions
 
+- **`finish()` re-seam — deferred to hex time.** The ASCII geometry's
+  `finish(canvas, junctions, cell_fills)` runs run-bridging, fill
+  continuity, and junction resolution — none of which are rectangular
+  facts; only their inputs are. The deeper cut moves those loops into
+  `AsciiPainter` behind protocol primitives (`junction_char(flags,
+  heavy)`, lane anchors) and rekeys `cell_fills` by `GridCell` with
+  `grid.neighbor` instead of `(row, col+1)` arithmetic. Deferred for the
+  same reason `RectangularGeometryBase` was extracted only once two
+  backends existed: with one ASCII geometry there is no second
+  implementation to check the abstraction against. Do it when
+  `HexAsciiGeometry` lands.
+- **`CommonGeometry`/`GeometryBase` home + `paint_element` exhaustiveness
+  — paired follow-up.** `CommonGeometry` is declared in `painter.py`, so
+  geometry modules import the painter for their own contract; it and
+  `GeometryBase` belong in one shared `rendering/geometry.py`. Fold in
+  `assert_never` on `paint_element`'s dispatch at the same time — both
+  are about the shared contract's shape, and the move is an import-graph
+  change that deserves its own commit.
+  **Trigger: before the sheet renderer lands** — `SheetGeometry` already
+  exists and deliberately does not inherit `CommonGeometry`; the sheet
+  backend is the next party that must decide its relationship to the
+  shared contract, so the contract must be in its own home by then.
+- **Accepted cosmetic debt, ride along when the file is next touched**
+  (recorded so the drops are deliberate, not forgotten): the
+  stringly-typed `"h"|"v"` orientation in `RectangularGeometryBase`
+  (a `Literal` alias); the `GeometryBase[GridT]` generic arguably
+  redundant next to leaf-level `grid:` annotations; `CommonGeometry`'s
+  current placement in `painter.py` (covered by the entry above); the
+  ring-has-no-character-form rationale comment lost from the ASCII mark
+  path during the AsciiPainter reshape (the SVG `_mark` kept its ring
+  handling and rationale); `AsciiPainter` sharing `ascii/renderer.py`
+  with `AsciiRenderer` while `SvgPainter` shares `svg/renderer.py` —
+  fine or a split, decide when either file next grows; `mark_char`
+  public only as a move artifact; `VERTEX_DOT` housed in the protocol
+  module `ascii/geometry.py`.
+
 - **ASCII junction fidelity.** The flag-accumulation algorithm must reproduce current Sudoku output; goldens gate it. Mixed NORMAL/HEAVY junctions ship with "heavy wins" before the mixed single/double family (`╞╫…`) is attempted.
 - **Lane-collapse edge cases.** A stroked lane adjacent to a collapsed lane must still resolve junctions correctly (single stroked interior lane; strokes touching the frame). Dedicated tests in the geometry conformance suite — which now also covers visibility-induced collapse (all-`SVG_ONLY` edges must yield the compact layout byte-for-byte, §7.6).
 - **Glyph width.** Content width is fixed per geometry (1 char rectangular); `glyph_for_value` keeps values single-char, so spacing is stable. Multi-codepoint/emoji width is out of scope (documented; the canvas rejects width>span with a precise error rather than corrupting columns). Note Starbattle's `★` is single-width and unaffected.
@@ -1303,7 +1367,7 @@ Two seams were adjusted to satisfy the criterion: (1) **region coloring must be 
 - **Field names in rules are strings** (`value_field="size"`). Predicate fields are dynamic per-solver classes; full static typing would mean plumbing `type[Predicate]` generics through rules for marginal benefit. Instead `build_scene` validates field existence eagerly with precise errors. A conscious pragmatic stop.
 - **Open: vertex-clue puzzles and the dual grid (decided July 2026: not now, door left open).** Rendering needs only vertex *identity and position*, which the `(cell, corner)` canonicalization supplies for any tessellation from two local facts — deliberately the weakest mechanism that works. Puzzles with vertex entities in their ASP formulation (Slant-class: vertex clues, degree constraints) need far more — a vertex domain, incidence facts — and the canonical construction there is the **dual grid**, added at the ASP layer when the first such solver is written (for a rectangular primal: a second `RectangularGrid` of (rows+1)×(cols+1) plus +0/+1 incidence arithmetic, and a `vertex_cell(vertex) ↔ Vertex` bridge on the grid; the canonical spelling bijects with dual coordinates, so the bridge is mechanical and no scene/geometry API changes). The two mechanisms compose; they were deliberately NOT unified because the dual of a hex grid is a *triangular* grid — first-class dual coordinates would make hex vertex rendering wait on the deferred triangular machinery, when a corner mark needs nothing of the sort. (Slitherlink is the counter-example that cell-centric reformulation often beats native vertex encodings in ASP anyway.)
 - **Stacked label rings (`offset > 0`) — deferred.** The `OutsideLabel.offset` field ships as the extension point, but `LineLabels` carries no offset and the rectangular geometry raises if a nonzero offset reaches `_label_span`; `LayoutNeeds.label_margins` is keyed per direction only. Trigger: the first solver needing a second ring (e.g. two clue rows on one side). The known change: `label_margins` keys widen to `(direction, offset)` — worth landing *before* the sheet geometry freezes the narrow shape into a third consumer.
-- **`AsciiGeometryBase` extraction — deferred to hex time.** The `AsciiGeometry` protocol shipped as the four renderer-facing methods only; the layout building blocks (`_content_span`, `_vertex_pos`, `_path_glyph`, `_label_span`) are private to the rectangular geometry. The shared base class is extracted when `HexAsciiGeometry` shows which pieces are genuinely common, not speculated from one implementation.
+- **`AsciiGeometryBase` extraction — superseded by the common-core rework (July 2026).** Rather than sharing layout privates between two fat per-backend geometries, the rework slimmed the geometry contract (see the §5 amendment): painting moved into the shared `ScenePainter` core, and the cross-backend sharing happens per grid shape in `RectangularGeometryBase` — the structure a `HexGeometryBase` will repeat.
 - **Grid-class config resolution for orientation subclasses — decide before hex.** `Solver.create_grid` derives the module name from the class name (`"RectangularGrid"` → `aspuzzle.grids.rectangulargrid`); `"grid_type": "FlatTopHexGrid"` would try to import `aspuzzle.grids.flattophexgrid` and fail, since the plan puts all hex classes in `hexgrid.py`. Options: a registry in `aspuzzle/grids/__init__.py` consulted before the module convention, or one-module-per-concrete-class. Config-format-facing, so it deserves a recorded decision when hex lands.
 - **Width-1 glyphs are a spec-level contract, independent of geometry width.** `glyph_for_value`/`_value_glyph` compact values to one char at scene-build time, before any geometry exists — so on a 2-char-wide hex cell, 12 still renders as `C` and 40 as `#` even though the literal digits would fit. Decided: keep it — scene building stays geometry-free, and per-backend `Glyph` variants remain the escape hatch. Revisit only if hex renders prove illegible.
 - **Open:** module-contributed spec fragments (`Module.render_rules()` — a SymbolSet knows its symbol names) — additive later. A `ColorMode` (ANSI16/256/truecolor) theme upgrade with `Rgb` passthrough — additive later. JSON-serializing scenes for an interactive HTML viewer — nothing blocks it (a scene is a list of frozen dataclasses, and because visibility filters at query time, a serialized scene carries *all* backends' content). Whether `Provenance` should grow a third member for scaffold/debug overlays — deferred until a consumer exists.

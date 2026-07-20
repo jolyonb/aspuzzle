@@ -248,11 +248,38 @@ def test_fills_flood_solid_block_through_full_lattice() -> None:
         assert line.count("\033[42m") == 3
 
 
-def test_out_of_grid_vertex_mark_skipped_silently() -> None:
+def test_vertex_marks_on_frame_and_off_lattice() -> None:
+    """Frame vertices are legitimate even when their canonical spelling
+    carries an outside cell; only off-lattice vertices skip silently."""
     grid, scene = make_scene(rows=3, cols=3)
-    scene.add(VertexMark(grid.vertex(grid.Cell(1, 1), "nw")), VertexMark(Vertex(grid.Cell(0, 7), "nw")))
-    out = render(scene)  # no crash; the in-grid mark renders
-    assert "." in out
+    scene.add(
+        VertexMark(grid.vertex(grid.Cell(1, 1), "nw"), glyph=Glyph("*")),  # frame corner, in-grid spelling
+        VertexMark(grid.vertex(grid.Cell(0, 2), "sw"), glyph=Glyph("#")),  # frame vertex, outside-celled spelling
+        VertexMark(Vertex(grid.Cell(0, 7), "nw"), glyph=Glyph("@")),  # off-lattice: skipped
+    )
+    out = render(scene)
+    assert "*" in out and "#" in out
+    assert "@" not in out
+
+
+def test_label_bounds_checked_before_ring_offset() -> None:
+    """An out-of-range index skips silently even on an unsupported ring;
+    an in-range one still reaches the offset guard."""
+    _grid, scene = make_scene(rows=3, cols=3)
+    scene.add(OutsideLabel("e", 9, Glyph("7"), offset=1))
+    out = render(scene)
+    assert "7" not in out
+    _grid, scene = make_scene(rows=3, cols=3)
+    scene.add(OutsideLabel("e", 1, Glyph("7"), offset=1))
+    with pytest.raises(NotImplementedError, match="Stacked label rings"):
+        render(scene)
+
+
+def test_unknown_label_direction_raises_precisely() -> None:
+    _grid, scene = make_scene(rows=3, cols=3)
+    scene.add(OutsideLabel("ne", 1, Glyph("7")))
+    with pytest.raises(ValueError, match="'ne' is not a label direction"):
+        render(scene)
 
 
 def test_singleton_path_renders_stub() -> None:

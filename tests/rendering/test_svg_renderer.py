@@ -13,6 +13,7 @@ from aspuzzle.rendering import (
     CellLink,
     CellMark,
     CellPath,
+    Edge,
     EdgeMark,
     EdgeSegment,
     EdgeWeight,
@@ -23,6 +24,7 @@ from aspuzzle.rendering import (
     Rgb,
     Scene,
     SceneStyle,
+    Vertex,
     VertexMark,
 )
 from aspuzzle.rendering.svg import DEFAULT_SVG_PALETTE, SvgRenderer
@@ -214,6 +216,38 @@ def test_outside_label_anchor_and_bounds() -> None:
     assert "text-anchor" not in label.group(0)
     # The left-ring label expands the viewBox leftward past the bare extent
     assert view_box(svg)[0] < bare[0]
+
+
+def test_out_of_range_label_skipped() -> None:
+    _grid, bare_scene = make_scene()
+    bare = view_box(SvgRenderer().render(bare_scene))
+    _grid, scene = make_scene()
+    scene.add(OutsideLabel("e", 9, Glyph("7")))
+    svg = SvgRenderer().render(scene)
+    assert ">7</text>" not in svg
+    assert view_box(svg) == bare  # a stray label cannot inflate the viewBox
+
+
+def test_off_lattice_edge_and_vertex_skipped() -> None:
+    # A frame vertex whose canonical spelling carries an outside cell is
+    # on-lattice and draws (legitimately expanding the viewBox); the
+    # baseline includes it so the strays' contribution is isolated
+    grid, base_scene = make_scene()
+    frame_vertex = grid.vertex(grid.Cell(0, 2), "sw")
+    base_scene.add(VertexMark(frame_vertex, glyph=Glyph("#")))
+    base_svg = SvgRenderer().render(base_scene)
+    assert ">#</text>" in base_svg
+
+    scene = Scene(grid)
+    scene.add(
+        VertexMark(frame_vertex, glyph=Glyph("#")),
+        EdgeSegment(Edge(grid.Cell(0, 7), "n")),
+        EdgeMark(Edge(grid.Cell(0, 7), "s"), glyph=Glyph("*")),
+        VertexMark(Vertex(grid.Cell(0, 7), "nw"), glyph=Glyph("*")),
+    )
+    svg = SvgRenderer().render(scene)
+    assert ">*</text>" not in svg and 'class="edge"' not in svg
+    assert view_box(svg) == view_box(base_svg)  # off-lattice strays cannot inflate the viewBox
 
 
 def test_out_of_grid_elements_are_skipped() -> None:

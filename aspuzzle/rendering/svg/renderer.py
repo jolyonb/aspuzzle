@@ -2,10 +2,10 @@
 The grid-agnostic SVG renderer: the second consumer of the Scene, mapping
 elements mechanically onto SVG markup through whatever SvgGeometry the
 scene's grid supplies. Geometries speak unit-cell coordinates; the
-renderer scales by cell_size, folds the viewBox from every point it draws
-plus a quarter-cell margin, and pre-filters elements referencing
-out-of-grid cells (solution dicts genuinely carry them, e.g. Slitherlink's
-outside atoms) so geometries stay total over in-grid inputs.
+renderer scales by cell_size and folds the viewBox from every point it
+draws plus a quarter-cell margin. Paint-or-skip arbitration comes from
+the shared ScenePainter core: cell content filters on cell membership,
+edges and vertices through the geometry's lattice predicates.
 """
 
 import math
@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Final
 from aspuzzle.rendering.backend import Backend
 from aspuzzle.rendering.color import ColorSpec
 from aspuzzle.rendering.glyph import Glyph
+from aspuzzle.rendering.painter import ScenePainter
 from aspuzzle.rendering.scene import (
     CellFill,
     CellGlyph,
@@ -29,9 +30,7 @@ from aspuzzle.rendering.scene import (
     OutsideLabel,
     Provenance,
     Scene,
-    SceneElement,
     SceneStyle,
-    Vertex,
     VertexMark,
 )
 from aspuzzle.rendering.svg.geometry import Point, SvgGeometry, TextAnchor
@@ -154,35 +153,46 @@ class SvgRenderer:
         self.cell_size = cell_size
 
     def render(self, scene: Scene) -> str:
-        painter = _Painter(scene.grid, scene.grid.svg_geometry(), self.theme, self.cell_size)
+        painter = SvgPainter(scene.grid, scene.grid.svg_geometry(), self.theme, self.cell_size)
         groups: list[tuple[str, list[str]]] = []
         substrate = painter.paint_substrate(scene.style_for(Backend.SVG))
         if substrate:
             groups.append(("base", substrate))
         for layer, elements in groupby(scene.sorted_elements(Backend.SVG), key=lambda element: element.layer):
-            markup = [line for element in elements for line in painter.paint(element)]
-            markup.extend(painter.flush_edges())
+            for element in elements:
+                painter.paint_element(element)
+            markup = painter.take_group()
             if markup:
                 groups.append((_layer_name(layer), markup))
         return painter.document(groups)
 
 
-class _Painter:
+class SvgPainter(ScenePainter):
     """One render's worth of state: scaled-point emission with viewBox
-    folding, and the element-to-markup mapping."""
+    folding, and the paint operations turning elements into markup —
+    scene walking and out-of-grid filtering come from ScenePainter."""
+
+    geometry: SvgGeometry
 
     def __init__(self, grid: RenderGrid, geometry: SvgGeometry, theme: SvgTheme, cell_size: float) -> None:
-        self.grid = grid
-        self.geometry = geometry
+        super().__init__(grid, geometry)
         self.theme = theme
         self.cell = cell_size
         self.bounds = _Bounds()
+        self._group: list[str] = []  # the current layer group's markup
         # Edge segments accumulate here per layer group, keyed by
         # (stroke, width, provenance), and flush as chained <path>s: a
         # closed region boundary becomes a real closed loop (perfect
         # mitered corners), an open run ends butt-flush — nothing ever
         # pokes past the frame the way stroke caps would
         self._edge_runs: dict[tuple[str, float, str], list[_Segment]] = {}
+
+    def take_group(self) -> list[str]:
+        """The group's markup: elements in paint order, then the group's
+        chained edge paths."""
+        lines = self._group + self.flush_edges()
+        self._group = []
+        return lines
 
     # -- coordinate plumbing --
 
@@ -191,9 +201,6 @@ class _Painter:
         x, y = point.x * self.cell, point.y * self.cell
         self.bounds.add(x, y)
         return x, y
-
-    def _in_grid(self, *cells: GridCell) -> bool:
-        return all(self.grid.cell_at(self.grid.cell_coords(cell)) is not None for cell in cells)
 
     def _provenance_color(self, provenance: Provenance) -> str:
         return self.theme.given_color if provenance is Provenance.GIVEN else self.theme.derived_color
@@ -205,32 +212,16 @@ class _Painter:
 
     def paint_substrate(self, style: SceneStyle) -> list[str]:
         lines: list[str] = []
-        if style.hairline and (edges := self._canonical_edges(boundary_only=False)):
+        if style.hairline and (edges := self.geometry.all_edges()):
             lines.append(f'<path class="lattice" d="{_chain_segments(self._edge_segments(edges))}"/>')
-        if style.heavy_frame and (edges := self._canonical_edges(boundary_only=True)):
+        if style.heavy_frame and (edges := self.geometry.boundary_edges()):
             lines.append(f'<path class="frame" d="{_chain_segments(self._edge_segments(edges))}"/>')
         if style.vertex_dots:
             radius = _fmt(self.theme.dot_radius * self.cell)
-            for vertex in self._canonical_vertices():
+            for vertex in self.geometry.all_vertices():
                 x, y = self._xy(self.geometry.vertex_point(vertex))
                 lines.append(f'<circle cx="{_fmt(x)}" cy="{_fmt(y)}" r="{radius}" fill="{self.theme.line_color}"/>')
         return lines
-
-    def _canonical_edges(self, boundary_only: bool) -> list[Edge]:
-        edges: set[Edge] = set()
-        for cell in self.grid.all_cells():
-            for direction in self.grid.orthogonal_direction_names:
-                if boundary_only and self.grid.neighbor(cell, direction) is not None:
-                    continue
-                edges.add(self.grid.edge(cell, direction))
-        return sorted(edges, key=lambda edge: (self.grid.cell_coords(edge.cell), edge.direction))
-
-    def _canonical_vertices(self) -> list[Vertex]:
-        vertices: set[Vertex] = set()
-        for cell in self.grid.all_cells():
-            for corner in self.grid.corner_names:
-                vertices.add(self.grid.vertex(cell, corner))
-        return sorted(vertices, key=lambda vertex: (self.grid.cell_coords(vertex.cell), vertex.corner))
 
     def _edge_segments(self, edges: list[Edge]) -> list[_Segment]:
         segments: list[_Segment] = []
@@ -239,89 +230,79 @@ class _Painter:
             segments.append(((_fmt(x1), _fmt(y1)), (_fmt(x2), _fmt(y2))))
         return segments
 
-    # -- elements --
+    # -- paint operations (dispatch and filtering live in ScenePainter) --
 
-    def paint(self, element: SceneElement) -> list[str]:
-        provenance = f'data-provenance="{element.provenance.name.lower()}"'
-        match element:
-            case CellFill(cell=cell, color=color, opacity=opacity):
-                if not self._in_grid(cell):
-                    return []
-                points = " ".join(f"{_fmt(x)},{_fmt(y)}" for x, y in map(self._xy, self.geometry.cell_polygon(cell)))
-                fill = self.theme.color(color)
-                resolved = _fmt(opacity if opacity is not None else self.theme.fill_opacity)
-                return [f'<polygon points="{points}" fill="{fill}" fill-opacity="{resolved}" {provenance}/>']
+    def _prov(self, element: CellFill | CellGlyph | CellPath | CellLink | EdgeSegment) -> str:
+        return f'data-provenance="{element.provenance.name.lower()}"'
 
-            case CellGlyph(cell=cell, glyph=glyph, color=color):
-                if not self._in_grid(cell):
-                    return []
-                center = self.geometry.cell_center(cell)
-                return [self._text(center, glyph.for_backend(Backend.SVG), color, element.provenance)]
+    def paint_fill(self, element: CellFill) -> None:
+        points = " ".join(f"{_fmt(x)},{_fmt(y)}" for x, y in map(self._xy, self.geometry.cell_polygon(element.cell)))
+        fill = self.theme.color(element.color)
+        resolved = _fmt(element.opacity if element.opacity is not None else self.theme.fill_opacity)
+        self._group.append(
+            f'<polygon points="{points}" fill="{fill}" fill-opacity="{resolved}" {self._prov(element)}/>'
+        )
 
-            case CellPath(cell=cell, directions=directions, color=color):
-                if not self._in_grid(cell):
-                    return []
-                cx, cy = self._xy(self.geometry.cell_center(cell))
-                parts: list[str] = []
-                for direction in sorted(directions):
-                    mx, my = self._xy(self._edge_midpoint(cell, direction))
-                    parts.append(f"M {_fmt(cx)} {_fmt(cy)} L {_fmt(mx)} {_fmt(my)}")
-                stroke = self._color(color, element.provenance)
-                width = _fmt(self.theme.path_width * self.cell)
-                return [
-                    f'<path class="path" d="{" ".join(parts)}" stroke="{stroke}" stroke-width="{width}" {provenance}/>'
-                ]
+    def paint_glyph(self, element: CellGlyph) -> None:
+        center = self.geometry.cell_center(element.cell)
+        self._group.append(
+            self._text(center, element.glyph.for_backend(Backend.SVG), element.color, element.provenance)
+        )
 
-            case CellLink(cell1=cell1, cell2=cell2, glyph=glyph, color=color):
-                # Per-cell like the character backends: the connector needs
-                # both ends, but an in-grid cell keeps its glyph even when
-                # the partner is off-grid
-                in_grid = [cell for cell in (cell1, cell2) if self._in_grid(cell)]
-                lines: list[str] = []
-                if len(in_grid) == 2:
-                    (x1, y1), (x2, y2) = (self._xy(self.geometry.cell_center(c)) for c in in_grid)
-                    stroke = self._color(color, element.provenance)
-                    width = _fmt(self.theme.link_width * self.cell)
-                    lines.append(
-                        f'<line class="path" x1="{_fmt(x1)}" y1="{_fmt(y1)}" x2="{_fmt(x2)}" y2="{_fmt(y2)}" '
-                        f'stroke="{stroke}" stroke-width="{width}" {provenance}/>'
-                    )
-                if glyph is not None:
-                    text = glyph.for_backend(Backend.SVG)
-                    for cell in in_grid:
-                        lines.append(self._text(self.geometry.cell_center(cell), text, color, element.provenance))
-                return lines
+    def paint_path(self, element: CellPath, directions: list[str]) -> None:
+        cx, cy = self._xy(self.geometry.cell_center(element.cell))
+        parts: list[str] = []
+        for direction in directions:
+            mx, my = self._xy(self._edge_midpoint(element.cell, direction))
+            parts.append(f"M {_fmt(cx)} {_fmt(cy)} L {_fmt(mx)} {_fmt(my)}")
+        stroke = self._color(element.color, element.provenance)
+        width = _fmt(self.theme.path_width * self.cell)
+        self._group.append(
+            f'<path class="path" d="{" ".join(parts)}" stroke="{stroke}" stroke-width="{width}" {self._prov(element)}/>'
+        )
 
-            case EdgeSegment(edge=edge, color=color, weight=weight):
-                if not self._in_grid(edge.cell):
-                    return []
-                (x1, y1), (x2, y2) = (self._xy(p) for p in self.geometry.edge_endpoints(edge))
-                stroke = self._color(color, element.provenance)
-                fraction = self.theme.heavy_edge_width if weight is EdgeWeight.HEAVY else self.theme.edge_width
-                key = (stroke, fraction * self.cell, element.provenance.name.lower())
-                self._edge_runs.setdefault(key, []).append(((_fmt(x1), _fmt(y1)), (_fmt(x2), _fmt(y2))))
-                return []
+    def paint_link(self, element: CellLink, cells: list[GridCell]) -> None:
+        if len(cells) == 2:
+            (x1, y1), (x2, y2) = (self._xy(self.geometry.cell_center(cell)) for cell in cells)
+            stroke = self._color(element.color, element.provenance)
+            width = _fmt(self.theme.link_width * self.cell)
+            self._group.append(
+                f'<line class="path" x1="{_fmt(x1)}" y1="{_fmt(y1)}" x2="{_fmt(x2)}" y2="{_fmt(y2)}" '
+                f'stroke="{stroke}" stroke-width="{width}" {self._prov(element)}/>'
+            )
+        if element.glyph is not None:
+            text = element.glyph.for_backend(Backend.SVG)
+            for cell in cells:
+                self._group.append(self._text(self.geometry.cell_center(cell), text, element.color, element.provenance))
 
-            case CellMark(cell=cell, glyph=glyph, color=color, ring=ring):
-                if not self._in_grid(cell):
-                    return []
-                return [self._mark(self.geometry.cell_center(cell), glyph, color, ring, element.provenance)]
+    def paint_edge(self, element: EdgeSegment) -> None:
+        (x1, y1), (x2, y2) = (self._xy(p) for p in self.geometry.edge_endpoints(element.edge))
+        stroke = self._color(element.color, element.provenance)
+        fraction = self.theme.heavy_edge_width if element.weight is EdgeWeight.HEAVY else self.theme.edge_width
+        key = (stroke, fraction * self.cell, element.provenance.name.lower())
+        self._edge_runs.setdefault(key, []).append(((_fmt(x1), _fmt(y1)), (_fmt(x2), _fmt(y2))))
 
-            case EdgeMark(edge=edge, glyph=glyph, color=color, ring=ring):
-                if not self._in_grid(edge.cell):
-                    return []
-                p1, p2 = self.geometry.edge_endpoints(edge)
-                midpoint = Point((p1.x + p2.x) / 2, (p1.y + p2.y) / 2)
-                return [self._mark(midpoint, glyph, color, ring, element.provenance)]
+    def paint_cell_mark(self, element: CellMark) -> None:
+        point = self.geometry.cell_center(element.cell)
+        self._group.append(self._mark(point, element.glyph, element.color, element.ring, element.provenance))
 
-            case VertexMark(vertex=vertex, glyph=glyph, color=color, ring=ring):
-                if not self._in_grid(vertex.cell):
-                    return []
-                return [self._mark(self.geometry.vertex_point(vertex), glyph, color, ring, element.provenance)]
+    def paint_edge_mark(self, element: EdgeMark) -> None:
+        p1, p2 = self.geometry.edge_endpoints(element.edge)
+        midpoint = Point((p1.x + p2.x) / 2, (p1.y + p2.y) / 2)
+        self._group.append(self._mark(midpoint, element.glyph, element.color, element.ring, element.provenance))
 
-            case OutsideLabel(direction=direction, index=index, glyph=glyph, color=color, offset=offset):
-                point, anchor = self.geometry.outside_anchor(direction, index, offset)
-                return [self._text(point, glyph.for_backend(Backend.SVG), color, element.provenance, anchor)]
+    def paint_vertex_mark(self, element: VertexMark) -> None:
+        point = self.geometry.vertex_point(element.vertex)
+        self._group.append(self._mark(point, element.glyph, element.color, element.ring, element.provenance))
+
+    def paint_label(self, element: OutsideLabel) -> None:
+        anchored = self.geometry.outside_anchor(element.direction, element.index, element.offset)
+        if anchored is None:
+            return
+        point, anchor = anchored
+        self._group.append(
+            self._text(point, element.glyph.for_backend(Backend.SVG), element.color, element.provenance, anchor)
+        )
 
     def _edge_midpoint(self, cell: GridCell, direction: str) -> Point:
         p1, p2 = self.geometry.edge_endpoints(self.grid.edge(cell, direction))

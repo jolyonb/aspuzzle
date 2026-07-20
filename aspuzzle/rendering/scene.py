@@ -43,7 +43,7 @@ class Layer(IntEnum):
     Within a layer, insertion order breaks ties (stable sort).
     """
 
-    BASE = 0  # frame / lattice (painted by geometry from SceneStyle)
+    BASE = 0  # frame / lattice (painted by each backend's painter from SceneStyle)
     FILL = 10  # cell backgrounds
     GRID_MARK = 20  # structural borders (Sudoku boxes, region cages)
     PATH = 30  # in-cell paths, links, edge strokes, vertex marks
@@ -262,8 +262,8 @@ class CellStyle:
 class SceneStyle:
     """
     The substrate: the puzzle's request for how the grid itself is drawn,
-    painted by each geometry's paint_base() at Layer.BASE and interpreted
-    per backend. Region borders and cages are content (EdgeSegments), not
+    painted by each backend's painter at Layer.BASE and interpreted per
+    backend. Region borders and cages are content (EdgeSegments), not
     substrate.
     """
 

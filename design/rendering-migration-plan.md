@@ -225,6 +225,26 @@ The data-format change ran as one batch: `solve()` bucketing, the string-shape c
 
 ## End state: entry points for the follow-on work
 
+**Common-core rework (landed July 2026, after the SVG milestone):** one
+`ScenePainter` engine walks scenes for every backend (`painter.py`);
+`AsciiPainter`/`SvgPainter` are paint-op leaves; `AsciiGeometry` slimmed
+to layout + character vocabulary (total over in-grid inputs, painter-owned
+`JunctionState`, geometry `finish()`); geometries form the hierarchy
+`GeometryBase` (topology-only behavior: substrate enumeration, line
+limits) → `RectangularGeometryBase` (lattice model, stated once) →
+backend leaves. **The hex on-ramp is now:** (1) grid topology —
+`corner_names`, `corner_across`, `neighbor`, `all_cells`/`cell_at`,
+`parse_grid`, direction vectors; (2) `HexGeometryBase` — the hex lattice
+model; (3) `HexAsciiGeometry` — lane layout + char tables implementing the
+slim `AsciiGeometry` protocol; (4) `HexSvgGeometry` — point conversions
+implementing `SvgGeometry`; (5) the two factory methods on the grid class;
+(6) one entry in `ALL_GRID_FACTORIES` to inherit the topology and
+conformance suites (plus per-grid kitchen-sink goldens). No renderer changes;
+the painter side picks up exactly one recorded piece of work at the same
+time — the `finish()` re-seam (design §11), moving the ASCII finishing
+loops behind protocol primitives. The §5.4/§5.6 hex-ASCII notes and the
+grid-class config-resolution decision recorded in §11 still apply.
+
 - **Hexagonal grid (the next grid; triangular is deferred):** new `aspuzzle/grids/hexgrid.py` — subclass `Grid`, implement the existing ASP abstract surface with axial coordinates (uniform vector per direction, so the base `Direction`/`Orthogonal` machinery works unchanged) plus the Step 3 topology methods (`neighbor`, `corner_names`, `corner_across`) and `ascii_geometry()` returning a new `HexAsciiGeometry` (in `aspuzzle/rendering/grids/hex_ascii.py`; design §5.4). Orientation is a pair of concrete sibling subclasses under the abstract base (`HexGrid` → `FlatTopHexGrid`/`PointyTopHexGrid`), each overriding the direction/corner vocabulary and geometry factory — design §5.6; the framework is orientation-blind. One pre-flight decision recorded in the design's §11: the config loader derives module names from class names, so orientation subclasses sharing `hexgrid.py` need the registry decision first. The conformance suite (topology, ASP-skew diff, and the kitchen-sink golden in `tests/rendering/test_conformance_scene.py`) is fully parametrized over `ALL_GRID_FACTORIES` — a new grid registers its factory and inherits the lot.
 - **Triangular grid (deferred — design §5.5):** breaks the base machinery's one-direction-one-vector assumption (an up-triangle's northern cell exists but is not edge-adjacent), so it needs parity-conditioned overrides of the adjacency predicates and its own `Line`/`LineOfSight` design pass before any rendering work. On the rendering side its known change is widening the topology signatures (`corner_names`, `corner_across`, edge directions) to per-cell — deliberately NOT built ahead of time; nothing should be built for triangular until that exploration happens. Register the factory in `ALL_GRID_FACTORIES` and the geometry in the conformance scene — the shared suites do the rest. **Zero renderer changes, zero solver changes**; proof: run Slitherlink or Minesweeper on a hex instance.
 - **SVG backend (chosen as the next milestone, July 2026):** `aspuzzle/rendering/svg/{renderer,theme}.py` (`SvgRenderer`, `SvgTheme`) against the protocol frozen in Step 4; `svg_geometry()` overrides per grid (~30 lines each); one `--svg out.svg` flag in `solveit.py` calling `SvgRenderer().render(solver.build_scene(sol))` — previews included for free; `tests/goldens/svg/**` joins the golden harness. **Zero solver edits**, enforced by the Step 4 import-boundary tests. Both recorded decisions settled at implementation — see the design's §6 settled-decisions record (pre-filter via `cell_at`, now on `RenderGrid`; `bounds` folded by the renderer from drawn points; plus the substrate-interpretation bools `hairline`/`vertex_dots`/`heavy_frame` on `SceneStyle`). **Per-atom path/link colorers ride along**: widen `PathRule.color`/`LinkRule` to accept `Colorer`, with Numberlink pair-coloring as the showcase — which also needs a solver-side shown predicate carrying the pair identity (`propagated_symbol` is hidden today). *Done with the milestone:* `symbol_colorer` (clue-matched ordering), `CellDirections.sym`, and `EndpointDirection` stubs into the clue cells; expected solutions regenerated — see the design's §7.3 amendment.

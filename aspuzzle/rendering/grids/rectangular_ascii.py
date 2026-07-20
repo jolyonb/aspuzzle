@@ -16,37 +16,26 @@ other exists. So painting an edge only records, at each position it
 covers, the compass directions a line leaves that position in (a
 horizontal run leaves east and west; where the run ends at a vertex, the
 vertex records just the one direction pointing back at the run). After
-all painting, resolve_junctions() reads each position's accumulated
+all painting, the finish pass reads each position's accumulated
 direction set and picks the character: {e,w} → ─, {e,s} → ┌,
 {e,n,s,w} → ┼. Frames, region borders, and loops therefore junction
 correctly no matter which of them supplied which line.
 """
 
 import itertools
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Final
 
 from aspuzzle.rendering.ascii.canvas import CharCanvas, CharPos, TextSpan
-from aspuzzle.rendering.backend import Backend
+from aspuzzle.rendering.ascii.geometry import JunctionState
 from aspuzzle.rendering.color import ColorSpec
-from aspuzzle.rendering.glyph import Glyph
+from aspuzzle.rendering.grids.rectangular import RectangularGeometryBase
 from aspuzzle.rendering.scene import (
-    CellFill,
-    CellGlyph,
-    CellLink,
-    CellMark,
-    CellPath,
     Edge,
-    EdgeMark,
-    EdgeSegment,
-    EdgeWeight,
     Lattice,
     LayoutNeeds,
-    OutsideLabel,
-    SceneElement,
     SceneStyle,
     Vertex,
-    VertexMark,
 )
 
 if TYPE_CHECKING:
@@ -94,31 +83,15 @@ BOX_CHARS_HEAVY: Final[Mapping[frozenset[str], str]] = {
     frozenset({"e", "n", "s", "w"}): "╬",
 }
 
-VERTEX_DOT: Final[str] = "."
 
-
-def _mark_char(kind: str, glyph: Glyph | None) -> str:
-    """The one-character form of a mark glyph (the default dot when None):
-    a character grid has exactly one character per mark position."""
-    if glyph is None:
-        return VERTEX_DOT
-    text = glyph.for_backend(Backend.ASCII)
-    if len(text) != 1:
-        raise ValueError(
-            f"{kind} glyph {text!r} does not fit a one-character mark position; "
-            "keep the baseline text one character and put the full form in a "
-            "richer variant, e.g. Glyph('x', svg='10')"
-        )
-    return text
-
-
-class RectangularAsciiGeometry:
-    """Layout engine for RectangularGrid (satisfies AsciiGeometry)."""
+class RectangularAsciiGeometry(RectangularGeometryBase):
+    """Layout engine for RectangularGrid (satisfies AsciiGeometry): the
+    lane-collapsing layout plus character vocabulary, over the lattice
+    model inherited from RectangularGeometryBase."""
 
     def __init__(self, grid: RectangularGrid, needs: LayoutNeeds, style: SceneStyle) -> None:
-        self.grid = grid
-        self.style = style
-        self.gap = 0 if style.packed else 1
+        super().__init__(grid)
+        gap = 0 if style.packed else 1
 
         # -- which lanes materialize --
         # Horizontal lanes are indexed by row boundary 0..rows (lane rb sits
@@ -151,7 +124,7 @@ class RectangularAsciiGeometry:
         # the column pitch so neighbors cannot collide, and the canvas
         # extends so the last column's label fits
         label_pitch = max(needs.label_margins.get("s", 1), needs.label_margins.get("n", 1))
-        column_gap = self.gap if label_pitch <= 1 else max(self.gap, label_pitch)
+        column_gap = gap if label_pitch <= 1 else max(gap, label_pitch)
 
         # -- char coordinates: cells and materialized lanes interleave;
         #    unmaterialized column boundaries collapse to gap spaces,
@@ -192,81 +165,27 @@ class RectangularAsciiGeometry:
                 y += 1
         self._height = y + self._margin_bottom
 
-        # -- junction state: direction flags accumulate per position --
-        self._flags: dict[CharPos, set[str]] = {}
-        self._flag_heavy: set[CharPos] = set()
-        self._flag_color: dict[CharPos, ColorSpec] = {}
-        # -- fill state: each cell's final background, for continuity across
-        #    the characters between equal-fill neighbors --
-        self._cell_fills: dict[tuple[int, int], ColorSpec] = {}
-
-    # -- lattice arithmetic helpers --
-
-    def _edge_lattice(self, edge: Edge) -> tuple[str, int, int]:
-        """(orientation, boundary index, cell index along the lane) of an edge."""
-        row, col = self.grid.cell_coords(edge.cell)
-        match edge.direction:
-            case "n":
-                return "h", row - 1, col
-            case "s":
-                return "h", row, col
-            case "w":
-                return "v", col - 1, row
-            case "e":
-                return "v", col, row
-            case _:
-                raise ValueError(f"{edge.direction!r} is not a rectangular edge direction")
-
-    def _vertex_lattice(self, vertex: Vertex) -> tuple[int, int]:
-        """(row boundary, column boundary) of a vertex."""
-        row, col = self.grid.cell_coords(vertex.cell)
-        vertical, horizontal = vertex.corner[0], vertex.corner[1]
-        return (row - 1 if vertical == "n" else row, col - 1 if horizontal == "w" else col)
-
-    def _on_lattice(self, orientation: str, boundary: int, along: int) -> bool:
-        """Whether an edge's lattice indices fall on the grid (edges of
-        out-of-grid cells are skipped silently, like other elements)."""
-        if orientation == "h":
-            return 0 <= boundary <= self.grid.rows and 1 <= along <= self.grid.cols
-        return 0 <= boundary <= self.grid.cols and 1 <= along <= self.grid.rows
-
     # -- layout --
 
     def size(self) -> tuple[int, int]:
         return self._height, self._width
 
-    def _cell_pos(self, cell: GridCell) -> CharPos | None:
-        """Canvas position of a cell's character, or None if off-canvas
-        (out-of-grid elements are skipped silently)."""
+    def cell_span(self, cell: GridCell) -> TextSpan:
+        """The cell's content position (total over in-grid cells)."""
         row, col = self.grid.cell_coords(cell)
-        if not (1 <= row <= self.grid.rows and 1 <= col <= self.grid.cols):
-            return None
-        return CharPos(self._row_y[row], self._col_x[col])
+        return TextSpan(self._row_y[row], self._col_x[col], 1)
 
-    def _content_span(self, cell: GridCell) -> TextSpan:
-        pos = self._cell_pos(cell)
-        if pos is None:
-            raise ValueError(f"{cell} is outside the grid")
-        return TextSpan(pos.row, pos.col, 1)
-
-    def _vertex_pos(self, vertex: Vertex) -> CharPos:
-        row_boundary, col_boundary = self._vertex_lattice(vertex)
-        if row_boundary not in self._lane_y or col_boundary not in self._lane_x:
-            raise ValueError(f"{vertex} lies in a collapsed lane")
-        return CharPos(self._lane_y[row_boundary], self._lane_x[col_boundary])
-
-    def _path_glyph(self, directions: frozenset[str]) -> str:
+    def path_glyph(self, directions: frozenset[str]) -> str:
         glyph = BOX_CHARS.get(directions)
         if glyph is None:
             raise ValueError(f"No path glyph for direction set {sorted(directions)} on a rectangular grid")
         return glyph
 
-    def _label_span(self, direction: str, index: int, offset: int, width: int) -> TextSpan:
+    def label_span(self, direction: str, index: int, offset: int, width: int) -> TextSpan | None:
+        if not self.line_index_valid(direction, index):
+            return None  # labels beyond the grid skip silently, like every element
         if offset != 0:
             raise NotImplementedError("Stacked label rings (offset > 0) are not supported")
-        limit = self.grid.cols if direction in ("s", "n") else self.grid.rows
-        if not 1 <= index <= limit:
-            raise ValueError(f"Label index {index} is outside the grid for direction {direction!r}")
         match direction:
             case "s":  # looking south: above the grid, over column `index`
                 return TextSpan(self._margin_top - 1, self._col_x[index], width)
@@ -277,143 +196,76 @@ class RectangularAsciiGeometry:
             case "w":  # looking west: right of the grid, one space after it
                 return TextSpan(self._row_y[index], self._width - self._margin_right + 1, width)
             case _:
+                # Unreachable behind line_index_valid's direction check;
+                # kept as fallthrough insurance (and for match totality)
                 raise ValueError(f"{direction!r} is not a rectangular label direction")
 
-    # -- flag stamping --
+    # -- protocol surface: positions, stamps, vocabulary --
 
-    def _stamp(self, pos: CharPos, directions: set[str], weight: EdgeWeight, color: ColorSpec | None) -> None:
-        self._flags.setdefault(pos, set()).update(directions)
-        if weight is EdgeWeight.HEAVY:
-            self._flag_heavy.add(pos)
-        if color is not None:
-            self._flag_color[pos] = color
-
-    def _stamp_edge(self, edge: Edge, weight: EdgeWeight, color: ColorSpec | None) -> None:
+    def edge_stamps(self, edge: Edge) -> list[tuple[CharPos, frozenset[str]]]:
         orientation, boundary, along = self._edge_lattice(edge)
         if not self._on_lattice(orientation, boundary, along):
-            return
+            return []
+        stamps: list[tuple[CharPos, frozenset[str]]] = []
         if orientation == "h":
+            if boundary not in self._lane_y:
+                return []
             y = self._lane_y[boundary]
             # The run stamps its own cell's char; a materialized vertex
             # bounding it records the direction pointing back at the run.
-            # Gap chars between two stroked runs are bridged in resolve, so
+            # Gap chars between two stroked runs are bridged in finish, so
             # an isolated edge never claims a neighboring column.
             if along - 1 in self._lane_x:
-                self._stamp(CharPos(y, self._lane_x[along - 1]), {"e"}, weight, color)
+                stamps.append((CharPos(y, self._lane_x[along - 1]), frozenset({"e"})))
             if along in self._lane_x:
-                self._stamp(CharPos(y, self._lane_x[along]), {"w"}, weight, color)
-            self._stamp(CharPos(y, self._col_x[along]), {"e", "w"}, weight, color)
+                stamps.append((CharPos(y, self._lane_x[along]), frozenset({"w"})))
+            stamps.append((CharPos(y, self._col_x[along]), frozenset({"e", "w"})))
         else:
+            if boundary not in self._lane_x:
+                return []
             x = self._lane_x[boundary]
             if along - 1 in self._lane_y:
-                self._stamp(CharPos(self._lane_y[along - 1], x), {"s"}, weight, color)
+                stamps.append((CharPos(self._lane_y[along - 1], x), frozenset({"s"})))
             if along in self._lane_y:
-                self._stamp(CharPos(self._lane_y[along], x), {"n"}, weight, color)
-            self._stamp(CharPos(self._row_y[along], x), {"n", "s"}, weight, color)
+                stamps.append((CharPos(self._lane_y[along], x), frozenset({"n"})))
+            stamps.append((CharPos(self._row_y[along], x), frozenset({"n", "s"})))
+        return stamps
 
-    def _lattice_edges(self) -> list[tuple[Edge, EdgeWeight]]:
-        """The substrate's stroked edges, per the style's lattice setting."""
-        grid, style = self.grid, self.style
-        edges: list[tuple[Edge, EdgeWeight]] = []
-        if style.lattice is Lattice.NONE:
-            return edges
-        for col in range(1, grid.cols + 1):
-            edges.append((Edge(grid.Cell(row=1, col=col), "n"), style.frame_weight))
-            edges.append((Edge(grid.Cell(row=grid.rows, col=col), "s"), style.frame_weight))
-        for row in range(1, grid.rows + 1):
-            edges.append((Edge(grid.Cell(row=row, col=1), "w"), style.frame_weight))
-            edges.append((Edge(grid.Cell(row=row, col=grid.cols), "e"), style.frame_weight))
-        if style.lattice is Lattice.FULL:
-            for row in range(1, grid.rows + 1):
-                for col in range(1, grid.cols + 1):
-                    if row > 1:
-                        edges.append((Edge(grid.Cell(row=row, col=col), "n"), EdgeWeight.NORMAL))
-                    if col > 1:
-                        edges.append((Edge(grid.Cell(row=row, col=col), "w"), EdgeWeight.NORMAL))
-        return edges
+    def edge_mark_pos(self, edge: Edge) -> CharPos | None:
+        orientation, boundary, along = self._edge_lattice(edge)
+        if not self._on_lattice(orientation, boundary, along):
+            return None
+        if orientation == "h":
+            if boundary not in self._lane_y:
+                return None
+            return CharPos(self._lane_y[boundary], self._col_x[along])
+        if boundary not in self._lane_x:
+            return None
+        return CharPos(self._row_y[along], self._lane_x[boundary])
 
-    # -- painting --
+    def vertex_pos(self, vertex: Vertex) -> CharPos | None:
+        row_boundary, col_boundary = self._vertex_lattice(vertex)
+        if row_boundary not in self._lane_y or col_boundary not in self._lane_x:
+            return None
+        return CharPos(self._lane_y[row_boundary], self._lane_x[col_boundary])
 
-    def paint_base(self, canvas: CharCanvas) -> None:
-        empty = self.style.empty
-        if Backend.ASCII in empty.backends:
-            text = empty.glyph.for_backend(Backend.ASCII) if empty.glyph is not None else None
-            for cell in self.grid.all_cells():
-                span = self._content_span(cell)
-                if text is not None:
-                    canvas.put_text(span, text, fg=empty.color)
-                if empty.fill is not None:
-                    canvas.paint_bg(span, empty.fill)
-                    row, col = self.grid.cell_coords(cell)
-                    self._cell_fills[(row, col)] = empty.fill
-        if self.style.vertex_dots:
-            for y in self._lane_y.values():
-                for x in self._lane_x.values():
-                    canvas.put(CharPos(y, x), char=VERTEX_DOT)
-        for edge, weight in self._lattice_edges():
-            self._stamp_edge(edge, weight, None)
+    def substrate_dots(self) -> Iterable[CharPos]:
+        for y in self._lane_y.values():
+            for x in self._lane_x.values():
+                yield CharPos(y, x)
 
-    def paint(self, canvas: CharCanvas, element: SceneElement) -> None:
-        match element:
-            case CellFill(cell=cell, color=color):
-                if (pos := self._cell_pos(cell)) is not None:
-                    canvas.paint_bg(TextSpan(pos.row, pos.col, 1), color)
-                    row, col = self.grid.cell_coords(cell)
-                    self._cell_fills[(row, col)] = color
-            case CellGlyph(cell=cell, glyph=glyph, color=color):
-                if (pos := self._cell_pos(cell)) is not None:
-                    canvas.put_text(TextSpan(pos.row, pos.col, 1), glyph.for_backend(Backend.ASCII), fg=color)
-            case CellPath(cell=cell, directions=directions, color=color):
-                if (pos := self._cell_pos(cell)) is not None:
-                    canvas.put(pos, char=self._path_glyph(directions), fg=color)
-            case CellLink(cell1=cell1, cell2=cell2, glyph=glyph, color=color):
-                text = glyph.for_backend(Backend.ASCII) if glyph is not None else None
-                for cell in (cell1, cell2):
-                    if (pos := self._cell_pos(cell)) is not None:
-                        if text is not None:
-                            canvas.put_text(TextSpan(pos.row, pos.col, 1), text, fg=color)
-                        else:
-                            canvas.put(pos, fg=color)
-            case CellMark(cell=cell, glyph=glyph, color=color):
-                # The shape channel (ring) has no character form: the mark
-                # renders as its glyph or the default dot
-                if (pos := self._cell_pos(cell)) is not None:
-                    canvas.put(pos, char=_mark_char("CellMark", glyph), fg=color)
-            case EdgeMark(edge=edge, glyph=glyph, color=color):
-                orientation, boundary, along = self._edge_lattice(edge)
-                if not self._on_lattice(orientation, boundary, along):
-                    return  # out-of-grid edges skip silently, like every element
-                if orientation == "h":
-                    if boundary not in self._lane_y:
-                        return  # collapsed lane: the midpoint character does not exist
-                    pos = CharPos(self._lane_y[boundary], self._col_x[along])
-                else:
-                    if boundary not in self._lane_x:
-                        return
-                    pos = CharPos(self._row_y[along], self._lane_x[boundary])
-                canvas.put(pos, char=_mark_char("EdgeMark", glyph), fg=color)
-            case EdgeSegment(edge=edge, color=color, weight=weight):
-                self._stamp_edge(edge, weight, color)
-            case VertexMark(vertex=vertex, glyph=glyph, color=color):
-                row_boundary, col_boundary = self._vertex_lattice(vertex)
-                if not (0 <= row_boundary <= self.grid.rows and 0 <= col_boundary <= self.grid.cols):
-                    return  # out-of-grid vertices skip silently, like every element
-                canvas.put(self._vertex_pos(vertex), char=_mark_char("VertexMark", glyph), fg=color)
-            case OutsideLabel(direction=direction, index=index, glyph=glyph, color=color, offset=offset):
-                limit = self.grid.cols if direction in ("s", "n") else self.grid.rows
-                if not 1 <= index <= limit:
-                    return  # labels beyond the grid skip silently, like every element
-                text = glyph.for_backend(Backend.ASCII)
-                canvas.put_text(self._label_span(direction, index, offset, len(text)), text, fg=color)
+    # -- finishing: the layout-aware passes --
 
-    def resolve_junctions(self, canvas: CharCanvas) -> None:
-        self._bridge_horizontal_runs()
-        self._resolve_fills(canvas)
-        for pos, directions in self._flags.items():
-            table = BOX_CHARS_HEAVY if pos in self._flag_heavy else BOX_CHARS
-            canvas.put(pos, char=table[frozenset(directions)], fg=self._flag_color.get(pos))
+    def finish(
+        self, canvas: CharCanvas, junctions: JunctionState, cell_fills: Mapping[tuple[int, ...], ColorSpec]
+    ) -> None:
+        self._bridge_horizontal_runs(junctions)
+        self._resolve_fills(canvas, cell_fills)
+        for pos, directions in junctions.flags.items():
+            table = BOX_CHARS_HEAVY if pos in junctions.heavy else BOX_CHARS
+            canvas.put(pos, char=table[frozenset(directions)], fg=junctions.color.get(pos))
 
-    def _bridge_horizontal_runs(self) -> None:
+    def _bridge_horizontal_runs(self, junctions: JunctionState) -> None:
         """The chars between two neighboring anchors in a lane (cell chars
         and materialized vertices) are drawn only when both anchors carry a
         stroke pointing into the gap, so an isolated edge never claims a
@@ -425,19 +277,17 @@ class RectangularAsciiGeometry:
                     continue
                 left = CharPos(y, left_x)
                 right = CharPos(y, right_x)
-                if "e" in self._flags.get(left, ()) and "w" in self._flags.get(right, ()):
-                    heavy = left in self._flag_heavy or right in self._flag_heavy
-                    weight = EdgeWeight.HEAVY if heavy else EdgeWeight.NORMAL
-                    color = self._flag_color.get(left, self._flag_color.get(right))
+                if "e" in junctions.flags.get(left, ()) and "w" in junctions.flags.get(right, ()):
+                    heavy = left in junctions.heavy or right in junctions.heavy
+                    color = junctions.color.get(left, junctions.color.get(right))
                     for x in range(left_x + 1, right_x):
-                        self._stamp(CharPos(y, x), {"e", "w"}, weight, color)
+                        junctions.stamp(CharPos(y, x), {"e", "w"}, heavy, color)
 
-    def _resolve_fills(self, canvas: CharCanvas) -> None:
+    def _resolve_fills(self, canvas: CharCanvas, fills: Mapping[tuple[int, ...], ColorSpec]) -> None:
         """Backgrounds extend across the characters between equal-fill
         neighbors (and the junction area where all four surrounding cells
         match), so filled regions read as solid blocks even when lanes or
         gaps separate their cells."""
-        fills = self._cell_fills
         for (row, col), color in fills.items():
             right_match = fills.get((row, col + 1)) == color
             down_match = fills.get((row + 1, col)) == color
