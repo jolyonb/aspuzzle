@@ -345,6 +345,27 @@ def test_custom_rule_without_predicate_feeds_no_atoms() -> None:
     assert isinstance(fill, CellFill)
 
 
+def test_custom_rule_provenance_stamp() -> None:
+    grid = make_grid()
+
+    def make(atoms, context):  # type: ignore[no-untyped-def]
+        yield CellFill(grid.Cell(1, 1), PaletteColor.BLUE)  # takes the DERIVED default
+        yield CellFill(grid.Cell(1, 2), PaletteColor.RED, provenance=Provenance.GIVEN)
+
+    # Left None, every element keeps what it was constructed with
+    unstamped = build_scene(grid, RenderSpec(atoms=[CustomRule(make=make)]), [], None)
+    assert [element.provenance for element in unstamped.visible(Backend.SVG)] == [
+        Provenance.DERIVED,
+        Provenance.GIVEN,
+    ]
+
+    # Given, it applies to every element — unlike the backends stamp it
+    # overrides an explicit value, DERIVED being a claim rather than a blank
+    spec = RenderSpec(atoms=[CustomRule(make=make, provenance=Provenance.DERIVED)])
+    stamped = build_scene(grid, spec, [], None)
+    assert all(element.provenance is Provenance.DERIVED for element in stamped.visible(Backend.SVG))
+
+
 def test_labels_and_styles_flow_through() -> None:
     grid = make_grid(2, 2)
     svg_style = SceneStyle(lattice=Lattice.FULL)

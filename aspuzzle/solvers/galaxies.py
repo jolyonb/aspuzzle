@@ -207,21 +207,13 @@ class Galaxies(Solver):
                 cell = grid.Cell(r1, c1)
                 dr, dc = r2 - r1, c2 - c1
                 if (dr, dc) == (0, 0):
-                    marks.append(CellMark(cell, ring=True, layer=Layer.ANNOTATION, provenance=Provenance.GIVEN))
+                    marks.append(CellMark(cell, ring=True, layer=Layer.ANNOTATION))
                 elif dr != 0 and dc != 0:
                     corner = ("s" if dr > 0 else "n") + ("e" if dc > 0 else "w")
-                    marks.append(
-                        VertexMark(
-                            grid.vertex(cell, corner), ring=True, layer=Layer.ANNOTATION, provenance=Provenance.GIVEN
-                        )
-                    )
+                    marks.append(VertexMark(grid.vertex(cell, corner), ring=True, layer=Layer.ANNOTATION))
                 else:
                     direction = {(1, 0): "s", (-1, 0): "n", (0, 1): "e", (0, -1): "w"}[(dr, dc)]
-                    marks.append(
-                        EdgeMark(
-                            grid.edge(cell, direction), ring=True, layer=Layer.ANNOTATION, provenance=Provenance.GIVEN
-                        )
-                    )
+                    marks.append(EdgeMark(grid.edge(cell, direction), ring=True, layer=Layer.ANNOTATION))
             return marks
 
         return RenderSpec(
@@ -231,7 +223,7 @@ class Galaxies(Solver):
                     FromPredicate(Galaxy),
                     palette=(Color.YELLOW, Color.BRIGHT_BLUE, Color.GREEN, Color.RED),
                 ),
-                CustomRule(make=center_marks, backends=SVG_ONLY),
+                CustomRule(make=center_marks, backends=SVG_ONLY, provenance=Provenance.GIVEN),
             ],
             style=SceneStyle(packed=True),
         )

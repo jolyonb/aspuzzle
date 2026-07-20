@@ -471,11 +471,19 @@ class CustomRule(RuleBase):
     (sorted, so whole-set decisions need no hidden state) and the context,
     returns scene elements. predicate=None feeds no atoms — for rules
     whose elements derive from the context (grid data, parsed config)
-    rather than the solution. The rule's `backends` is applied to emitted
-    elements that did not choose their own."""
+    rather than the solution, which is the case that usually wants
+    provenance=GIVEN.
+
+    The two stamps differ deliberately. `backends` is applied only to
+    elements that did not choose their own, because ALL_BACKENDS is a
+    genuine "no opinion" default. `provenance` has no such unchosen state
+    — DERIVED is a real claim, not a blank — so when given it applies to
+    every emitted element, and a rule emitting mixed provenance leaves it
+    None and stamps per element instead."""
 
     predicate: PredicateRef | None = None
     make: Callable[[Sequence[Predicate], RenderContext], Iterable[SceneElement]] = None  # type: ignore[assignment]
+    provenance: Provenance | None = None
 
     def __post_init__(self) -> None:
         if self.make is None:
@@ -490,6 +498,8 @@ class CustomRule(RuleBase):
         for element in self.make(atoms, context):
             if self.backends != ALL_BACKENDS and element.backends == ALL_BACKENDS:
                 element = replace(element, backends=self.backends)
+            if self.provenance is not None:
+                element = replace(element, provenance=self.provenance)
             scene.add(element)
 
 
