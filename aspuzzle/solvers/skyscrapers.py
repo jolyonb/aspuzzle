@@ -2,7 +2,16 @@ from typing import ClassVar
 
 from aspalchemy import ANY, Count, Field, Predicate, RangePool, V
 from aspuzzle.grids.rectangulargrid import RectangularGrid
-from aspuzzle.rendering import GlyphRule, Lattice, LineLabels, RenderSpec, SceneStyle, digit_clues
+from aspuzzle.rendering import (
+    CHARACTER_BACKENDS,
+    SVG_ONLY,
+    GlyphRule,
+    Lattice,
+    LineLabels,
+    RenderSpec,
+    SceneStyle,
+    digit_clues,
+)
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
@@ -135,8 +144,17 @@ class Skyscrapers(Solver):
             clues=digit_clues(range(1, grid_size + 1), Color.GREEN),
             atoms=[GlyphRule("height/2", value_field="value", color=Color.BRIGHT_BLUE)],
             labels=[
-                LineLabels(direction, self.config[key], color=Color.BRIGHT_WHITE)
-                for direction, key in self.CLUE_DIRECTIONS
+                # Bright white reads well on a dark terminal but vanishes
+                # on paper (sheets carry no color either way); SVG takes
+                # the provenance default
+                *(
+                    LineLabels(direction, self.config[key], color=Color.BRIGHT_WHITE, backends=CHARACTER_BACKENDS)
+                    for direction, key in self.CLUE_DIRECTIONS
+                ),
+                *(
+                    LineLabels(direction, self.config[key], backends=SVG_ONLY)
+                    for direction, key in self.CLUE_DIRECTIONS
+                ),
             ],
             style=SceneStyle(lattice=Lattice.FRAME),
         )

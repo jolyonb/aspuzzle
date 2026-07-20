@@ -7,6 +7,7 @@ from aspuzzle.rendering import (
     CellFill,
     CellGlyph,
     CellLink,
+    CellMark,
     CellPath,
     CellStyle,
     Edge,
@@ -52,6 +53,13 @@ def test_unknown_path_direction_set_raises() -> None:
     grid, scene = make_scene()
     scene.add(CellPath(grid.Cell(1, 1), frozenset({"ne", "s"})))
     with pytest.raises(ValueError, match="No path glyph"):
+        AsciiRenderer(use_colors=False).render(scene)
+
+
+def test_multi_character_mark_glyph_raises() -> None:
+    grid, scene = make_scene()
+    scene.add(CellMark(grid.Cell(1, 1), glyph=Glyph("10")))
+    with pytest.raises(ValueError, match="one-character mark position"):
         AsciiRenderer(use_colors=False).render(scene)
 
 

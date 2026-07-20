@@ -5,6 +5,7 @@ from aspalchemy import Expression, Field, Predicate, RangePool, Segment, V
 from aspuzzle.grids.base import Grid, GridCell, GridCellData
 from aspuzzle.puzzle import Puzzle, cached_predicate
 from aspuzzle.rendering.grids.rectangular_ascii import RectangularAsciiGeometry
+from aspuzzle.rendering.grids.rectangular_svg import RectangularSvgGeometry
 
 if TYPE_CHECKING:
     from aspalchemy import PredicateArg
@@ -380,6 +381,9 @@ class RectangularGrid(Grid):
 
     def ascii_geometry(self, needs: LayoutNeeds, style: SceneStyle) -> RectangularAsciiGeometry:
         return RectangularAsciiGeometry(self, needs, style)
+
+    def svg_geometry(self) -> RectangularSvgGeometry:
+        return RectangularSvgGeometry(self)
 
     def forbid_2x2_blocks(
         self,

@@ -11,10 +11,16 @@ import pytest
 
 from aspalchemy import Predicate
 from aspuzzle.rendering import (
+    ASCII_ONLY,
+    CHARACTER_BACKENDS,
+    SVG_ONLY,
     Backend,
     CellFill,
     CellGlyph,
     CellLink,
+    CellMark,
+    CustomRule,
+    EdgeMark,
     EdgeSegment,
     FillRule,
     FromClues,
@@ -27,13 +33,15 @@ from aspuzzle.rendering import (
     PaletteColor,
     PathRule,
     Provenance,
+    RegionBorderRule,
     RegionBoundaryRule,
     RegionFillRule,
+    VertexMark,
 )
 from aspuzzle.solvers.base import Solver
 from aspuzzle.solvers.fillomino import Number
-from aspuzzle.solvers.galaxies import Galaxy
-from aspuzzle.solvers.numberlink import CellDirections
+from aspuzzle.solvers.galaxies import Galaxies, Galaxy
+from aspuzzle.solvers.numberlink import CellDirections, EndpointDirection
 from aspuzzle.solvers.nurikabe import Stream
 from aspuzzle.solvers.stitches import Stitch
 from aspuzzle.solvers.tents import Tent, TieDestination
@@ -118,15 +126,31 @@ def test_hitori_and_cave_and_nurikabe_fill_rules() -> None:
 def test_skyscrapers_labels_all_four_sides() -> None:
     spec = load_solver("skyscrapers").get_render_spec()
     assert {label.direction for label in spec.labels} == {"n", "e", "s", "w"}
-    assert all(label.color is PaletteColor.BRIGHT_WHITE for label in spec.labels)
+    # Bright-white labels are terminal styling; richer backends carry an
+    # uncolored twin that takes the provenance default (visible on paper)
+    ascii_labels = [label for label in spec.labels if label.backends == CHARACTER_BACKENDS]
+    rich_labels = [label for label in spec.labels if label.backends == SVG_ONLY]
+    assert len(ascii_labels) == len(rich_labels) == 4
+    assert all(label.color is PaletteColor.BRIGHT_WHITE for label in ascii_labels)
+    assert all(label.color is None for label in rich_labels)
     assert spec.style.lattice is Lattice.FRAME
 
 
 def test_starbattle_shapeless_spec() -> None:
-    spec = load_solver("starbattle_shapeless").get_render_spec()
+    solver = load_solver("starbattle_shapeless")
+    spec = solver.get_render_spec()
     (star,) = spec.atoms
     assert isinstance(star, GlyphRule)
     assert star.glyph is not None and star.glyph.for_backend(Backend.ASCII) == "★"
+    # The filled-cell convention: character backends keep the '#' glyph,
+    # SVG paints the cell solid
+    wall = spec.clues["#"]
+    assert wall.backends == CHARACTER_BACKENDS and wall.fill_backends == SVG_ONLY
+    preview = solver.build_scene(None)
+    fills = [element for element in preview.visible(Backend.SVG) if isinstance(element, CellFill)]
+    assert len(fills) == sum(1 for _, value in solver.grid_data if value == "#")
+    assert all(fill.opacity == 1.0 and fill.provenance is Provenance.GIVEN for fill in fills)
+    assert not [element for element in preview.visible(Backend.ASCII) if isinstance(element, CellFill)]
 
 
 def test_sudoku_blocks_render_in_preview() -> None:
@@ -139,11 +163,20 @@ def test_sudoku_blocks_render_in_preview() -> None:
 
 
 def test_numberlink_spec() -> None:
-    spec = load_solver("numberlink").get_render_spec()
-    (path,) = spec.atoms
-    assert isinstance(path, PathRule) and path.predicate is CellDirections
+    solver = load_solver("numberlink")
+    spec = solver.get_render_spec()
+    paths, endpoints = spec.atoms
+    assert isinstance(paths, PathRule) and paths.predicate is CellDirections
+    assert isinstance(endpoints, PathRule) and endpoints.predicate is EndpointDirection
+    assert endpoints.direction_fields == ("direction",)
     assert spec.style.packed
-    assert len(spec.clues) == len({value for _, value in load_solver("numberlink").grid_data})
+    assert len(spec.clues) == len({value for _, value in solver.grid_data})
+    # Paths color like their clues: the shared colorer resolves each atom's
+    # symbol to that clue's color
+    assert callable(paths.color) and paths.color is endpoints.color
+    (coords, symbol) = solver.grid_data[0]
+    atom = CellDirections(loc=solver.grid.Cell(*coords), dir1="e", dir2="s", sym=symbol)
+    assert paths.color(atom) == spec.clues[symbol].color
 
 
 def test_slitherlink_spec_draws_fill_and_loop() -> None:
@@ -202,31 +235,55 @@ def test_fillomino_large_solution_sizes_follow_the_overflow_convention() -> None
 
 
 def test_galaxies_spec() -> None:
-    spec = load_solver("galaxies").get_render_spec()
-    (fill,) = spec.atoms
+    solver = load_solver("galaxies")
+    assert isinstance(solver, Galaxies)
+    spec = solver.get_render_spec()
+    fill, centers = spec.atoms
     assert isinstance(fill, RegionFillRule)
     assert isinstance(fill.source, FromPredicate) and fill.source.predicate is Galaxy
+    # The character-art center encoding is terminal vocabulary only
     assert spec.clues["o"].color is None  # center markers inherit the terminal default
+    assert all(style.backends == CHARACTER_BACKENDS for style in spec.clues.values())
+    # SVG draws ring marks at the true center positions: one per center,
+    # at cell centers, edge midpoints, and vertices
+    assert isinstance(centers, CustomRule) and centers.backends == SVG_ONLY
+    scene = solver.build_scene(None)
+    marks = [element for element in scene.visible(Backend.SVG) if isinstance(element, (CellMark, EdgeMark, VertexMark))]
+    assert len(marks) == len(solver.process_data())
+    assert all(mark.ring and mark.provenance is Provenance.GIVEN for mark in marks)
+    assert not [
+        element for element in scene.visible(Backend.ASCII) if isinstance(element, (CellMark, EdgeMark, VertexMark))
+    ]
 
 
 def test_stitches_spec_and_preview_regions() -> None:
     solver = load_solver("stitches")
     spec = solver.get_render_spec()
-    region_fill, link = spec.atoms
+    region_fill, region_border, ascii_link, rich_link = spec.atoms
     assert isinstance(region_fill, RegionFillRule) and isinstance(region_fill.source, FromClues)
-    assert isinstance(link, LinkRule) and link.predicate is Stitch
+    assert region_fill.backends == ASCII_ONLY
+    # The pair idiom: colored blocks in the terminal, thick region borders
+    # and black ties where geometry is real
+    assert isinstance(region_border, RegionBorderRule) and region_border.backends == SVG_ONLY
+    assert isinstance(ascii_link, LinkRule) and ascii_link.predicate is Stitch and ascii_link.palette
+    assert isinstance(rich_link, LinkRule) and rich_link.color is PaletteColor.RED
     assert {label.direction for label in spec.labels} == {"e", "s"}
     # FromClues runs pre-solve: the preview shows the four-colored regions
     preview = solver.build_scene(None)
     fills = [element for element in preview.visible(Backend.ASCII) if isinstance(element, CellFill)]
     assert len(fills) == len(solver.grid_data)
     assert all(element.provenance is Provenance.GIVEN for element in fills)
+    # ...and the SVG preview the region borders instead
+    assert not [element for element in preview.visible(Backend.SVG) if isinstance(element, CellFill)]
+    assert [element for element in preview.visible(Backend.SVG) if isinstance(element, EdgeSegment)]
 
 
 def test_starbattle_spec() -> None:
     spec = load_solver("starbattle").get_render_spec()
-    region_fill, star = spec.atoms
+    region_fill, region_border, star = spec.atoms
     assert isinstance(region_fill, RegionFillRule) and isinstance(region_fill.source, FromClues)
+    assert region_fill.backends == ASCII_ONLY
+    assert isinstance(region_border, RegionBorderRule) and region_border.backends == SVG_ONLY
     assert isinstance(star, GlyphRule)
     assert star.glyph is not None and star.glyph.for_backend(Backend.SVG) == "⭐"
 

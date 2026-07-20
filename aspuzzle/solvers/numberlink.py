@@ -1,7 +1,7 @@
 from aspalchemy import ANY, Choice, Count, Field, Predicate, PredicateArg, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.rendering import PaletteColor as Color
-from aspuzzle.rendering import PathRule, RenderSpec, SceneStyle, symbol_clues
+from aspuzzle.rendering import PathRule, RenderSpec, SceneStyle, symbol_clues, symbol_colorer
 from aspuzzle.solvers.base import Solver
 
 
@@ -37,9 +37,22 @@ class Connected(Predicate, show=False):
 
 
 class CellDirections(Predicate):
+    """A path passes through loc via dir1/dir2; sym carries the pair
+    identity so renderers can color each path like its endpoint clues."""
+
     loc: Field[GridCell]
     dir1: Field[str]
     dir2: Field[str]
+    sym: Field[PredicateArg]
+
+
+class EndpointDirection(Predicate):
+    """The single direction a pair's path leaves its endpoint clue in, so
+    renderers can draw the path into the numbered cell."""
+
+    loc: Field[GridCell]
+    direction: Field[str]
+    sym: Field[PredicateArg]
 
 
 class Numberlink(Solver):
@@ -117,7 +130,9 @@ class Numberlink(Solver):
             PropagatedSymbol(loc=Cell2, sym=Sym),
         ).require(Connected(loc1=Cell1, loc2=Cell2))
 
-        # Rule 8: Solution extraction - compute the two directions for each non-symbol cell
+        # Rule 8: Solution extraction - the two directions through each
+        # non-symbol cell and the single direction leaving each endpoint,
+        # both carrying the pair symbol for rendering
         puzzle.section("Solution extraction")
         D1, D2 = V.D1, V.D2
 
@@ -125,10 +140,16 @@ class Numberlink(Solver):
         puzzle.when(
             cell,
             ~HasSymbol(loc=cell),
+            PropagatedSymbol(loc=cell, sym=Sym),
             Path(loc=cell, direction=D1),
             Path(loc=cell, direction=D2),
             D1 < D2,
-        ).derive(CellDirections(loc=cell, dir1=D1, dir2=D2))
+        ).derive(CellDirections(loc=cell, dir1=D1, dir2=D2, sym=Sym))
+
+        puzzle.when(
+            Symbol(loc=Cell, sym=Sym),
+            Path(loc=Cell, direction=D),
+        ).derive(EndpointDirection(loc=Cell, direction=D, sym=Sym))
 
     def get_render_spec(self) -> RenderSpec:
         # Symbols are opaque labels (numbers or strings); color them in
@@ -144,9 +165,17 @@ class Numberlink(Solver):
             Color.BRIGHT_GREEN,
             Color.BRIGHT_RED,
         )
+        # Paths color like their endpoint clues: same palette, same
+        # first-appearance order. The endpoint rule's single-direction
+        # stubs draw the path into the numbered cells (in character grids
+        # the clue glyph paints over its stub).
+        colorer = symbol_colorer(self.grid_data, palette)
         return RenderSpec(
             clues=symbol_clues(self.grid_data, palette),
-            atoms=[PathRule(CellDirections, color=Color.CYAN)],
+            atoms=[
+                PathRule(CellDirections, color=colorer),
+                PathRule(EndpointDirection, direction_fields=("direction",), color=colorer),
+            ],
             style=SceneStyle(packed=True),
         )
 

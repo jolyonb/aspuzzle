@@ -41,6 +41,12 @@ class RenderGrid(Protocol):
 
     def cell_coords(self, cell: GridCell) -> tuple[int, ...]: ...
 
+    def cell_at(self, coords: tuple[int, ...]) -> GridCell | None:
+        """The in-grid cell at concrete coordinates, or None when no such
+        cell exists — the test grid-agnostic renderers use to skip elements
+        referencing out-of-grid cells."""
+        ...
+
     # -- edges and vertices (canonical constructors) --
     @property
     def corner_names(self) -> Sequence[str]: ...

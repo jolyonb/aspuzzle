@@ -27,8 +27,8 @@ if TYPE_CHECKING:
 class Provenance(Enum):
     """
     Where an element's information came from. Backends may style the two
-    classes differently (e.g. SVG: bold clue digits, lighter solution
-    values); the default ASCII theme ignores it.
+    classes differently (e.g. SVG: uncolored givens default to black,
+    solution values to blue); the default ASCII theme ignores it.
     Provenance is meaning, not paint order — it never affects layering.
     """
 
@@ -104,12 +104,14 @@ class SceneElementBase:
 class CellFill(SceneElementBase):
     """
     Paint a cell's background. Touches only the background channel — glyphs
-    beneath show through.
+    beneath show through. opacity=None means the backend theme's default
+    fill softening; backends without an opacity channel ignore it.
     """
 
     cell: GridCell
     color: ColorSpec
     layer: int = Layer.FILL
+    opacity: float | None = None
 
 
 @dataclass(frozen=True)
@@ -168,14 +170,48 @@ class EdgeSegment(SceneElementBase):
 
 
 @dataclass(frozen=True)
+class CellMark(SceneElementBase):
+    """
+    A shape mark at the cell's center — distinct from CellGlyph, which is
+    content text. glyph=None means the backend's default dot; ring=True an
+    open circle in backends with a shape channel (character backends draw
+    the glyph or default dot either way).
+    """
+
+    cell: GridCell
+    glyph: Glyph | None = None
+    color: ColorSpec | None = None
+    ring: bool = False
+    layer: int = Layer.PATH
+
+
+@dataclass(frozen=True)
+class EdgeMark(SceneElementBase):
+    """
+    A mark at an edge's midpoint (e.g. a Galaxies center between two
+    orthogonal cells). glyph=None means the backend's default dot;
+    ring=True an open circle where a shape channel exists. In character
+    layouts the mark needs the edge's lane; a collapsed lane skips it.
+    """
+
+    edge: Edge
+    glyph: Glyph | None = None
+    color: ColorSpec | None = None
+    ring: bool = False
+    layer: int = Layer.PATH
+
+
+@dataclass(frozen=True)
 class VertexMark(SceneElementBase):
     """
-    A mark at a cell corner. glyph=None means the geometry's default dot.
+    A mark at a cell corner. glyph=None means the geometry's default dot;
+    ring=True an open circle where a shape channel exists.
     """
 
     vertex: Vertex
     glyph: Glyph | None = None
     color: ColorSpec | None = None
+    ring: bool = False
     layer: int = Layer.PATH
 
 
@@ -195,7 +231,9 @@ class OutsideLabel(SceneElementBase):
     layer: int = Layer.GLYPH
 
 
-type SceneElement = CellFill | CellGlyph | CellPath | CellLink | EdgeSegment | VertexMark | OutsideLabel
+type SceneElement = (
+    CellFill | CellGlyph | CellMark | CellPath | CellLink | EdgeSegment | EdgeMark | VertexMark | OutsideLabel
+)
 
 
 @dataclass(frozen=True)
@@ -203,13 +241,21 @@ class CellStyle:
     """Style for a clue value from the input grid. Clue glyphs default to
     ANNOTATION so a solution atom covering the cell cannot repaint the
     given value in solution colors; lower `layer` to Layer.GLYPH when the
-    solution's repaint is the desired look."""
+    solution's repaint is the desired look.
+
+    The glyph and fill channels may address different backends (the '#'
+    convention: character backends draw the glyph, SVG paints the cell
+    solid — see filled_clue): fill_backends=None gives the fill the
+    glyph's `backends`; fill_opacity=None the backend theme's default
+    softening."""
 
     glyph: Glyph | None = None
     color: ColorSpec | None = None
     fill: ColorSpec | None = None
     layer: int = Layer.ANNOTATION
     backends: BackendSet = ALL_BACKENDS
+    fill_backends: BackendSet | None = None
+    fill_opacity: float | None = None
 
 
 @dataclass(frozen=True)
@@ -228,6 +274,13 @@ class SceneStyle:
     # traditional tight terminal look; False: one space between cells
     packed: bool = False
     empty: CellStyle = field(default_factory=lambda: CellStyle(glyph=Glyph(".")))  # untouched cells
+    # Print-substrate fields (SVG). Character backends ignore them — their
+    # substrate questions are the layout-changing `lattice` and `packed`
+    # above. A puzzle wanting a different SVG substrate without touching
+    # its character render overrides via backend_styles (e.g. Slitherlink's
+    # dot grid: hairline=False, vertex_dots=True, heavy_frame=False).
+    hairline: bool = True  # full cell lattice as hairlines
+    heavy_frame: bool = True  # outer boundary, heavier than the lattice
 
 
 @dataclass(frozen=True)
@@ -295,7 +348,7 @@ class Scene:
         label_margins: dict[str, int] = {}
         for element in self.visible(backend):
             match element:
-                case EdgeSegment(edge=edge):
+                case EdgeSegment(edge=edge) | EdgeMark(edge=edge):
                     edges.add(edge)
                 case VertexMark(vertex=vertex):
                     vertices.add(vertex)

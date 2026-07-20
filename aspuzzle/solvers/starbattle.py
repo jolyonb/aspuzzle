@@ -2,7 +2,17 @@ from typing import Any, ClassVar
 
 from aspalchemy import ANY, Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.rendering import FromClues, Glyph, GlyphRule, RegionFillRule, RenderSpec, SceneStyle
+from aspuzzle.rendering import (
+    ASCII_ONLY,
+    SVG_ONLY,
+    FromClues,
+    Glyph,
+    GlyphRule,
+    RegionBorderRule,
+    RegionFillRule,
+    RenderSpec,
+    SceneStyle,
+)
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
@@ -53,9 +63,16 @@ class Starbattle(Solver):
         puzzle.when(grid.vertex_sharing(suffix_2="adj")).forbid(symbols["star"](cell), symbols["star"](cell_adj))
 
     def get_render_spec(self) -> RenderSpec:
+        # Character grids show the regions as colored blocks; backends
+        # with real geometry draw the traditional region borders
         return RenderSpec(
             atoms=[
-                RegionFillRule(FromClues(), palette=(Color.BRIGHT_BLUE, Color.GREEN, Color.RED, Color.CYAN)),
+                RegionFillRule(
+                    FromClues(),
+                    palette=(Color.BRIGHT_BLUE, Color.GREEN, Color.RED, Color.CYAN),
+                    backends=ASCII_ONLY,
+                ),
+                RegionBorderRule(source=FromClues(), backends=SVG_ONLY),
                 GlyphRule("star/1", glyph=Glyph("★", svg="⭐"), color=Color.BRIGHT_YELLOW),
             ],
             style=SceneStyle(packed=True),

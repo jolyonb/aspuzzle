@@ -25,3 +25,7 @@ ALL_BACKENDS: Final[BackendSet] = frozenset(Backend)
 ASCII_ONLY: Final[BackendSet] = frozenset({Backend.ASCII})
 SVG_ONLY: Final[BackendSet] = frozenset({Backend.SVG})
 SHEET_ONLY: Final[BackendSet] = frozenset({Backend.SHEET})
+# The two character backends — terminal and sheet render text; only their
+# side channels differ (terminal has color, sheet has cell width). The
+# pair idiom splits an element CHARACTER_BACKENDS vs SVG_ONLY.
+CHARACTER_BACKENDS: Final[BackendSet] = frozenset({Backend.ASCII, Backend.SHEET})

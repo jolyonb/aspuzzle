@@ -16,7 +16,9 @@ from aspuzzle.rendering import (
     CellFill,
     CellGlyph,
     CellLink,
+    CellMark,
     CellPath,
+    EdgeMark,
     EdgeSegment,
     EdgeWeight,
     Glyph,
@@ -29,9 +31,17 @@ from aspuzzle.rendering import (
     VertexMark,
 )
 from aspuzzle.rendering.ascii import AsciiRenderer
+from aspuzzle.rendering.svg import SvgRenderer
 from tests.rendering.test_grid_topology import ALL_GRID_FACTORIES
 
 GOLDEN_ROOT = Path(__file__).parents[1] / "goldens" / "conformance"
+
+# Renderer and golden-file suffix per backend; svg goldens are .svg so
+# they open directly in a browser
+BACKENDS: dict[str, tuple[Callable[[Scene], str], str]] = {
+    "ascii": (lambda scene: AsciiRenderer(use_colors=True).render(scene), "txt"),
+    "svg": (lambda scene: SvgRenderer().render(scene), "svg"),
+}
 
 
 def kitchen_sink_scene(grid: Grid) -> Scene:
@@ -59,18 +69,22 @@ def kitchen_sink_scene(grid: Grid) -> Scene:
         # An interior corner: frame corners are junction-flagged, and
         # junction resolution deliberately wins over vertex marks
         VertexMark(grid.vertex(cells[0], grid.corner_names[2]), glyph=Glyph("o")),
+        CellMark(cells[7], ring=True),  # shape channel: open ring in SVG, dot char in ASCII
+        EdgeMark(grid.edge(cells[8], directions[1])),  # default dot at an edge midpoint
     )
     for index, text in enumerate(("10", "2", "300"), start=1):
         scene.add(OutsideLabel(grid.line_direction_names[0], index, Glyph(text)))
     return scene
 
 
+@pytest.mark.parametrize("backend", sorted(BACKENDS))
 @pytest.mark.parametrize("grid_factory", ALL_GRID_FACTORIES, ids=lambda f: f.__name__)
-def test_kitchen_sink_golden(grid_factory: Callable[[], Grid], update_goldens: bool) -> None:
+def test_kitchen_sink_golden(grid_factory: Callable[[], Grid], backend: str, update_goldens: bool) -> None:
     scene = kitchen_sink_scene(grid_factory())
-    text = AsciiRenderer(use_colors=True).render(scene)
+    render, suffix = BACKENDS[backend]
+    text = render(scene)
 
-    golden_path = GOLDEN_ROOT / f"{grid_factory.__name__}-ascii.txt"
+    golden_path = GOLDEN_ROOT / f"{grid_factory.__name__}-{backend}.{suffix}"
     if update_goldens:
         golden_path.parent.mkdir(parents=True, exist_ok=True)
         golden_path.write_text(text)

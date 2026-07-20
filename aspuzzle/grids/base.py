@@ -504,8 +504,9 @@ class Grid(Module, ABC):
         valid for boundary edges too (no neighbor required). Of the two
         spellings of an interior edge, the one with the lexicographically
         smaller (cell_coords, direction) key wins, so the same geometric
-        edge compares and hashes equal from either side. The only public
-        Edge constructor.
+        edge compares and hashes equal from either side — including when
+        spelled from an outside-border cell, where the in-grid neighbor's
+        spelling wins outright. The only public Edge constructor.
         """
         if direction not in self.orthogonal_direction_names:
             raise ValueError(f"{direction!r} is not an edge direction of this grid")
@@ -513,6 +514,10 @@ class Grid(Module, ABC):
         if adjacent is None:
             return Edge(cell, direction)
         flipped = self.opposite_direction(direction)
+        if self.cell_at(self.cell_coords(cell)) is None:
+            # neighbor() only returns in-grid cells, so this spelling's
+            # cell is the outside one: collapse to the in-grid spelling
+            return Edge(adjacent, flipped)
         if (self.cell_coords(cell), direction) <= (self.cell_coords(adjacent), flipped):
             return Edge(cell, direction)
         return Edge(adjacent, flipped)

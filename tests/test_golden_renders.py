@@ -4,8 +4,8 @@ Pins the exact output of rendering — parametrized over every config in
 puzzles/, both modes (preview = render with no solution, solution = render
 of the first model), and every render backend. ANSI escape bytes are part
 of the pinned output for the ascii backend. Goldens live at
-tests/goldens/<backend>/<puzzle>/<mode>.txt; new backends (svg, tsv) join
-by adding one entry to BACKENDS.
+tests/goldens/<backend>/<puzzle>/<mode>.<suffix>, suffix per backend; new
+backends (tsv) join by adding one entry to BACKENDS.
 
 After reviewing an intentional visual change, re-bless with:
 
@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 from aspalchemy import Predicate
+from aspuzzle.rendering.svg import SvgRenderer
 from aspuzzle.solvers.base import Solver
 from tests.test_puzzles import get_puzzle_files
 
@@ -29,9 +30,11 @@ type Solution = dict[str, list[Predicate]]
 
 MODES = ("preview", "solution")
 
-# One renderer per backend; svg and tsv join here when those backends land.
-BACKENDS: dict[str, Callable[[Solver, Solution | None], str]] = {
-    "ascii": lambda solver, solution: solver.render_puzzle(solution),
+# Renderer and golden-file suffix per backend (svg goldens are .svg so
+# they open directly in a browser); tsv joins here when that backend lands.
+BACKENDS: dict[str, tuple[Callable[[Solver, Solution | None], str], str]] = {
+    "ascii": (lambda solver, solution: solver.render_puzzle(solution), "txt"),
+    "svg": (lambda solver, solution: SvgRenderer().render(solver.build_scene(solution)), "svg"),
 }
 
 
@@ -52,9 +55,10 @@ def solver_and_first_solution(puzzle_file: Path) -> tuple[Solver, Solution]:
 @pytest.mark.parametrize("puzzle_file", get_puzzle_files(), ids=lambda p: p.name)
 def test_golden_render(puzzle_file: Path, mode: str, backend: str, update_goldens: bool) -> None:
     solver, solution = solver_and_first_solution(puzzle_file)
-    text = BACKENDS[backend](solver, solution if mode == "solution" else None)
+    render, suffix = BACKENDS[backend]
+    text = render(solver, solution if mode == "solution" else None)
 
-    golden_path = GOLDEN_ROOT / backend / puzzle_file.stem / f"{mode}.txt"
+    golden_path = GOLDEN_ROOT / backend / puzzle_file.stem / f"{mode}.{suffix}"
 
     if update_goldens:
         golden_path.parent.mkdir(parents=True, exist_ok=True)

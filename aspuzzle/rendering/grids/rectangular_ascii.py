@@ -29,12 +29,15 @@ from typing import TYPE_CHECKING, Final
 from aspuzzle.rendering.ascii.canvas import CharCanvas, CharPos, TextSpan
 from aspuzzle.rendering.backend import Backend
 from aspuzzle.rendering.color import ColorSpec
+from aspuzzle.rendering.glyph import Glyph
 from aspuzzle.rendering.scene import (
     CellFill,
     CellGlyph,
     CellLink,
+    CellMark,
     CellPath,
     Edge,
+    EdgeMark,
     EdgeSegment,
     EdgeWeight,
     Lattice,
@@ -92,6 +95,21 @@ BOX_CHARS_HEAVY: Final[Mapping[frozenset[str], str]] = {
 }
 
 VERTEX_DOT: Final[str] = "."
+
+
+def _mark_char(kind: str, glyph: Glyph | None) -> str:
+    """The one-character form of a mark glyph (the default dot when None):
+    a character grid has exactly one character per mark position."""
+    if glyph is None:
+        return VERTEX_DOT
+    text = glyph.for_backend(Backend.ASCII)
+    if len(text) != 1:
+        raise ValueError(
+            f"{kind} glyph {text!r} does not fit a one-character mark position; "
+            "keep the baseline text one character and put the full form in a "
+            "richer variant, e.g. Glyph('x', svg='10')"
+        )
+    return text
 
 
 class RectangularAsciiGeometry:
@@ -356,14 +374,31 @@ class RectangularAsciiGeometry:
                             canvas.put_text(TextSpan(pos.row, pos.col, 1), text, fg=color)
                         else:
                             canvas.put(pos, fg=color)
+            case CellMark(cell=cell, glyph=glyph, color=color):
+                # The shape channel (ring) has no character form: the mark
+                # renders as its glyph or the default dot
+                if (pos := self._cell_pos(cell)) is not None:
+                    canvas.put(pos, char=_mark_char("CellMark", glyph), fg=color)
+            case EdgeMark(edge=edge, glyph=glyph, color=color):
+                orientation, boundary, along = self._edge_lattice(edge)
+                if not self._on_lattice(orientation, boundary, along):
+                    return  # out-of-grid edges skip silently, like every element
+                if orientation == "h":
+                    if boundary not in self._lane_y:
+                        return  # collapsed lane: the midpoint character does not exist
+                    pos = CharPos(self._lane_y[boundary], self._col_x[along])
+                else:
+                    if boundary not in self._lane_x:
+                        return
+                    pos = CharPos(self._row_y[along], self._lane_x[boundary])
+                canvas.put(pos, char=_mark_char("EdgeMark", glyph), fg=color)
             case EdgeSegment(edge=edge, color=color, weight=weight):
                 self._stamp_edge(edge, weight, color)
             case VertexMark(vertex=vertex, glyph=glyph, color=color):
                 row_boundary, col_boundary = self._vertex_lattice(vertex)
                 if not (0 <= row_boundary <= self.grid.rows and 0 <= col_boundary <= self.grid.cols):
                     return  # out-of-grid vertices skip silently, like every element
-                text = glyph.for_backend(Backend.ASCII) if glyph is not None else VERTEX_DOT
-                canvas.put(self._vertex_pos(vertex), char=text, fg=color)
+                canvas.put(self._vertex_pos(vertex), char=_mark_char("VertexMark", glyph), fg=color)
             case OutsideLabel(direction=direction, index=index, glyph=glyph, color=color, offset=offset):
                 limit = self.grid.cols if direction in ("s", "n") else self.grid.rows
                 if not 1 <= index <= limit:

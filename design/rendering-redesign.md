@@ -324,6 +324,17 @@ class SceneElementBase:
 
 ### 3.6 Scene elements
 
+*Amended at the SVG milestone:* the element union grew its one post-freeze
+addition — marks at all three in-grid locations. Galaxies surfaced the
+gap: its centers live at cell centers, edge midpoints, and vertices, and
+the union had marks only at vertices. `CellMark` (shape mark at a cell
+center, distinct from `CellGlyph`'s content text) and `EdgeMark` (mark at
+an edge midpoint; contributes its edge to `LayoutNeeds.edges`, and a
+collapsed character lane skips it) now mirror `VertexMark`, and all three
+carry `ring: bool` — glyph=None draws the backend's default dot, ring=True
+an open circle where a shape channel exists (character backends draw the
+glyph or dot regardless). The snippet below predates the amendment.
+
 ```python
 # aspuzzle/rendering/scene.py
 from enum import IntEnum
@@ -835,9 +846,8 @@ The scene model, canonicalization walk, renderers, and conformance suites are or
 class Point: x: float; y: float
 
 class SvgGeometry(Protocol):
-    def bounds(self, scene: Scene) -> tuple[Point, Point]: ...
-        # computed over scene.visible(Backend.SVG) — ASCII-only elements
-        # never inflate the viewBox
+    # Unit-cell coordinates: one cell spans one unit; the renderer scales
+    # by cell_size. Methods are total over in-grid inputs.
     def cell_polygon(self, cell: GridCell) -> Sequence[Point]: ...
     def cell_center(self, cell: GridCell) -> Point: ...
     def edge_endpoints(self, edge: Edge) -> tuple[Point, Point]: ...
@@ -850,27 +860,51 @@ class SvgGeometry(Protocol):
 # aspuzzle/rendering/svg/renderer.py
 class SvgRenderer:
     backend: Final = Backend.SVG
-    def __init__(self, theme: SvgTheme = DEFAULT_SVG_THEME, cell_size: float = 32): ...
+    def __init__(self, theme: SvgTheme = DEFAULT_SVG_THEME, cell_size: float = 64): ...
     def render(self, scene: Scene) -> str: ...   # iterates scene.sorted_elements(Backend.SVG)
 ```
 
-Two decisions to settle when the renderer is written, recorded here while
-the contracts are still implementation-free:
-- **Out-of-drawable elements.** Solution dicts genuinely carry
-  outside-border cells (Slitherlink's `outside` atoms). ASCII handles this
-  inside the geometry (`_cell_pos` → None, skip silently); `SvgGeometry`
-  has no None channel. Preferred resolution: the renderer pre-filters with
-  `grid.cell_at(grid.cell_coords(cell)) is None` before asking the
-  geometry, keeping geometry methods total over in-grid inputs and the
-  protocol unchanged.
-- **Whether `bounds` stays on the geometry.** As specified it forces every
-  per-grid geometry to dispatch over all seven element kinds. Alternative:
-  the renderer folds bounds from the points it already requests per
-  visible element, plus a padding constant — then `bounds` shrinks or
-  disappears. Decide at implementation; the dbpuzzles auto-extent note
-  (§6.0) favors the fold.
+Decisions settled at implementation (July 2026), superseding the two
+recorded at contract-freeze time:
 
-Element mapping is mechanical because the scene is already geometric: `CellFill` → `<polygon fill=…>`; `CellGlyph` → centered `<text>` (full text — no letter compaction needed); `EdgeSegment` → `<line>` (HEAVY → larger stroke-width); `CellPath` → polyline from edge midpoints through the cell center (*exact* on hex/tri, where ASCII is best-effort — same scene, better output); `CellLink` → connector line + glyphs; `VertexMark` → `<circle>`/`<text>`; `OutsideLabel` → anchored `<text>`. Layers become ordered `<g data-layer=…>` groups; every element additionally carries `data-provenance="given"|"derived"`, and `SvgTheme` may style the classes differently — the intended default is **bold clue glyphs, lighter solution values**, giving printed/exported puzzles the familiar published-puzzle look with zero solver involvement. `SvgTheme` maps `PaletteColor` → curated hex, `Rgb` verbatim. Per grid, the geometry is ~30 lines (unit squares; six-corner polygons from offset coords; three-corner triangles).
+- **Out-of-drawable elements** — the pre-filter, as recorded: the renderer
+  skips any element whose referenced cell has
+  `grid.cell_at(grid.cell_coords(cell)) is None` (solution dicts genuinely
+  carry such cells, e.g. Slitherlink's `outside` atoms), keeping geometry
+  methods total over in-grid inputs. `cell_at` joined the `RenderGrid`
+  protocol for this (already implemented on `Grid`).
+- **`bounds`** — the fold, as §6.0's auto-extent note favored: the method
+  left the protocol; the renderer folds the viewBox from every point it
+  draws plus a quarter-cell margin, with an estimated text extent folded
+  per label so start/end-anchored outside labels never clip. Geometries
+  are pure point mappings in **unit-cell coordinates**, scaled by the
+  renderer's `cell_size` — which defaults to 64 (not the sketch's 32) so
+  the dbpuzzles constants (§6.0) transfer verbatim.
+- **Substrate interpretation** (new at implementation) — `Lattice`,
+  `frame_weight`, `packed`, and `empty` are character-grid vocabulary the
+  SVG backend ignores; the print substrate is three `SceneStyle` bools:
+  `hairline` (full hairline cell lattice, default True), `vertex_dots`
+  (shared with ASCII), and `heavy_frame` (outer boundary drawn heavier
+  than the lattice, default True — not unconditional, because Slitherlink's
+  traditional look is a bare dot grid with *no* frame). The defaults give
+  every existing solver a published-puzzle SVG with zero edits; a puzzle
+  wanting a different SVG substrate without touching its character render
+  overrides via `backend_styles` (Slitherlink: `hairline=False,
+  vertex_dots=True, heavy_frame=False`).
+- **Recorded latent divergence** — `OutsideLabel` indices beyond the grid:
+  character geometries skip them silently, while SVG geometries are total
+  and would draw a stray label at the extrapolated position. Config
+  validation keeps label arrays grid-sized, so no emitter can hit this;
+  recorded rather than fixed because the skip needs grid knowledge the
+  grid-agnostic renderer deliberately lacks.
+- **Output framing** — every render begins with
+  `<!-- Generated by ASPuzzle https://github.com/jolyonb/aspuzzle -->`;
+  one generated `<style>` block carries the theme's font/halo/substrate
+  styling (typed Python fields, honoring §6.0's no-CSS-dialect
+  anti-lesson) while per-element colors are inline attributes; glyph text
+  sizes by rendered length (1/2/3+ chars), the dbpuzzles convention.
+
+Element mapping is mechanical because the scene is already geometric: `CellFill` → `<polygon fill=…>`; `CellGlyph` → centered `<text>` (full text — no letter compaction needed); `EdgeSegment` → `<line>` (HEAVY → larger stroke-width); `CellPath` → polyline from edge midpoints through the cell center (*exact* on hex/tri, where ASCII is best-effort — same scene, better output); `CellLink` → connector line + glyphs; `CellMark`/`EdgeMark`/`VertexMark` → `<text>` for glyph marks, else a `<circle>` — the theme's dot, or with `ring=True` a halo-filled open ring (Galaxies centers); `OutsideLabel` → anchored `<text>`. Layers become ordered `<g data-layer=…>` groups; every element additionally carries `data-provenance="given"|"derived"`, and `SvgTheme` may style the classes differently — the default distinguishes them **by color alone**: uncolored givens render black, uncolored solution values in the theme's value blue, with zero solver involvement. (A bold-givens variant was tried at the polish pass and rejected as too heavy.) `SvgTheme` maps `PaletteColor` → curated hex, `Rgb` verbatim. Per grid, the geometry is ~30 lines (unit squares; six-corner polygons from offset coords; three-corner triangles).
 
 SVG is the **full-fidelity backend**: it renders every element kind exactly, so the visibility mechanism is expected to *hide from ASCII*, not from SVG — `SVG_ONLY` marks "too rich for the terminal" content, `ASCII_ONLY` marks its simplified stand-in, and a scene's SVG output is the superset view by construction whenever solvers follow that convention.
 
@@ -914,7 +948,7 @@ Element mapping (the renderer's documented contract, per visibility rule 5):
 
 - `CellGlyph` → the cell's text, via `glyph.for_backend(Backend.SHEET)`. **No width limit** — a sheet cell holds arbitrary text, and `glyph_for_value` already carries the literal number as its sheet variant for values ≥ 10 (§3.2), so sheets show `10` where character grids show `A`, with no extra rule. Later elements at the same position overwrite (paint order degenerates to last-writer-wins per cell).
 - `CellPath` → the geometry's path glyph as cell text (box-drawing characters paste fine as text); `CellLink` → its glyph in both cells; `OutsideLabel` → text in a reserved margin row/column — outside clues are a *natural* fit for sheets, they become real cells you can reference in formulas.
-- `CellFill`, `EdgeSegment`, `VertexMark`, colors, `EdgeWeight` → **documented no-ops** (plain-text paste cannot carry them). This is contract, not silent skipping: the backend's stated fidelity is "textual content only". Solvers that want region structure visible in sheets emit `SHEET_ONLY` glyph alternatives (e.g. a `GlyphRule` writing region ids).
+- `CellFill`, `EdgeSegment`, `VertexMark`, `EdgeMark`, `CellMark` with glyph=None, colors, `EdgeWeight` → **documented no-ops** (plain-text paste cannot carry them; a glyph-bearing `CellMark` writes its glyph like `CellGlyph`). This is contract, not silent skipping: the backend's stated fidelity is "textual content only". Solvers that want region structure visible in sheets emit `SHEET_ONLY` glyph alternatives (e.g. a `GlyphRule` writing region ids).
 - `Provenance` → ignored (no styling channel), retained in the scene as always.
 - `SceneStyle.empty` → ignored by design: untouched cells are the renderer's `empty` string (`""` beats `"."` in a sheet). This is the one place a renderer overrides a style rather than honoring it at the choke point — stated here so rule 5's no-silent-skipping narrative stays intact.
 - **Structural characters**: a glyph's sheet text containing `\t` or `\n` would corrupt the paste's row/column structure. The renderer rejects them with a precise error (space-substitution would silently alter content). Leading `=` (spreadsheet formula injection) is deliberately allowed — hunt teams may want live formulas in the paste.
@@ -971,6 +1005,18 @@ No `build_scene` override needed: `RegionBorderRule(by=…)` runs without a solu
 
 ### 7.3 Numberlink (paths, minus the base-class special case)
 
+*Amended at the SVG milestone:* per-atom colorers landed
+(`PathRule.color` and `LinkRule.color` accept a `Colorer`), with
+pair-colored Numberlink as the showcase. `CellDirections` gained `sym`
+(the pair identity `PropagatedSymbol` carried but hid) and a new shown
+`EndpointDirection(loc, direction, sym)` draws each path into its
+endpoint clues — single-direction stubs the clue glyph paints over in
+character grids. `symbol_colorer` shares `symbol_clues`' first-appearance
+ordering, so paths match their clue colors exactly in every backend.
+Expected-solutions data was regenerated (uniqueness unchanged — the new
+atoms are deterministic functions of the existing solution). The AFTER
+snippet below predates the amendment.
+
 ```python
 # BEFORE: "cell_directions": {"loop_directions": True, "color": Color.CYAN}
 #         with the glyph lookup living in Solver._preprocess_predicates
@@ -996,6 +1042,14 @@ atoms=[PathRule("cell_directions", color=PaletteColor.CYAN, backends=SVG_ONLY),
 ```
 
 ### 7.4 Galaxies (region coloring without side channels)
+
+*Amended at the SVG milestone:* the clue table's `o ^ v < > / \` styles
+are `ASCII_ONLY` — they are the character-art *encoding* of the centers,
+not the centers. An `SVG_ONLY` `CustomRule` over the (hidden, so
+atom-less) `Center` predicate emits GIVEN ring marks at the true
+geometric positions parsed from the config: `CellMark`, `EdgeMark`, or
+`VertexMark` per flanking-pair shape — the published dot-and-ring look.
+The character render is unchanged.
 
 ```python
 # BEFORE: _preprocess_for_rendering stashes self._region_colors; a closure

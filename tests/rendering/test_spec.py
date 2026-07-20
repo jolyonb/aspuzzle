@@ -40,11 +40,13 @@ from aspuzzle.rendering import (
     RenderSpec,
     SceneStyle,
     build_scene,
+    symbol_colorer,
 )
 
 Star = Predicate.define("star", {"loc": GridCell}, show=True)
 Number = Predicate.define("number", {"loc": GridCell, "value": int}, show=True)
 Directions = Predicate.define("cell_directions", {"loc": GridCell, "dir1": str, "dir2": str}, show=True)
+SymDirections = Predicate.define("sym_directions", {"loc": GridCell, "dir1": str, "dir2": str, "sym": str}, show=True)
 Stitch = Predicate.define("stitch", {"loc1": GridCell, "loc2": GridCell}, show=True)
 Inside = Predicate.define("inside", {"loc": GridCell}, show=True)
 Border = Predicate.define("border", {"loc": GridCell, "direction": str}, show=True)
@@ -175,6 +177,47 @@ def test_path_rule_builds_direction_sets() -> None:
     assert path.directions == frozenset({"e", "s"})
 
 
+def test_path_and_link_rules_resolve_colorers_per_atom() -> None:
+    grid = make_grid()
+    grid_data = [((1, 1), "a"), ((3, 3), "b")]
+    colorer = symbol_colorer(grid_data, [PaletteColor.RED, PaletteColor.BLUE], field="sym")
+    spec = RenderSpec(
+        atoms=[
+            PathRule(SymDirections, color=colorer),
+            LinkRule(Stitch, color=lambda atom: PaletteColor.MAGENTA),
+        ]
+    )
+    solution = {
+        "sym_directions/4": [
+            SymDirections(loc=grid.Cell(1, 2), dir1="e", dir2="w", sym="a"),
+            SymDirections(loc=grid.Cell(2, 3), dir1="n", dir2="s", sym="b"),
+        ],
+        "stitch/2": [Stitch(loc1=grid.Cell(3, 1), loc2=grid.Cell(3, 2))],
+    }
+    scene = build_scene(grid, spec, grid_data, solution)
+    paths = {
+        grid.cell_coords(element.cell): element.color
+        for element in scene.visible(Backend.ASCII)
+        if isinstance(element, CellPath)
+    }
+    assert paths == {(1, 2): PaletteColor.RED, (2, 3): PaletteColor.BLUE}
+    (link,) = (element for element in scene.visible(Backend.ASCII) if isinstance(element, CellLink))
+    assert link.color is PaletteColor.MAGENTA
+
+
+def test_link_rule_rejects_color_with_palette() -> None:
+    with pytest.raises(ValueError, match="color= or palette=, not both"):
+        LinkRule(Stitch, palette=[PaletteColor.RED], color=PaletteColor.BLUE)
+
+
+def test_symbol_colorer_rejects_unknown_symbol() -> None:
+    grid = make_grid()
+    colorer = symbol_colorer([((1, 1), "a")], [PaletteColor.RED], field="sym")
+    atom = SymDirections(loc=grid.Cell(1, 2), dir1="e", dir2="w", sym="z")
+    with pytest.raises(ValueError, match="not a grid symbol"):
+        colorer(atom)
+
+
 def test_edge_rule_canonicalizes() -> None:
     grid = make_grid()
     spec = RenderSpec(atoms=[EdgeRule("border/2")])
@@ -287,6 +330,19 @@ def test_custom_rule_gets_sorted_atoms_and_backend_stamp() -> None:
     (second,) = scene.visible(Backend.ASCII)
     assert first.backends == SVG_ONLY  # rule stamp applied to the defaulted element
     assert second.backends == frozenset({Backend.ASCII})  # explicit choice preserved
+
+
+def test_custom_rule_without_predicate_feeds_no_atoms() -> None:
+    grid = make_grid()
+    grid_data = [((1, 1), "#")]
+
+    def make(atoms, context):  # type: ignore[no-untyped-def]
+        assert atoms == ()
+        yield from (CellFill(grid.Cell(*coords), PaletteColor.BLUE) for coords, value in context.grid_data)
+
+    scene = build_scene(grid, RenderSpec(atoms=[CustomRule(make=make)]), grid_data, None)
+    (fill,) = scene.visible(Backend.SVG)
+    assert isinstance(fill, CellFill)
 
 
 def test_labels_and_styles_flow_through() -> None:

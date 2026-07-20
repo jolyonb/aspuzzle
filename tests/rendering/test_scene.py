@@ -14,6 +14,7 @@ from aspuzzle.rendering import (
     CellGlyph,
     CellStyle,
     Edge,
+    EdgeMark,
     EdgeSegment,
     Glyph,
     Lattice,
@@ -94,6 +95,15 @@ def test_vertex_marks_set_vertex_need() -> None:
     needs = scene.layout_needs(Backend.ASCII)
     assert needs.vertices
     assert not needs.edges
+
+
+def test_edge_marks_set_edge_need() -> None:
+    # An EdgeMark needs its edge's lane materialized, just like an EdgeSegment
+    grid = make_grid()
+    scene = Scene(grid)
+    edge = grid.edge(grid.Cell(1, 1), "e")
+    scene.add(EdgeMark(edge))
+    assert scene.layout_needs(Backend.ASCII).edges == {edge}
 
 
 def test_defaults_all_backends_and_derived() -> None:

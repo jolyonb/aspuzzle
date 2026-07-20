@@ -32,6 +32,14 @@ def test_edge_canonicalization(grid_factory: Callable[[], Grid]) -> None:
                 assert grid.edge(cell, direction) == grid.edge(adjacent, grid.opposite_direction(direction))
 
 
+def test_edge_from_outside_cell_collapses() -> None:
+    """An edge spelled from an outside-border cell canonicalizes to its
+    in-grid spelling — solution atoms genuinely carry such cells."""
+    grid = rect_3x4()
+    assert grid.edge(grid.Cell(0, 1), "s") == grid.edge(grid.Cell(1, 1), "n")
+    assert grid.edge(grid.Cell(2, 0), "e") == grid.edge(grid.Cell(2, 1), "w")
+
+
 @pytest.mark.parametrize("grid_factory", ALL_GRID_FACTORIES)
 def test_vertex_canonicalization(grid_factory: Callable[[], Grid]) -> None:
     """Every spelling of a shared corner resolves to one canonical Vertex."""

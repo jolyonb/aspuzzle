@@ -1,8 +1,27 @@
+from collections.abc import Sequence
+
 from aspalchemy import ANY, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.regionconstructor import RegionConstructor
-from aspuzzle.rendering import CellStyle, FromPredicate, Glyph, RegionFillRule, RenderSpec, SceneStyle
+from aspuzzle.rendering import (
+    CHARACTER_BACKENDS,
+    SVG_ONLY,
+    CellMark,
+    CellStyle,
+    CustomRule,
+    EdgeMark,
+    FromPredicate,
+    Glyph,
+    Layer,
+    Provenance,
+    RegionFillRule,
+    RenderContext,
+    RenderSpec,
+    SceneElement,
+    SceneStyle,
+    VertexMark,
+)
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 
@@ -165,17 +184,54 @@ class Galaxies(Solver):
         ).derive(Galaxy(loc=V.Loc, id=V.Id))
 
     def get_render_spec(self) -> RenderSpec:
-        marker = ("o", "^", "v", "<", ">")
-        clues: dict[int | str, CellStyle] = {symbol: CellStyle(glyph=Glyph(symbol)) for symbol in marker}
-        clues |= {1: CellStyle(glyph=Glyph("/")), 2: CellStyle(glyph=Glyph("\\"))}
-        clues |= {3: CellStyle(glyph=Glyph("\\")), 4: CellStyle(glyph=Glyph("/"))}
+        # The grid symbols are the character-art encoding of the centers
+        # (halves and quarters of a marker spread over the flanking cells);
+        # backends with real geometry draw ring marks at the true center
+        # positions instead
+        # Symbol -> art character: the five markers render themselves, the
+        # four corner quarters render as slashes
+        art: dict[int | str, str] = {symbol: symbol for symbol in ("o", "^", "v", "<", ">")}
+        art |= {1: "/", 2: "\\", 3: "\\", 4: "/"}
+        clues = {symbol: CellStyle(glyph=Glyph(char), backends=CHARACTER_BACKENDS) for symbol, char in art.items()}
+
+        grid = self.grid
+        centers = self.process_data()
+
+        def center_marks(atoms: Sequence[Predicate], context: RenderContext) -> list[SceneElement]:
+            # Centers are puzzle input: the marks come from the parsed
+            # config, not solution atoms. A center's two flanking cells are
+            # equal (cell center), orthogonal (edge midpoint), or diagonal
+            # (shared vertex).
+            marks: list[SceneElement] = []
+            for (r1, c1), (r2, c2), _region in centers:
+                cell = grid.Cell(r1, c1)
+                dr, dc = r2 - r1, c2 - c1
+                if (dr, dc) == (0, 0):
+                    marks.append(CellMark(cell, ring=True, layer=Layer.ANNOTATION, provenance=Provenance.GIVEN))
+                elif dr != 0 and dc != 0:
+                    corner = ("s" if dr > 0 else "n") + ("e" if dc > 0 else "w")
+                    marks.append(
+                        VertexMark(
+                            grid.vertex(cell, corner), ring=True, layer=Layer.ANNOTATION, provenance=Provenance.GIVEN
+                        )
+                    )
+                else:
+                    direction = {(1, 0): "s", (-1, 0): "n", (0, 1): "e", (0, -1): "w"}[(dr, dc)]
+                    marks.append(
+                        EdgeMark(
+                            grid.edge(cell, direction), ring=True, layer=Layer.ANNOTATION, provenance=Provenance.GIVEN
+                        )
+                    )
+            return marks
+
         return RenderSpec(
             clues=clues,
             atoms=[
                 RegionFillRule(
                     FromPredicate(Galaxy),
                     palette=(Color.YELLOW, Color.BRIGHT_BLUE, Color.GREEN, Color.RED),
-                )
+                ),
+                CustomRule(make=center_marks, backends=SVG_ONLY),
             ],
             style=SceneStyle(packed=True),
         )

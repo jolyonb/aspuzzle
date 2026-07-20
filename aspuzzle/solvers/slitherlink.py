@@ -1,7 +1,16 @@
 from aspalchemy import Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell, do_not_show_outside
 from aspuzzle.grids.rectangulargrid import RectangularGrid
-from aspuzzle.rendering import CellStyle, FillRule, Glyph, RegionBoundaryRule, RenderSpec, SceneStyle, digit_clues
+from aspuzzle.rendering import (
+    Backend,
+    CellStyle,
+    FillRule,
+    Glyph,
+    RegionBoundaryRule,
+    RenderSpec,
+    SceneStyle,
+    digit_clues,
+)
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
@@ -112,4 +121,7 @@ class Slitherlink(Solver):
                 RegionBoundaryRule("inside/1", color=Color.BRIGHT_YELLOW),
             ],
             style=SceneStyle(packed=True),
+            # The traditional printed look: a bare dot grid, no lattice or
+            # frame — the loop itself is the only structure
+            backend_styles={Backend.SVG: SceneStyle(hairline=False, heavy_frame=False, vertex_dots=True)},
         )

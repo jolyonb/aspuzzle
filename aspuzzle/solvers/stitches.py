@@ -2,7 +2,18 @@ from typing import Any, ClassVar
 
 from aspalchemy import ANY, Choice, Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.rendering import FromClues, Glyph, LinkRule, RegionFillRule, RenderSpec, SceneStyle
+from aspuzzle.rendering import (
+    ASCII_ONLY,
+    CHARACTER_BACKENDS,
+    SVG_ONLY,
+    FromClues,
+    Glyph,
+    LinkRule,
+    RegionBorderRule,
+    RegionFillRule,
+    RenderSpec,
+    SceneStyle,
+)
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 
@@ -115,14 +126,22 @@ class Stitches(Solver):
         self.validate_line_clues()
 
     def get_render_spec(self) -> RenderSpec:
+        # Character grids show regions as colored blocks and pair the
+        # stitches by color (there is no way to see which X ties to
+        # which); backends with real geometry draw the traditional look
+        # instead — region borders and red stitches, the tie connector
+        # itself showing the pairing
         return RenderSpec(
             atoms=[
-                RegionFillRule(FromClues()),
+                RegionFillRule(FromClues(), backends=ASCII_ONLY),
+                RegionBorderRule(source=FromClues(), backends=SVG_ONLY),
                 LinkRule(
                     Stitch,
                     glyph=Glyph("X"),
                     palette=(Color.BRIGHT_MAGENTA, Color.BRIGHT_CYAN, Color.BRIGHT_YELLOW, Color.BRIGHT_GREEN),
+                    backends=CHARACTER_BACKENDS,
                 ),
+                LinkRule(Stitch, glyph=Glyph("X"), color=Color.RED, backends=SVG_ONLY),
             ],
             labels=self.clue_labels(),
             style=SceneStyle(packed=True),

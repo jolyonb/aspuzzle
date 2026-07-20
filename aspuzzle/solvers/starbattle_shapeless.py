@@ -2,7 +2,7 @@ from typing import Any, ClassVar
 
 from aspalchemy import ANY, Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
-from aspuzzle.rendering import CellStyle, Glyph, GlyphRule, RenderSpec
+from aspuzzle.rendering import Glyph, GlyphRule, RenderSpec, filled_clue
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 from aspuzzle.symbolset import SymbolSet
@@ -47,6 +47,6 @@ class Starbattle_Shapeless(Solver):
 
     def get_render_spec(self) -> RenderSpec:
         return RenderSpec(
-            clues={"#": CellStyle(glyph=Glyph("#"), color=Color.WHITE)},
+            clues={"#": filled_clue(Glyph("#"), char_color=Color.WHITE)},
             atoms=[GlyphRule("star/1", glyph=Glyph("★", svg="⭐"), color=Color.BRIGHT_RED)],
         )

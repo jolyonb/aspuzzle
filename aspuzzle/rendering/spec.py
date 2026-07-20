@@ -22,11 +22,11 @@ raise at build time with a precise message.
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import KW_ONLY, dataclass, field, replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from aspalchemy import Predicate
-from aspuzzle.rendering.backend import ALL_BACKENDS, BackendSet
-from aspuzzle.rendering.color import ColorSpec
+from aspuzzle.rendering.backend import ALL_BACKENDS, CHARACTER_BACKENDS, SVG_ONLY, BackendSet
+from aspuzzle.rendering.color import ColorSpec, Rgb
 from aspuzzle.rendering.glyph import Glyph, glyph_for_value
 from aspuzzle.rendering.regioncolor import DEFAULT_REGION_PALETTE, color_regions
 from aspuzzle.rendering.scene import (
@@ -250,12 +250,14 @@ class FillRule(RuleBase):
 
 @dataclass(frozen=True)
 class PathRule(RuleBase):
-    """Solution atoms carrying direction names -> CellPath."""
+    """Solution atoms carrying direction names -> CellPath. `color` takes
+    a fixed ColorSpec or a per-atom Colorer (e.g. symbol_colorer, so each
+    path matches its clue color)."""
 
     predicate: PredicateRef
     loc_field: str = "loc"
     direction_fields: tuple[str, ...] = ("dir1", "dir2")
-    color: ColorSpec | None = None
+    color: ColorLike | None = None
     layer: int = Layer.PATH
 
     def __post_init__(self) -> None:
@@ -265,7 +267,13 @@ class PathRule(RuleBase):
         for atom in _checked_atoms(self, self.predicate, context, [self.loc_field, *self.direction_fields]):
             directions = frozenset(atom[name].value for name in self.direction_fields)
             scene.add(
-                CellPath(atom[self.loc_field], directions, color=self.color, layer=self.layer, backends=self.backends)
+                CellPath(
+                    atom[self.loc_field],
+                    directions,
+                    color=_resolve(self.color, atom),
+                    layer=self.layer,
+                    backends=self.backends,
+                )
             )
 
 
@@ -292,21 +300,29 @@ class EdgeRule(RuleBase):
 
 @dataclass(frozen=True)
 class LinkRule(RuleBase):
-    """Solution atoms carrying two cells -> CellLink, palette cycled
-    deterministically over the atoms in sorted order."""
+    """Solution atoms carrying two cells -> CellLink. Colors come from
+    `palette` (cycled deterministically over the atoms in sorted order) or
+    `color` (a fixed ColorSpec or per-atom Colorer) — at most one of the
+    two."""
 
     predicate: PredicateRef
     loc_fields: tuple[str, str] = ("loc1", "loc2")
     glyph: Glyph | None = None
     palette: Sequence[ColorSpec] = ()
+    color: ColorLike | None = None
     layer: int = Layer.PATH
 
     def __post_init__(self) -> None:
+        if self.color is not None and self.palette:
+            raise ValueError(f"LinkRule on {_ref_name(self.predicate)!r}: give color= or palette=, not both")
         _check_ref_fields(self, self.predicate, list(self.loc_fields))
 
     def apply(self, scene: Scene, context: RenderContext) -> None:
         for index, atom in enumerate(_checked_atoms(self, self.predicate, context, list(self.loc_fields))):
-            color = self.palette[index % len(self.palette)] if self.palette else None
+            if self.color is not None:
+                color = _resolve(self.color, atom)
+            else:
+                color = self.palette[index % len(self.palette)] if self.palette else None
             scene.add(
                 CellLink(
                     atom[self.loc_fields[0]],
@@ -451,20 +467,27 @@ class RegionBoundaryRule(RuleBase):
 
 @dataclass(frozen=True)
 class CustomRule(RuleBase):
-    """The typed escape hatch: receives ALL atoms of the predicate at once
+    """The typed escape hatch: receives ALL atoms of `predicate` at once
     (sorted, so whole-set decisions need no hidden state) and the context,
-    returns scene elements. The rule's `backends` is applied to emitted
+    returns scene elements. predicate=None feeds no atoms — for rules
+    whose elements derive from the context (grid data, parsed config)
+    rather than the solution. The rule's `backends` is applied to emitted
     elements that did not choose their own."""
 
-    predicate: PredicateRef
+    predicate: PredicateRef | None = None
     make: Callable[[Sequence[Predicate], RenderContext], Iterable[SceneElement]] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
         if self.make is None:
-            raise ValueError(f"CustomRule on {_ref_name(self.predicate)!r}: make= is required")
+            raise ValueError("CustomRule: make= is required")
+        if self.predicate is not None:
+            _check_ref_fields(self, self.predicate, ())
 
     def apply(self, scene: Scene, context: RenderContext) -> None:
-        for element in self.make(_checked_atoms(self, self.predicate, context, ()), context):
+        atoms: Sequence[Predicate] = ()
+        if self.predicate is not None:
+            atoms = _checked_atoms(self, self.predicate, context, ())
+        for element in self.make(atoms, context):
             if self.backends != ALL_BACKENDS and element.backends == ALL_BACKENDS:
                 element = replace(element, backends=self.backends)
             scene.add(element)
@@ -538,17 +561,60 @@ def overflow_clues(
     }
 
 
+def _symbols_in_order(grid_data: Sequence[GridCellData]) -> list[int | str]:
+    """Distinct grid symbols in first-appearance order — the one ordering
+    behind symbol_clues and symbol_colorer, so their colors always agree."""
+    return list(dict.fromkeys(symbol for _coords, symbol in grid_data))
+
+
+FILLED_CELL_GREY: Final[Rgb] = Rgb(64, 64, 64)
+
+
+def filled_clue(
+    glyph: Glyph,
+    fill_color: ColorSpec = FILLED_CELL_GREY,
+    char_color: ColorSpec | None = None,
+    layer: int = Layer.ANNOTATION,
+) -> CellStyle:
+    """The filled-cell convention ('#'-style walls and shading): character
+    backends draw the glyph in char_color, SVG paints the cell solid in
+    fill_color."""
+    return CellStyle(
+        glyph=glyph,
+        color=char_color,
+        layer=layer,
+        backends=CHARACTER_BACKENDS,
+        fill=fill_color,
+        fill_backends=SVG_ONLY,
+        fill_opacity=1.0,
+    )
+
+
 def symbol_clues(grid_data: Sequence[GridCellData], palette: Sequence[ColorSpec]) -> dict[int | str, CellStyle]:
     """Clue table for opaque symbols (Numberlink-style pair labels): each
     distinct grid value styled as its literal text, colored in
     first-appearance order, cycling the palette."""
-    symbols: list[int | str] = []
-    for _coords, symbol in grid_data:
-        if symbol not in symbols:
-            symbols.append(symbol)
     return {
-        symbol: CellStyle(glyph=Glyph(str(symbol)), color=palette[i % len(palette)]) for i, symbol in enumerate(symbols)
+        symbol: CellStyle(glyph=Glyph(str(symbol)), color=palette[i % len(palette)])
+        for i, symbol in enumerate(_symbols_in_order(grid_data))
     }
+
+
+def symbol_colorer(grid_data: Sequence[GridCellData], palette: Sequence[ColorSpec], field: str = "sym") -> Colorer:
+    """Colorer companion to symbol_clues: colors each atom by its symbol
+    field, with the same first-appearance ordering over the grid data and
+    the same palette cycling — so paths and links carrying a symbol match
+    their clue colors exactly."""
+    indices = {symbol: position for position, symbol in enumerate(_symbols_in_order(grid_data))}
+
+    def color(atom: Predicate) -> ColorSpec:
+        symbol = atom[field].value
+        if symbol not in indices:
+            known = ", ".join(str(known_symbol) for known_symbol in indices)
+            raise ValueError(f"symbol_colorer: {symbol!r} is not a grid symbol (known: {known})")
+        return palette[indices[symbol] % len(palette)]
+
+    return color
 
 
 @dataclass(frozen=True)
@@ -580,7 +646,15 @@ def _apply_clues(spec: RenderSpec, scene: Scene, grid_data: Sequence[GridCellDat
                 )
             )
         if style.fill is not None:
-            scene.add(CellFill(cell, style.fill, backends=style.backends, provenance=Provenance.GIVEN))
+            scene.add(
+                CellFill(
+                    cell,
+                    style.fill,
+                    opacity=style.fill_opacity,
+                    backends=style.fill_backends if style.fill_backends is not None else style.backends,
+                    provenance=Provenance.GIVEN,
+                )
+            )
 
 
 def build_scene(

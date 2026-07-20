@@ -30,7 +30,7 @@ def list_goldens() -> None:
         return
     for backend_dir in sorted(p for p in GOLDEN_ROOT.iterdir() if p.is_dir()):
         for puzzle_dir in sorted(p for p in backend_dir.iterdir() if p.is_dir()):
-            modes = " ".join(sorted(f.stem for f in puzzle_dir.glob("*.txt")))
+            modes = " ".join(sorted(f.stem for f in puzzle_dir.glob("*.*")))
             print(f"{backend_dir.name}/{puzzle_dir.name}: {modes}")
 
 
@@ -44,8 +44,9 @@ def find_puzzle_file(name: str) -> Path:
 def show(puzzle: str, backend: str, modes: Sequence[str], current: bool) -> bool:
     """Print the requested goldens (and current renders); returns True if all match."""
     all_match = True
+    suffix = BACKENDS[backend][1] if backend in BACKENDS else "txt"
     for mode in modes:
-        golden_path = GOLDEN_ROOT / backend / puzzle / f"{mode}.txt"
+        golden_path = GOLDEN_ROOT / backend / puzzle / f"{mode}.{suffix}"
         print(f"=== {backend}/{puzzle}/{mode} (golden) ===")
         if golden_path.exists():
             golden = golden_path.read_text()
@@ -59,7 +60,8 @@ def show(puzzle: str, backend: str, modes: Sequence[str], current: bool) -> bool
                 known = ", ".join(sorted(BACKENDS))
                 raise SystemExit(f"No renderer registered for backend '{backend}'; known: {known}")
             solver, solution = solver_and_first_solution(find_puzzle_file(puzzle))
-            rendered = BACKENDS[backend](solver, solution if mode == "solution" else None)
+            render, _suffix = BACKENDS[backend]
+            rendered = render(solver, solution if mode == "solution" else None)
             matches = rendered == golden
             all_match = all_match and matches
             print(f"=== {backend}/{puzzle}/{mode} (current) {'✓ matches golden' if matches else '✗ DIFFERS'} ===")
