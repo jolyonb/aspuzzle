@@ -111,7 +111,7 @@ class Stitches(Solver):
         # that it is connected to via a stitch. We enforce that this must be one.
         cell_stitches = Count(element=cell, condition=Stitch(loc1=A, loc2=cell))
         cell_stitches.add(element=cell, condition=Stitch(loc1=cell, loc2=A))
-        puzzle.when(CellInStitch(loc=A), N == cell_stitches).require(N == 1)
+        puzzle.when(CellInStitch(loc=A)).require(cell_stitches == 1)
 
         # Rule 4: Count stitches per line (row/column/etc)
         puzzle.section("Count stitches in each major line")

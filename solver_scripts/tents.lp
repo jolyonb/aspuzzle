@@ -24,7 +24,7 @@ line("e", R, cell(R, C)) :- cell(R, C), R = 1..6.
 line("s", C, cell(R, C)) :- cell(R, C), C = 1..6.
 
 % Vertex-sharing adjacency definition
-vertex_sharing(cell(R, C), cell(R + R_vec, C + C_vec)) :- cell(R, C), direction(_, cell(R_vec, C_vec)), cell(R + R_vec, C + C_vec).
+vertex_sharing(cell(R, C), cell(R + R_vec, C + C_vec)) :- direction(_, cell(R_vec, C_vec)), cell(R, C), cell(R + R_vec, C + C_vec).
 
 
 % ===== Clues =====
@@ -69,7 +69,7 @@ tent(C) :- tie_destination(_, C).
 :- expected_count(D, N, Clue), #count{ cell(R, C) : tent(cell(R, C)), line(D, N, cell(R, C)) } != Clue.
 
 % Tent adjacency constraints
-:- vertex_sharing(A, B), tent(A), tent(B).
+:- vertex_sharing(A, B), A < B, tent(A), tent(B).
 
 #show.
 #show tent/1.

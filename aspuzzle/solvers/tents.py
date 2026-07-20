@@ -90,7 +90,10 @@ class Tents(Solver):
 
         # Rule 5: Tents cannot share a vertex
         puzzle.section("Tent adjacency constraints")
-        puzzle.when(grid.VertexSharing(A, B)).forbid(Tent(A), Tent(B))
+        puzzle.when(
+            grid.VertexSharing(A, B),
+            A < B,
+        ).forbid(Tent(A), Tent(B))
 
     def validate_config(self) -> None:
         """Validate the puzzle configuration."""

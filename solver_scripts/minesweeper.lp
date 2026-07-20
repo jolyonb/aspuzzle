@@ -17,7 +17,7 @@ direction("w", cell(0, -1)).
 direction("nw", cell(-1, -1)).
 
 % Vertex-sharing adjacency definition
-vertex_sharing(cell(R, C), cell(R + R_vec, C + C_vec)) :- cell(R, C), direction(_, cell(R_vec, C_vec)), cell(R + R_vec, C + C_vec).
+vertex_sharing(cell(R, C), cell(R + R_vec, C + C_vec)) :- direction(_, cell(R_vec, C_vec)), cell(R, C), cell(R + R_vec, C + C_vec).
 
 
 % ===== Clues =====

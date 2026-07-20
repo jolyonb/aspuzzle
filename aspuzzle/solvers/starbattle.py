@@ -36,7 +36,6 @@ class Starbattle(Solver):
 
         N = V.N
         cell = grid.cell()
-        cell_adj = grid.cell(suffix="adj")
 
         # Define regions
         regions = puzzle.add_segment("Regions")
@@ -60,7 +59,11 @@ class Starbattle(Solver):
 
         # Rule 2: Stars cannot share a vertex or edge
         puzzle.section("Star adjacency constraints")
-        puzzle.when(grid.vertex_sharing(suffix_2="adj")).forbid(symbols["star"](cell), symbols["star"](cell_adj))
+        A, B = V.A, V.B
+        puzzle.when(
+            grid.VertexSharing(cell1=A, cell2=B),
+            A < B,
+        ).forbid(symbols["star"](A), symbols["star"](B))
 
     def get_render_spec(self) -> RenderSpec:
         # Character grids show the regions as colored blocks; backends

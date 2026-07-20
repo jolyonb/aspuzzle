@@ -126,6 +126,7 @@ class Numberlink(Solver):
         puzzle.section("No self-touch constraint")
         puzzle.when(
             grid.OrthogonalDir(cell1=Cell1, direction=ANY, cell2=Cell2),
+            Cell1 < Cell2,
             PropagatedSymbol(loc=Cell1, sym=Sym),
             PropagatedSymbol(loc=Cell2, sym=Sym),
         ).require(Connected(loc1=Cell1, loc2=Cell2))

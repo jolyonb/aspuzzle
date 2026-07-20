@@ -20,7 +20,7 @@ direction("nw", cell(-1, -1)).
 orthogonal_directions("n"; "e"; "s"; "w").
 
 % Orthogonal adjacency with direction definition
-orthogonal_dir(cell(R, C), D, cell(R + R_vec, C + C_vec)) :- cell(R, C), orthogonal_directions(D), direction(D, cell(R_vec, C_vec)), cell(R + R_vec, C + C_vec).
+orthogonal_dir(cell(R, C), D, cell(R + R_vec, C + C_vec)) :- orthogonal_directions(D), direction(D, cell(R_vec, C_vec)), cell(R, C), cell(R + R_vec, C + C_vec).
 
 % Opposite directions
 opposite("n", "s").
@@ -82,7 +82,7 @@ propagated_symbol(Cell2, Sym) :- propagated_symbol(Cell1, Sym), path(Cell1, D), 
 connected(Cell1, Cell2) :- path(Cell1, D), orthogonal_dir(Cell1, D, Cell2).
 
 % No self-touch constraint
-:- orthogonal_dir(Cell1, _, Cell2), propagated_symbol(Cell1, Sym), propagated_symbol(Cell2, Sym), not connected(Cell1, Cell2).
+:- orthogonal_dir(Cell1, _, Cell2), Cell1 < Cell2, propagated_symbol(Cell1, Sym), propagated_symbol(Cell2, Sym), not connected(Cell1, Cell2).
 
 % Solution extraction
 cell_directions(cell(R, C), D1, D2, Sym) :- cell(R, C), not has_symbol(cell(R, C)), propagated_symbol(cell(R, C), Sym), path(cell(R, C), D1), path(cell(R, C), D2), D1 < D2.

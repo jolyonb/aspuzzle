@@ -20,7 +20,7 @@ direction("nw", cell(-1, -1)).
 orthogonal_directions("n"; "e"; "s"; "w").
 
 % Orthogonal adjacency definition
-orthogonal(cell(R, C), cell(R + R_vec, C + C_vec)) :- cell(R, C), orthogonal_directions(D), direction(D, cell(R_vec, C_vec)), cell(R + R_vec, C + C_vec).
+orthogonal(cell(R, C), cell(R + R_vec, C + C_vec)) :- orthogonal_directions(D), direction(D, cell(R_vec, C_vec)), cell(R, C), cell(R + R_vec, C + C_vec).
 
 
 % ===== Clues =====

@@ -22,7 +22,7 @@ direction("w", cell(0, -1)).
 direction("nw", cell(-1, -1)).
 
 % Vertex-sharing adjacency definition
-vertex_sharing(cell(R, C), cell(R + R_vec, C + C_vec)) :- cell(R, C), direction(_, cell(R_vec, C_vec)), cell(R + R_vec, C + C_vec).
+vertex_sharing(cell(R, C), cell(R + R_vec, C + C_vec)) :- direction(_, cell(R_vec, C_vec)), cell(R, C), cell(R + R_vec, C + C_vec).
 
 
 % ===== Regions =====
@@ -67,7 +67,7 @@ region(cell(5, 5), 5).
 :- region(_, N), #count{ cell(R, C) : star(cell(R, C)), region(cell(R, C), N) } != star_count.
 
 % Star adjacency constraints
-:- vertex_sharing(cell(R, C), cell(R_adj, C_adj)), star(cell(R, C)), star(cell(R_adj, C_adj)).
+:- vertex_sharing(A, B), A < B, star(A), star(B).
 
 #show.
 #show star/1.
