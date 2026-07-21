@@ -36,7 +36,7 @@ cell_order(cell(R, 5), cell(R + 1, 1)) :- R = 1..4.
 % Define grid values
 
 % Rule 1: No duplicated unshaded numbers in a line
-:- line(D, Idx, C_1), line(D, Idx, C_2), value(C_1, N), value(C_2, N), white(C_1), white(C_2), C_1 != C_2.
+:- line(D, Idx, C_w), value(C_w, N), #count{ C : white(C), value(C, N), line(D, Idx, C) } > 1.
 
 % Rule 2: No adjacent black cells
 :- orthogonal(cell(R, C), cell(R_adj, C_adj)), black(cell(R, C)), black(cell(R_adj, C_adj)).

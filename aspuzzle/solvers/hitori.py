@@ -1,4 +1,4 @@
-from aspalchemy import Field, Predicate, V
+from aspalchemy import Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.rendering import FillRule, RenderSpec, SceneStyle, digit_clues
 from aspuzzle.rendering import PaletteColor as Color
@@ -38,14 +38,21 @@ class Hitori(Solver):
 
         # Rule 1: No number should appear unshaded more than once in a line
         puzzle.section("Rule 1: No duplicated unshaded numbers in a line")
+        C_witness = C["w"]
         puzzle.when(
-            grid.Line(direction=V.D, index=V.Idx, loc=C[1]),
-            grid.Line(direction=V.D, index=V.Idx, loc=C[2]),
-            Value(loc=C[1], num=V.N),
-            Value(loc=C[2], num=V.N),
-            symbols["white"](loc=C[1]),
-            symbols["white"](loc=C[2]),
-        ).require(C[1] == C[2])
+            grid.Line(direction=V.D, index=V.Idx, loc=C_witness),
+            Value(loc=C_witness, num=V.N),
+        ).require(
+            Count(
+                C,
+                condition=[
+                    symbols["white"](loc=C),
+                    Value(loc=C, num=V.N),
+                    grid.Line(direction=V.D, index=V.Idx, loc=C),
+                ],
+            )
+            <= 1
+        )
 
         # Rule 2: Two black cells cannot be adjacent horizontally or vertically
         puzzle.section("Rule 2: No adjacent black cells")
