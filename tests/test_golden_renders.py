@@ -20,7 +20,6 @@ from pathlib import Path
 import pytest
 
 from aspalchemy import Predicate
-from aspuzzle.rendering.svg import SvgRenderer
 from aspuzzle.solvers.base import Solver
 from tests.test_puzzles import get_puzzle_files
 
@@ -34,7 +33,7 @@ MODES = ("preview", "solution")
 # they open directly in a browser); tsv joins here when that backend lands.
 BACKENDS: dict[str, tuple[Callable[[Solver, Solution | None], str], str]] = {
     "ascii": (lambda solver, solution: solver.render_puzzle(solution), "txt"),
-    "svg": (lambda solver, solution: SvgRenderer().render(solver.build_scene(solution)), "svg"),
+    "svg": (lambda solver, solution: solver.render_puzzle_svg(solution), "svg"),
 }
 
 

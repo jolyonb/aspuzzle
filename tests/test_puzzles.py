@@ -6,11 +6,14 @@ import pytest
 from aspuzzle.solvers.base import Solver
 from aspuzzle.solvers.tents import Tent
 
+REPO_ROOT = Path(__file__).parent.parent
+SCRIPTS_DIR = REPO_ROOT / "solver_scripts"
+SVG_DIR = REPO_ROOT / "puzzles" / "svg"
+
 
 def get_puzzle_files() -> list[Path]:
     """Find all puzzle JSON files in the puzzles directory."""
-    puzzles_dir = Path(__file__).parent.parent / "puzzles"
-    return list(puzzles_dir.glob("*.json"))
+    return list((REPO_ROOT / "puzzles").glob("*.json"))
 
 
 def test_find_puzzles() -> None:
@@ -27,6 +30,11 @@ def test_puzzle_solves(puzzle_file: Path) -> None:
 
     solver = Solver.from_config(config)
     solver.construct_puzzle()
+
+    # Refresh the checked-in ASP program alongside the test run
+    SCRIPTS_DIR.mkdir(exist_ok=True)
+    (SCRIPTS_DIR / f"{puzzle_file.stem}.lp").write_text(solver.render_program())
+
     # Solve exhaustively: validate_solutions demands exact set equality
     # against the config's expected solutions, so this also proves no
     # unlisted model exists (uniqueness, for single-solution puzzles)
@@ -36,6 +44,11 @@ def test_puzzle_solves(puzzle_file: Path) -> None:
 
     # Just make sure the display code will run
     solver.display_results(solutions, result, True)
+
+    # SVG renders of the puzzle as given and of its first solution
+    SVG_DIR.mkdir(parents=True, exist_ok=True)
+    (SVG_DIR / f"{puzzle_file.stem}.svg").write_text(solver.render_puzzle_svg())
+    (SVG_DIR / f"{puzzle_file.stem}_solution.svg").write_text(solver.render_puzzle_svg(solutions[0]))
 
     if "solutions" in config:
         assert solver.validate_solutions(solutions), f"Solutions for {puzzle_file.name} do not match expected solutions"

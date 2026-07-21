@@ -4,7 +4,6 @@ import json
 import pathlib
 
 from aspalchemy import GroundingError, Predicate
-from aspuzzle.rendering.svg import SvgRenderer
 from aspuzzle.solvers.base import Solver
 
 
@@ -150,7 +149,7 @@ def solve(
         if svg_file is not None:
             svg_path = pathlib.Path(svg_file)
             solution = solutions[0] if solutions else None
-            svg_path.write_text(SvgRenderer().render(solver.build_scene(solution)))
+            svg_path.write_text(solver.render_puzzle_svg(solution))
             if not quiet:
                 label = "Solution" if solution is not None else "Preview"
                 print(f"({label} SVG written to {svg_path})")

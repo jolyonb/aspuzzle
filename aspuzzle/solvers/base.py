@@ -11,6 +11,7 @@ from aspuzzle.grids.base import Grid, GridCellData
 from aspuzzle.puzzle import Puzzle
 from aspuzzle.rendering import LineLabels, RenderSpec, Scene, build_scene
 from aspuzzle.rendering.ascii import AsciiRenderer
+from aspuzzle.rendering.svg import SvgRenderer
 
 
 class Solver(ABC):
@@ -392,6 +393,13 @@ class Solver(ABC):
         clues-only preview when not.
         """
         return AsciiRenderer(use_colors=use_colors).render(self.build_scene(solution))
+
+    def render_puzzle_svg(self, solution: dict[str, list[Predicate]] | None = None) -> str:
+        """
+        Render the puzzle as SVG markup: the solution when given, the
+        clues-only preview when not.
+        """
+        return SvgRenderer().render(self.build_scene(solution))
 
     def line_clues(self, direction: str) -> Sequence[int | None]:
         """The config clue list for a line direction, per the naming
