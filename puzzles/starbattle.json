@@ -1,6 +1,8 @@
 {
   "puzzle_type": "Starbattle",
   "grid_type": "RectangularGrid",
+  "url": "https://www.puzzle-star-battle.com/",
+  "source": "5x5 Normal Star Battle, 1 star, Puzzle ID 9,317,339",
   "grid": [
     "aabbb",
     "caaad",

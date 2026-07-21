@@ -196,6 +196,21 @@ class Solver(ABC):
         """Function to perform extra validation on the puzzle config as needed."""
         pass
 
+    def remap_letter_clues(self, max_value: int) -> None:
+        """
+        Values above 9 cannot appear as single characters in the grid, so
+        they are written as letters (10 -> "A"), matching the renderer's
+        convention (glyph_for_value). Rewrite those clues to the integers
+        they stand for. Call from validate_config, before symbol validation.
+        """
+        if max_value <= 9:
+            return
+        letters = {chr(ord("A") + value - 10): value for value in range(10, max_value + 1)}
+        self._grid_data = [
+            (loc, letters[value]) if isinstance(value, str) and value in letters else (loc, value)
+            for loc, value in self.grid_data
+        ]
+
     @abstractmethod
     def construct_puzzle(self) -> None:
         """

@@ -1,6 +1,8 @@
 {
   "puzzle_type": "Hitori",
   "grid_type": "RectangularGrid",
+  "url": "https://www.puzzle-hitori.com/",
+  "source": "5x5 Easy Hitori, Puzzle ID 12,783,857",
   "grid": [
     "24514",
     "15422",

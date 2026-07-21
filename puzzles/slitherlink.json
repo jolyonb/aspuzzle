@@ -1,6 +1,8 @@
 {
   "puzzle_type": "Slitherlink",
   "grid_type": "RectangularGrid",
+  "url": "https://www.puzzle-loop.com/",
+  "source": "5x5 Normal Loop, Puzzle ID 8,218,170",
   "grid": [
     ".333.",
     "1.0.1",

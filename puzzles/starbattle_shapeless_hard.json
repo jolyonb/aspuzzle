@@ -1,0 +1,45 @@
+{
+  "puzzle_type": "Starbattle_Shapeless",
+  "grid_type": "RectangularGrid",
+  "url": "https://www.puzzle-star-battle.com/",
+  "source": "10x10 Shapeless Star Battle, 2 stars, Puzzle ID 6,976,689",
+  "grid": [
+    "..........",
+    "........#.",
+    "..........",
+    "......#...",
+    "...#.#....",
+    "....##....",
+    "#..####.##",
+    ".....#....",
+    "......##..",
+    "........#."
+  ],
+  "star_count": 2,
+  "solutions": [
+    {
+      "star/1": [
+        "star(loc=cell(row=1, col=6))",
+        "star(loc=cell(row=1, col=9))",
+        "star(loc=cell(row=10, col=6))",
+        "star(loc=cell(row=10, col=8))",
+        "star(loc=cell(row=2, col=2))",
+        "star(loc=cell(row=2, col=4))",
+        "star(loc=cell(row=3, col=7))",
+        "star(loc=cell(row=3, col=9))",
+        "star(loc=cell(row=4, col=3))",
+        "star(loc=cell(row=4, col=5))",
+        "star(loc=cell(row=5, col=1))",
+        "star(loc=cell(row=5, col=7))",
+        "star(loc=cell(row=6, col=10))",
+        "star(loc=cell(row=6, col=4))",
+        "star(loc=cell(row=7, col=2))",
+        "star(loc=cell(row=7, col=8))",
+        "star(loc=cell(row=8, col=10))",
+        "star(loc=cell(row=8, col=5))",
+        "star(loc=cell(row=9, col=1))",
+        "star(loc=cell(row=9, col=3))"
+      ]
+    }
+  ]
+}

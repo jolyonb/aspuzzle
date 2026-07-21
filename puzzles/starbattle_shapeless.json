@@ -1,6 +1,8 @@
 {
   "puzzle_type": "Starbattle_Shapeless",
   "grid_type": "RectangularGrid",
+  "url": "https://www.puzzle-star-battle.com/",
+  "source": "6x6 Shapeless Star Battle, 1 star, Puzzle ID 10,506,146",
   "grid": [
     "#..#..",
     "#...##",

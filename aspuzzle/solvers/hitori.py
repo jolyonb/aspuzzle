@@ -13,7 +13,13 @@ class Value(Predicate, show=False):
 
 class Hitori(Solver):
     solver_name = "Hitori puzzle solver"
-    supported_symbols = tuple(range(1, 10))  # Support digits 1-9 as symbols
+    # A Hitori's values run 1..line length, so a 10x10 needs more than the
+    # digits: values past 9 are written as letters (10 -> "A"), the whole
+    # single-character range
+    supported_symbols = tuple(range(1, 36))
+
+    def validate_config(self) -> None:
+        self.remap_letter_clues(35)
 
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
@@ -69,7 +75,7 @@ class Hitori(Solver):
 
     def get_render_spec(self) -> RenderSpec:
         return RenderSpec(
-            clues=digit_clues(range(1, 10), Color.BLUE),
+            clues=digit_clues(range(1, 36), Color.BLUE),
             atoms=[FillRule("black/1", fill=Color.WHITE)],
             style=SceneStyle(packed=True),
         )

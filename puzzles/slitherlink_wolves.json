@@ -1,6 +1,8 @@
 {
   "puzzle_type": "Slitherlink",
   "grid_type": "RectangularGrid",
+  "url": "https://puzzles.mit.edu/2016/puzzle/to_serve_and_protect/",
+  "source": "MIT Mystery Hunt 2016, To Serve and Protect",
   "grid": [
     "3W322.W.21",
     ".2..W2...W",

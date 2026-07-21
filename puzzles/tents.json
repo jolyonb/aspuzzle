@@ -1,6 +1,8 @@
 {
   "puzzle_type": "Tents",
   "grid_type": "RectangularGrid",
+  "url": "https://www.puzzle-tents.com/",
+  "source": "6x6 Hard Tents, Puzzle ID 5,574,523",
   "grid": [
     ".....T",
     "...T..",
