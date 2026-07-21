@@ -117,9 +117,8 @@ class Skyscrapers(Solver):
         ).require(C[1] == C[2])
 
         # Add any pre-filled heights from grid_data
-        if grid_data:
-            given = puzzle.add_segment("Given Heights")
-            given.fact(*[Height(loc=grid.Cell(*loc), value=value) for loc, value in grid_data])
+        given = puzzle.add_segment("Given Heights")
+        given.fact(*[Height(loc=grid.Cell(*loc), value=value) for loc, value in grid_data])
 
         # Rule 3: Line-of-sight visibility rules
         puzzle.section("Line-of-sight visibility")

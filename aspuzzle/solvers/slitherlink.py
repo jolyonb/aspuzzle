@@ -49,13 +49,11 @@ class Slitherlink(Solver):
 
         # Define sheep
         sheep_facts = [Sheep(loc=grid.Cell(*loc)) for loc, v in grid_data if v == "S"]
-        if sheep_facts:
-            clues.fact(*sheep_facts)
+        clues.fact(*sheep_facts)
 
         # Define wolves
         wolf_facts = [Wolf(loc=grid.Cell(*loc)) for loc, v in grid_data if v == "W"]
-        if wolf_facts:
-            clues.fact(*wolf_facts)
+        clues.fact(*wolf_facts)
 
         # Define inside/outside regions
         symbols = SymbolSet(grid, fill_all_squares=True).add_symbol("inside").add_symbol("outside")
