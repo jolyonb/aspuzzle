@@ -564,9 +564,11 @@ def overflow_clues(
     values: Iterable[int], color: ClueColor = None, layer: int = Layer.ANNOTATION
 ) -> dict[int | str, CellStyle]:
     """Clue table for values past the single-character range: # on
-    character grids, the literal number in sheets."""
+    character grids, the literal number wherever there is room for it."""
     return {
-        value: CellStyle(glyph=Glyph("#", sheet=str(value)), color=_clue_color(color, value), layer=layer)
+        value: CellStyle(
+            glyph=Glyph("#", svg=str(value), sheet=str(value)), color=_clue_color(color, value), layer=layer
+        )
         for value in values
     }
 

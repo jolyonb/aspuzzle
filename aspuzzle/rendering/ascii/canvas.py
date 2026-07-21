@@ -91,7 +91,11 @@ class CharCanvas:
                 char = self._chars[row][col]
                 fg, bg = self._fg[row][col], self._bg[row][col]
                 if use_colors and (fg is not None or bg is not None):
-                    prefix = (theme.fg(fg) if fg is not None else "") + (theme.bg(bg) if bg is not None else "")
+                    # An uncolored character on a fill takes the theme's ink
+                    # for that fill; off a fill it keeps the terminal default,
+                    # which is the profile's own readable foreground
+                    ink = fg if fg is not None else theme.ink_on(bg) if bg is not None else None
+                    prefix = (theme.fg(ink) if ink is not None else "") + (theme.bg(bg) if bg is not None else "")
                     parts.append(f"{prefix}{char}{theme.reset}")
                 else:
                     parts.append(char)

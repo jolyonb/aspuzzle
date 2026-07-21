@@ -23,7 +23,6 @@ under version control.
 | Statue Park | `solvers/asp/clingo/statue_park.pl` (75) | `solvers/asp/statue_park.py` (209), plus the polyomino library `solvers/asp/shapes.py` (217) | `examples/statue_park.txt` (7x7 tetrominoes), `statue_park_hard.txt` (12x12 pentominoes), `test/nathan_test.txt` |
 | Hashi | `solvers/asp/clingo/hashi.pl` (40) | `solvers/asp/hashi.py` (167) | `examples/hashi.txt` (7x7), `hashi_hard.txt` (15x15), and `mh23hashi.txt` — a 31x33 monster, the largest instance in either legacy repo |
 | LITS | `solvers/asp/clingo/lits.pl` (70) | `solvers/asp/lits.py` (152) | `examples/lits.txt` (6x6), `lits_hard.txt` (15x15) |
-| Shikaku | `solvers/asp/clingo/shikaku.pl` (42) | `solvers/asp/shikaku.py` (146) | `examples/shikaku.txt` (5x5), `shikaku_hard.txt` (15x15) |
 
 Each has a rules write-up alongside at `rules/<puzzle>.md` in blog_puzzles,
 which is where this folder's draft for it came from.

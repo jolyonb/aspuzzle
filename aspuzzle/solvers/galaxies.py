@@ -37,7 +37,7 @@ class Galaxy(Predicate):
     id: Field[int]
 
 
-class Galaxies(Solver):
+class Galaxies(Solver[RectangularGrid]):
     """
     This is a galaxies solver on a rectangular grid.
 
@@ -132,7 +132,6 @@ class Galaxies(Solver):
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
         puzzle, grid, _config, _grid_data = self.unpack_data()
-        assert isinstance(grid, RectangularGrid)
 
         # Define clues - the clues contain cells on either side of the center
         clues = puzzle.add_segment("Clues")

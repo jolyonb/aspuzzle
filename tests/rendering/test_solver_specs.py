@@ -43,6 +43,7 @@ from aspuzzle.solvers.fillomino import Number
 from aspuzzle.solvers.galaxies import Galaxies, Galaxy
 from aspuzzle.solvers.numberlink import CellDirections, EndpointDirection
 from aspuzzle.solvers.nurikabe import Stream
+from aspuzzle.solvers.shikaku import Rectangle
 from aspuzzle.solvers.stitches import Stitch
 from aspuzzle.solvers.tents import Tent, TieDestination
 
@@ -286,6 +287,27 @@ def test_starbattle_spec() -> None:
     assert isinstance(region_border, RegionBorderRule) and region_border.backends == SVG_ONLY
     assert isinstance(star, GlyphRule)
     assert star.glyph is not None and star.glyph.for_backend(Backend.SVG) == "⭐"
+
+
+def test_shikaku_spec_and_rectangles_come_from_the_solution() -> None:
+    solver = load_solver("shikaku")
+    spec = solver.get_render_spec()
+    region_fill, region_border = spec.atoms
+    # The same pair idiom as stitches and starbattle, but the regions are
+    # solved rather than given, so both rules read the solution
+    assert isinstance(region_fill, RegionFillRule) and isinstance(region_fill.source, FromPredicate)
+    assert region_fill.source.predicate is Rectangle and region_fill.backends == ASCII_ONLY
+    assert isinstance(region_border, RegionBorderRule) and region_border.backends == SVG_ONLY
+    # Nothing to draw before solving beyond the clues themselves
+    preview = solver.build_scene(None)
+    assert not [element for element in preview.visible(Backend.ASCII) if isinstance(element, CellFill)]
+    assert not [element for element in preview.visible(Backend.SVG) if isinstance(element, EdgeSegment)]
+    # ...and one fill per cell once solved, since the rectangles tile the grid
+    solutions, _result = solver.solve()
+    scene = solver.build_scene(solutions[0])
+    fills = [element for element in scene.visible(Backend.ASCII) if isinstance(element, CellFill)]
+    assert len(fills) == len(list(solver.grid.all_cells()))
+    assert all(element.provenance is Provenance.DERIVED for element in fills)
 
 
 # -- cross-solver guardrails --

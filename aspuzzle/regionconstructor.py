@@ -265,6 +265,9 @@ class RegionConstructor(Module):
 
         # Anchors define their own region
         self.when(self.Anchor(loc=C)).derive(self.Region(loc=C, anchor=C))
+        # ... so the domain has to admit that pair, regardless of any other conditions
+        if Possible is not None and not self.dynamic_anchors:
+            self.when(self.Anchor(loc=C)).derive(Possible(loc=C, anchor=C))
         # Regions propagate through connections
         propagation: list[Term] = [self.ConnectsTo(loc1=N, loc2=C), self.Region(loc=C, anchor=A)]
         if Possible is not None:
@@ -281,6 +284,14 @@ class RegionConstructor(Module):
             self.Region(loc=C, anchor=A),
             self.Region(loc=N, anchor=A),
         ).require(self.ConnectsTo(loc1=C, loc2=N))
+
+        # ...and no connection reaches out of a cell's region into a cell
+        # the domain bars from it.
+        if Possible is not None:
+            self.when(
+                self.ConnectsTo(loc1=C, loc2=N),
+                self.Region(loc=C, anchor=A),
+            ).require(Possible(loc=N, anchor=A))
 
         # Section 4: Integrity Constraints
         self.section("Integrity Constraints")
@@ -373,25 +384,25 @@ class RegionConstructor(Module):
             if not isinstance(self.grid, RectangularGrid):
                 raise ValueError("Don't know how to force rectangular regions with this grid type")
 
-            # If three corners of a 2x2 are in a region, then the 4th corner must be as well
+            # If three corners of a 2x2 are in a region, then the 4th corner
+            # must be as well. Where the membership domain bars that fourth
+            # corner, the three corners are an impossible configuration, so
+            # say so: deriving the barred atom instead would put Region atoms
+            # outside the domain, and every rule reading Region then grounds
+            # against the inflated set.
             C, R = V.C, V.R
-            self.when(
-                self.Region(loc=self.grid.Cell(row=R + 1, col=C), anchor=A),
-                self.Region(loc=self.grid.Cell(row=R, col=C + 1), anchor=A),
-                self.Region(loc=self.grid.Cell(row=R + 1, col=C + 1), anchor=A),
-            ).derive(self.Region(loc=self.grid.Cell(row=R, col=C), anchor=A))
-            self.when(
-                self.Region(loc=self.grid.Cell(row=R, col=C), anchor=A),
-                self.Region(loc=self.grid.Cell(row=R, col=C + 1), anchor=A),
-                self.Region(loc=self.grid.Cell(row=R + 1, col=C + 1), anchor=A),
-            ).derive(self.Region(loc=self.grid.Cell(row=R + 1, col=C), anchor=A))
-            self.when(
-                self.Region(loc=self.grid.Cell(row=R, col=C), anchor=A),
-                self.Region(loc=self.grid.Cell(row=R + 1, col=C), anchor=A),
-                self.Region(loc=self.grid.Cell(row=R + 1, col=C + 1), anchor=A),
-            ).derive(self.Region(loc=self.grid.Cell(row=R, col=C + 1), anchor=A))
-            self.when(
-                self.Region(loc=self.grid.Cell(row=R, col=C), anchor=A),
-                self.Region(loc=self.grid.Cell(row=R + 1, col=C), anchor=A),
-                self.Region(loc=self.grid.Cell(row=R, col=C + 1), anchor=A),
-            ).derive(self.Region(loc=self.grid.Cell(row=R + 1, col=C + 1), anchor=A))
+            corners = [(0, 0), (1, 0), (0, 1), (1, 1)]
+            for corner in corners:
+                head_row, head_col = corner
+                body = [
+                    self.Region(loc=self.grid.Cell(row=R + row, col=C + col), anchor=A)
+                    for row, col in corners
+                    if (row, col) != corner
+                ]
+                head = self.Region(loc=self.grid.Cell(row=R + head_row, col=C + head_col), anchor=A)
+                if Possible is None:
+                    self.when(*body).derive(head)
+                else:
+                    domain = Possible(loc=self.grid.Cell(row=R + head_row, col=C + head_col), anchor=A)
+                    self.when(*body, domain).derive(head)
+                    self.when(*body).require(domain)

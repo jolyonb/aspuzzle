@@ -43,9 +43,11 @@ class Layer(IntEnum):
     Within a layer, insertion order breaks ties (stable sort).
     """
 
-    BASE = 0  # frame / lattice (painted by each backend's painter from SceneStyle)
+    BASE = 0  # lattice (painted by each backend's painter from SceneStyle)
     FILL = 10  # cell backgrounds
     GRID_MARK = 20  # structural borders (Sudoku boxes, region cages)
+    FRAME = 25  # the outside frame, over the region borders that run into it
+    #             but under the paths that are allowed to run along it
     PATH = 30  # in-cell paths, links, edge strokes, vertex marks
     GLYPH = 40  # clue and solution glyphs
     ANNOTATION = 50  # anything that must win

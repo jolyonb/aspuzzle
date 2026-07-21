@@ -38,6 +38,7 @@ Puzzles involving area division and region construction:
 - **Galaxies** - Point-symmetric regions around galaxy centers
 - **Starbattle** - Star placement within irregular regions
 - **Cave** - Connected cave area with line-of-sight counting
+- **Shikaku** - Rectangles of the clued area, tiling the grid
 
 ### Path and Connection Puzzles
 Puzzles involving connections and paths:

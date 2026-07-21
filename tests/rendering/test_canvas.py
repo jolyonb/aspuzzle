@@ -43,7 +43,10 @@ def test_paint_bg_spans_and_uncolored_output() -> None:
     plain = canvas.to_string(DEFAULT_THEME, use_colors=False)
     assert plain == "x  "  # use_colors=False: no escapes at all
     themed = canvas.to_string(DEFAULT_THEME, use_colors=True)
-    assert themed == "\033[44mx\033[0m\033[44m \033[0m "
+    # Uncolored characters on a fill take the theme's ink for that fill
+    # (blue is dark, so bright white); the unfilled cell keeps the
+    # terminal's own foreground and emits no code at all
+    assert themed == "\033[97m\033[44mx\033[0m\033[97m\033[44m \033[0m "
 
 
 def test_injected_minimal_theme_pins_sgr_placement() -> None:

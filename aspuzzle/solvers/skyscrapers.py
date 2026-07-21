@@ -42,7 +42,7 @@ class Visible(Predicate, show=False):
     position: Field[int]
 
 
-class Skyscrapers(Solver):
+class Skyscrapers(Solver[RectangularGrid]):
     """Skyscrapers puzzle solver."""
 
     solver_name = "Skyscrapers puzzle solver"
@@ -60,7 +60,6 @@ class Skyscrapers(Solver):
     def validate_config(self) -> None:
         """Validate the Skyscrapers configuration."""
         grid = self.grid
-        assert isinstance(grid, RectangularGrid)
 
         # Check that the grid is square
         if grid.rows != grid.cols:
@@ -85,7 +84,6 @@ class Skyscrapers(Solver):
     def construct_puzzle(self) -> None:
         """Construct the Skyscrapers puzzle rules."""
         puzzle, grid, config, grid_data = self.unpack_data()
-        assert isinstance(grid, RectangularGrid)
 
         grid_size = grid.rows
         C, N, Idx = V.C, V.N, V.Idx
@@ -189,7 +187,6 @@ class Skyscrapers(Solver):
         ).forbid(H > grid_size - N + Pos)
 
     def get_render_spec(self) -> RenderSpec:
-        assert isinstance(self.grid, RectangularGrid)
         grid_size = self.grid.rows
         return RenderSpec(
             clues=digit_clues(range(1, grid_size + 1), Color.GREEN),

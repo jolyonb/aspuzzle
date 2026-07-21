@@ -1,0 +1,44 @@
+{
+  "puzzle_type": "Shikaku",
+  "grid_type": "RectangularGrid",
+  "url": "https://www.puzzle-shikaku.com/",
+  "source": "5x5 Shikaku, Puzzle ID 1,331,417",
+  "grid": [
+    "2.3..",
+    ".42..",
+    "4.2.2",
+    "....2",
+    "..2.2"
+  ],
+  "solutions": [
+    {
+      "rectangle/2": [
+        "rectangle(loc=cell(row=1, col=1), id=1)",
+        "rectangle(loc=cell(row=1, col=2), id=1)",
+        "rectangle(loc=cell(row=1, col=3), id=2)",
+        "rectangle(loc=cell(row=1, col=4), id=2)",
+        "rectangle(loc=cell(row=1, col=5), id=2)",
+        "rectangle(loc=cell(row=2, col=1), id=5)",
+        "rectangle(loc=cell(row=2, col=2), id=3)",
+        "rectangle(loc=cell(row=2, col=3), id=4)",
+        "rectangle(loc=cell(row=2, col=4), id=4)",
+        "rectangle(loc=cell(row=2, col=5), id=7)",
+        "rectangle(loc=cell(row=3, col=1), id=5)",
+        "rectangle(loc=cell(row=3, col=2), id=3)",
+        "rectangle(loc=cell(row=3, col=3), id=6)",
+        "rectangle(loc=cell(row=3, col=4), id=6)",
+        "rectangle(loc=cell(row=3, col=5), id=7)",
+        "rectangle(loc=cell(row=4, col=1), id=5)",
+        "rectangle(loc=cell(row=4, col=2), id=3)",
+        "rectangle(loc=cell(row=4, col=3), id=9)",
+        "rectangle(loc=cell(row=4, col=4), id=8)",
+        "rectangle(loc=cell(row=4, col=5), id=8)",
+        "rectangle(loc=cell(row=5, col=1), id=5)",
+        "rectangle(loc=cell(row=5, col=2), id=3)",
+        "rectangle(loc=cell(row=5, col=3), id=9)",
+        "rectangle(loc=cell(row=5, col=4), id=10)",
+        "rectangle(loc=cell(row=5, col=5), id=10)"
+      ]
+    }
+  ]
+}

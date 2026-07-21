@@ -54,6 +54,14 @@ class AsciiTheme:
     fg_codes: Mapping[PaletteColor, str]
     bg_codes: Mapping[PaletteColor, str]
     reset: str = "\033[0m"
+    # Ink for an uncolored character sitting on a cell fill. The terminal's
+    # own default is no use there: it is dark on a light-background profile
+    # and light on a dark one, while the fill under it is neither, so one of
+    # the two profiles always loses. Picking by the fill's luminance instead
+    # reads on both. A character with no fill keeps the inherited default,
+    # which is the one case that does adapt to the profile by itself.
+    ink_on_dark_fill: PaletteColor = PaletteColor.BRIGHT_WHITE
+    ink_on_light_fill: PaletteColor = PaletteColor.BLACK
 
     def fg(self, color: ColorSpec) -> str:
         if isinstance(color, Rgb):
@@ -64,6 +72,15 @@ class AsciiTheme:
         if isinstance(color, Rgb):
             color = _nearest_palette(color)
         return self.bg_codes[color]
+
+    def ink_on(self, fill: ColorSpec) -> PaletteColor:
+        """The ink an uncolored character takes when it sits on `fill`,
+        by the fill's perceived brightness."""
+        if isinstance(fill, Rgb):
+            fill = _nearest_palette(fill)
+        red, green, blue = _PALETTE_RGB[fill]
+        luminance = 0.299 * red + 0.587 * green + 0.114 * blue
+        return self.ink_on_light_fill if luminance > 140 else self.ink_on_dark_fill
 
 
 def _sgr(code: int) -> str:

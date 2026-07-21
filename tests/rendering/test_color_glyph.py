@@ -40,14 +40,18 @@ def test_glyph_backend_variants() -> None:
 def test_glyph_for_value_digit_letter_convention() -> None:
     assert glyph_for_value(0) == Glyph("0")
     assert glyph_for_value(9) == Glyph("9")
-    # 10+ compacts to a letter on character grids but keeps the literal
-    # number for spreadsheet cells
-    assert glyph_for_value(10) == Glyph("A", sheet="10")
-    assert glyph_for_value(35) == Glyph("Z", sheet="35")
+    # 10+ compacts to a letter only where columns are being counted; the
+    # backends with room for it get the literal number
+    assert glyph_for_value(10) == Glyph("A", svg="10", sheet="10")
+    assert glyph_for_value(35) == Glyph("Z", svg="35", sheet="35")
+    assert glyph_for_value(10).for_backend(Backend.ASCII) == "A"
     assert glyph_for_value(10).for_backend(Backend.SHEET) == "10"
-    assert glyph_for_value(10).for_backend(Backend.SVG) == "A"
-    # The single-char convention ends at Z; outside it, no silent garbage
-    with pytest.raises(ValueError, match=r"0\.\.35"):
-        glyph_for_value(36)
-    with pytest.raises(ValueError, match=r"0\.\.35"):
+    assert glyph_for_value(10).for_backend(Backend.SVG) == "10"
+    # Past Z a character grid gives up and prints #, but the backends with
+    # room keep the number, so every value from 0 up renders
+    assert glyph_for_value(36) == Glyph("#", svg="36", sheet="36")
+    assert glyph_for_value(294).for_backend(Backend.ASCII) == "#"
+    assert glyph_for_value(294).for_backend(Backend.SVG) == "294"
+    # Below zero there is nothing to draw
+    with pytest.raises(ValueError, match="from 0 up"):
         glyph_for_value(-1)

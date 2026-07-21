@@ -51,8 +51,12 @@ class SvgTheme:
     # Glyph text by rendered length (1 char, 2 chars, 3+), with a small
     # optical baseline nudge per size; emoji render smaller than the
     # largest text size (their ink fills the whole em square)
-    font_sizes: tuple[float, float, float] = (48 / 64, 32 / 64, 24 / 64)
-    text_nudges: tuple[float, float, float] = (4 / 64, 2 / 64, 1 / 64)
+    # Two characters are the common case for a number too big for one
+    # (areas, region sizes), so they take most of the single-character size:
+    # at 40/64 a two-digit number is 48/64 of the cell wide, still clear of
+    # the cell edges
+    font_sizes: tuple[float, float, float] = (48 / 64, 40 / 64, 24 / 64)
+    text_nudges: tuple[float, float, float] = (4 / 64, 3 / 64, 1 / 64)
     emoji_size: float = 40 / 64
 
     def color(self, spec: ColorSpec) -> str:

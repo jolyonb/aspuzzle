@@ -62,6 +62,7 @@ possible_region(cell(R, C), cell(R_anchor, C_anchor)) :- cell(R, C), cell(R_anch
 region(C, C) :- anchor(C).
 region(N, A) :- connects_to(N, C), region(C, A), possible_region(N, A).
 :- orthogonal(C, N), C < N, region(C, A), region(N, A), not connects_to(C, N).
+:- connects_to(C, N), region(C, A), not possible_region(N, A).
 
 % Integrity Constraints
 :- cell(R, C), #count{ A : region(cell(R, C), A) } != 1.

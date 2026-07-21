@@ -48,15 +48,29 @@ class Glyph:
 def glyph_for_value(value: int) -> Glyph:
     """
     The single home of the digit convention: 0-9 as digits, 10-35 as
-    letters (10 -> 'A', 35 -> 'Z'), keeping values one character wide on
-    character grids; values outside 0..35 have no single-character form
-    and raise. Values above 9 carry their literal number as the sheet
-    variant — a spreadsheet cell wants "10", not "A". SVG keeps the letter
-    so the drawn puzzle matches the terminal render; a solver preferring
-    numbers in SVG passes its own Glyph(..., svg=...).
+    letters (10 -> 'A', 35 -> 'Z'), and '#' beyond that — a character grid
+    has one column to spend and nothing better to put in it. Both are
+    compromises for grids that count columns, so backends that do not take
+    the literal number throughout: a spreadsheet cell wants "10" rather
+    than "A", and so does a drawn puzzle — SVG sets its own type size by
+    rendered length, so a longer number simply comes out smaller.
+
+    Every value from 0 up renders, so a caller with a wide clue range needs
+    no second table; overflow_clues remains for solvers that want '#' below
+    36 as well (Cave rings its large clues that way).
     """
-    if not 0 <= value <= 35:
-        raise ValueError(f"glyph_for_value covers 0..35 (digits, then A-Z), got {value}")
+    if value < 0:
+        raise ValueError(f"glyph_for_value covers values from 0 up, got {value}")
+
+    number = str(value)
     if value <= 9:
-        return Glyph(str(value))
-    return Glyph(chr(ord("A") + value - 10), sheet=str(value))
+        character = number
+    elif value <= 35:
+        character = chr(ord("A") + value - 10)
+    else:
+        character = "#"
+
+    # A single digit already is the number; a letter or a # is a stand-in for
+    # it, and only then do the roomier backends need telling what it stands for
+    stands_in = character != number
+    return Glyph(character, svg=number if stands_in else None, sheet=number if stands_in else None)

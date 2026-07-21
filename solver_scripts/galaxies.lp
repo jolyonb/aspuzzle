@@ -93,8 +93,10 @@ connects_to(N, C) :- connects_to(C, N).
 % Region Propagation
 possible_region(cell(R, C), cell(R_anchor, C_anchor)) :- cell(R, C), anchor(cell(R_anchor, C_anchor)), center(cell(R_anchor, C_anchor), cell(R2, C2), _), R_anchor + R2 - R >= 1, R_anchor + R2 - R <= 15, C_anchor + C2 - C >= 1, C_anchor + C2 - C <= 15.
 region(C, C) :- anchor(C).
+possible_region(C, C) :- anchor(C).
 region(N, A) :- connects_to(N, C), region(C, A), possible_region(N, A).
 :- orthogonal(C, N), C < N, region(C, A), region(N, A), not connects_to(C, N).
+:- connects_to(C, N), region(C, A), not possible_region(N, A).
 
 % Integrity Constraints
 :- cell(R, C), #count{ A : region(cell(R, C), A) } != 1.

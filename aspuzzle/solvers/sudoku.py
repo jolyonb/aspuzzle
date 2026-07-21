@@ -14,7 +14,7 @@ class Block(Predicate, show=False):
     block_id: Field[int]
 
 
-class Sudoku(Solver):
+class Sudoku(Solver[RectangularGrid]):
     """
     A generalized Sudoku puzzle solver.
 
@@ -41,7 +41,6 @@ class Sudoku(Solver):
     def validate_config(self) -> None:
         """Validate the Sudoku configuration."""
         grid = self.grid
-        assert isinstance(grid, RectangularGrid)
 
         # Check that the grid is square
         if grid.rows != grid.cols:
@@ -86,7 +85,6 @@ class Sudoku(Solver):
     def construct_puzzle(self) -> None:
         """Construct the Sudoku puzzle rules."""
         puzzle, grid, _config, grid_data = self.unpack_data()
-        assert isinstance(grid, RectangularGrid)
 
         grid_size = grid.rows
         R, C, N, Idx = V.R, V.C, V.N, V.Idx
@@ -135,7 +133,6 @@ class Sudoku(Solver):
         clues.fact(*[Number(loc=grid.Cell(*loc), value=value) for loc, value in grid_data])
 
     def get_render_spec(self) -> RenderSpec:
-        assert isinstance(self.grid, RectangularGrid)
         grid_size = self.grid.rows
         block_rows, block_cols = self.block_rows, self.block_cols
         assert block_rows is not None and block_cols is not None  # resolved by validate_config

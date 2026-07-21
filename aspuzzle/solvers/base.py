@@ -14,14 +14,18 @@ from aspuzzle.rendering.ascii import AsciiRenderer
 from aspuzzle.rendering.svg import SvgRenderer
 
 
-class Solver(ABC):
+class Solver[G: Grid = Grid](ABC):
     default_config: ClassVar[dict[str, Any]] = {}
     solver_name: str = "Puzzle solver"
     supported_grid_types: tuple[type[Grid], ...] = (Grid,)  # Support all grids by default
     supported_symbols: tuple[
         str | int, ...
     ] = ()  # Symbols allowed in the grid definition; solvers may override per instance
-    grid: Grid
+    # The grid, typed as the solver's own grid kind: a solver that needs a
+    # specific geometry writes Solver[RectangularGrid] and reads self.grid
+    # without narrowing it again at every use. supported_grid_types is what
+    # enforces it at runtime, and create_grid checks that before assigning.
+    grid: G
     map_grid_to_integers: bool = False  # Whether to map grid symbols to unique integer ids, useful for defining regions
     _grid_data: list[GridCellData] | None = None
     _grounding: GroundedProgram | None = None
@@ -53,7 +57,7 @@ class Solver(ABC):
         cast(Any, cls).construct_puzzle = guarded
 
     @classmethod
-    def from_config(cls, config: dict[str, Any]) -> Solver:
+    def from_config(cls, config: dict[str, Any]) -> Solver[Grid]:
         """
         Create and return the appropriate Solver subclass instance for the given configuration.
 
@@ -61,7 +65,9 @@ class Solver(ABC):
             config: The puzzle configuration dictionary
 
         Returns:
-            An initialized Solver subclass instance
+            An initialized Solver subclass instance, of whatever grid kind
+            that solver declares — unknown here, since the class is looked
+            up by name at runtime
 
         Raises:
             ValueError: If the puzzle_type is missing or invalid
@@ -85,7 +91,12 @@ class Solver(ABC):
         # Initialize and return the solver
         puzzle = puzzle_class(config)
         assert isinstance(puzzle, Solver)
-        return puzzle
+        # Which grid kind the solver was parameterized with is a runtime fact
+        # here — the class was looked up by name. G is invariant (grid is
+        # assignable), so a Solver[RectangularGrid] is not a Solver[Grid] to a
+        # type checker; the cast says the only thing a caller of this factory
+        # can rely on, that the grid it reads is a Grid.
+        return cast(Solver[Grid], puzzle)
 
     def __init__(self, config: dict[str, Any]) -> None:
         self.puzzle = Puzzle()
@@ -119,7 +130,10 @@ class Solver(ABC):
 
         # Let the grid create itself from the config
         assert issubclass(grid_class, Grid)
-        self.grid = grid_class.from_config(self.puzzle, self.config)
+        # cast, not assert: G is not available at runtime, and the
+        # supported_grid_types check above has already rejected every grid
+        # kind this solver cannot take
+        self.grid = cast(G, grid_class.from_config(self.puzzle, self.config))
 
     @property
     def grid_data(self) -> list[GridCellData]:
@@ -161,7 +175,7 @@ class Solver(ABC):
         """
         pass
 
-    def unpack_data(self) -> tuple[Puzzle, Grid, dict[str, Any], list[GridCellData]]:
+    def unpack_data(self) -> tuple[Puzzle, G, dict[str, Any], list[GridCellData]]:
         """
         Convenience property to get puzzle, grid, config, and parsed grid data.
 

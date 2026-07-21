@@ -155,16 +155,34 @@ class SvgRenderer:
 
     def render(self, scene: Scene) -> str:
         painter = SvgPainter(scene.grid, scene.grid.svg_geometry(), self.theme, self.cell_size)
+        style = scene.style_for(Backend.SVG)
         groups: list[tuple[str, list[str]]] = []
-        substrate = painter.paint_substrate(scene.style_for(Backend.SVG))
+        substrate = painter.paint_substrate(style)
         if substrate:
             groups.append(("base", substrate))
+
+        # The frame paints at Layer.FRAME rather than with the rest of the
+        # substrate: a region border running out to the edge of the board ends
+        # flush against the frame line, and painting it after the frame leaves
+        # the border's stroke sitting on top of the black rule. Paths still go
+        # over the frame — a loop is allowed to run along the boundary.
+        frame = painter.paint_frame(style)
+
+        def flush_frame() -> None:
+            nonlocal frame
+            if frame:
+                groups.append(("frame", frame))
+                frame = []
+
         for layer, elements in groupby(scene.sorted_elements(Backend.SVG), key=lambda element: element.layer):
+            if layer > Layer.FRAME:
+                flush_frame()
             for element in elements:
                 painter.paint_element(element)
             markup = painter.take_group()
             if markup:
                 groups.append((_layer_name(layer), markup))
+        flush_frame()
         return painter.document(groups)
 
 
@@ -211,12 +229,17 @@ class SvgPainter(ScenePainter):
 
     # -- substrate --
 
+    def paint_frame(self, style: SceneStyle) -> list[str]:
+        """The board's outside frame, painted at Layer.FRAME (see
+        SvgRenderer.render) rather than with the rest of the substrate."""
+        if style.heavy_frame and (edges := self.geometry.boundary_edges()):
+            return [f'<path class="frame" d="{_chain_segments(self._edge_segments(edges))}"/>']
+        return []
+
     def paint_substrate(self, style: SceneStyle) -> list[str]:
         lines: list[str] = []
         if style.hairline and (edges := self.geometry.all_edges()):
             lines.append(f'<path class="lattice" d="{_chain_segments(self._edge_segments(edges))}"/>')
-        if style.heavy_frame and (edges := self.geometry.boundary_edges()):
-            lines.append(f'<path class="frame" d="{_chain_segments(self._edge_segments(edges))}"/>')
         if style.vertex_dots:
             radius = _fmt(self.theme.dot_radius * self.cell)
             for vertex in self.geometry.all_vertices():

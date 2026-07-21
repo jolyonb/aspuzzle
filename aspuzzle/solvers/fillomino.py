@@ -3,7 +3,7 @@ from typing import Any, ClassVar
 from aspalchemy import ANY, Choice, Field, Predicate, RangePool, Term, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.regionconstructor import RegionConstructor
-from aspuzzle.rendering import GlyphRule, Layer, RenderSpec, SceneStyle, digit_clues, overflow_clues
+from aspuzzle.rendering import GlyphRule, Layer, RenderSpec, SceneStyle, digit_clues
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.solvers.base import Solver
 
@@ -183,8 +183,7 @@ class Fillomino(Solver):
         def size_color(value: int) -> Color:
             return palette[(value - 1) % 9]
 
-        clues = digit_clues(range(1, min(self.max_num, 35) + 1), size_color, layer=Layer.GLYPH)
-        clues |= overflow_clues(range(36, self.max_num + 1), size_color, layer=Layer.GLYPH)
+        clues = digit_clues(range(1, self.max_num + 1), size_color, layer=Layer.GLYPH)
         return RenderSpec(
             clues=clues,
             atoms=[GlyphRule(Number, value_field="size", color=Color.BRIGHT_WHITE, fill=size_fill)],

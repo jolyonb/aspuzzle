@@ -5,7 +5,7 @@ text { font-family: Tahoma, Verdana, Roboto, sans-serif; text-anchor: middle; do
 .halo { paint-order: stroke fill; stroke: #ffffff; stroke-width: 2px;
        stroke-linejoin: round; }
 .bigtext { font-size: 48px; transform: translate(0, 4px); }
-.medtext { font-size: 32px; transform: translate(0, 2px); }
+.medtext { font-size: 40px; transform: translate(0, 3px); }
 .smalltext { font-size: 24px; transform: translate(0, 1px); }
 .emoji { font-size: 40px; transform: translate(0, 4px); }
 .lattice { fill: none; stroke: #000000; stroke-width: 1;

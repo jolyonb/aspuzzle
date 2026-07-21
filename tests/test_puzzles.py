@@ -42,6 +42,18 @@ def test_puzzle_solves(puzzle_file: Path) -> None:
 
     assert result.satisfiable, f"Puzzle {puzzle_file.name} should be satisfiable"
 
+    # Every model must differ in what it shows. Two models with identical
+    # shown atoms differ only in hidden scaffolding the encoding left free
+    # — the same puzzle solution reported twice — and validate_solutions
+    # compares sets, so it cannot see them.
+    shown = [
+        frozenset((name, frozenset(map(str, atoms))) for name, atoms in solution.items()) for solution in solutions
+    ]
+    assert len(set(shown)) == len(shown), (
+        f"{puzzle_file.name}: {len(shown) - len(set(shown))} of {len(shown)} models "
+        f"differ only in hidden atoms; some scaffolding is underconstrained"
+    )
+
     # Just make sure the display code will run
     solver.display_results(solutions, result, True)
 
