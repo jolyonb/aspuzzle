@@ -62,11 +62,6 @@ region(N, A) :- connects_to(N, C), region(C, A), possible_region(N, A).
 % Integrity Constraints
 :- cell(R, C), not regionless(cell(R, C)), #count{ A : region(cell(R, C), A) } != 1.
 
-% Forbid regionless pools
-
-% Forbid 2x2 blocks of regionless
-:- regionless(cell(R, C)), regionless(cell(R, C + 1)), regionless(cell(R + 1, C)), regionless(cell(R + 1, C + 1)), cell(R, C), cell(R + 1, C + 1).
-
 % Regions cannot touch
 :- region(C_1, A), orthogonal(C_1, C_2), not region(C_2, A), not regionless(C_2).
 
@@ -84,6 +79,9 @@ connected_regionless(C_adj) :- connected_regionless(C), orthogonal(C, C_adj), re
 
 
 % ===== Rules =====
+
+% Forbid 2x2 blocks of regionless
+:- regionless(cell(R, C)), regionless(cell(R, C + 1)), regionless(cell(R + 1, C)), regionless(cell(R + 1, C + 1)), cell(R, C), cell(R + 1, C + 1).
 
 % Each island must have the correct size
 :- clue(C, N), #count{ RegionSizeCell : region(RegionSizeCell, C) } != N.

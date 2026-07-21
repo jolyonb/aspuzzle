@@ -1,5 +1,6 @@
 from aspalchemy import ANY, Field, Predicate, Term, V
 from aspuzzle.grids.base import GridCell
+from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.regionconstructor import RegionConstructor
 from aspuzzle.rendering import FillRule, RenderSpec, SceneStyle, digit_clues
 from aspuzzle.rendering import PaletteColor as Color
@@ -48,11 +49,13 @@ class Nurikabe(Solver):
             anchor_predicate=Clue,  # Clue cells are anchors for islands
             anchor_fields={"size": ANY},
             allow_regionless=True,  # Regionless cells form the stream
-            forbid_regionless_pools=True,  # No 2x2 pools of stream
             contiguous_regionless=True,  # Stream must be contiguous
             non_adjacent_regions=True,  # Each island must be isolated
             region_domain=region_domain,
         )
+
+        if isinstance(grid, RectangularGrid):
+            grid.forbid_2x2_blocks(region_constructor.Regionless, segment=puzzle.rules_segment)
 
         puzzle.section("Each island must have the correct size")
         puzzle.when(Clue(loc=V.C, size=V.N)).require(region_constructor.region_size(V.C) == V.N)

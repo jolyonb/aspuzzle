@@ -137,6 +137,10 @@ class Puzzle(StatementSpeaker):
         self.name = name
         self._program = ASPProgram(allow_singletons=allow_singletons, source_locations=source_locations)
         self._modules: dict[str, Module] = {}
+        # Resolved on first use, not here: segments render in declaration
+        # order, so creating this one at construction would place the rules
+        # ahead of the grid and every module
+        self._rules_segment: Segment | None = None
 
     @property
     def _statement_target(self) -> ASPProgram:
@@ -192,6 +196,20 @@ class Puzzle(StatementSpeaker):
         registration).
         """
         return self._program.add_segment(segment)
+
+    @property
+    def rules_segment(self) -> Segment:
+        """
+        The segment the puzzle's own verbs write to, as a handle: a solver
+        speaks its rules through puzzle.when()/fact() and never needs this,
+        but a helper that takes a segment (grid.forbid_2x2_blocks, say) does,
+        and a puzzle rule belongs among the puzzle's rules.
+        """
+        if self._rules_segment is None:
+            name = self._program.default_segment
+            existing = [segment for segment in self._program.segments if segment.name == name]
+            self._rules_segment = existing[0] if existing else self._program.add_segment(name)
+        return self._rules_segment
 
     def define_constant(self, name: str, value: int | str) -> DefinedConstant:
         """

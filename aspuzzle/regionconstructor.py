@@ -67,7 +67,6 @@ class RegionConstructor(Module):
         anchor_predicate: type[Predicate] | None = None,
         anchor_fields: dict[str, Any] | None = None,
         allow_regionless: bool = True,
-        forbid_regionless_pools: bool = False,
         contiguous_regionless: bool = False,
         non_adjacent_regions: bool = False,
         forbid_region_pools: bool = False,
@@ -89,7 +88,6 @@ class RegionConstructor(Module):
             anchor_fields: Optional dictionary of field names to values for filtering specific anchors
             allow_regionless: If True, cells can be outside any region
                             If False, all cells must belong to a region
-            forbid_regionless_pools: If True, no regionless pools are allowed (2x2 in rectangular grid)
             contiguous_regionless: If True, regionless cells must be contiguous
             non_adjacent_regions: If True, regions cannot be adjacent to each other
             forbid_region_pools: If True, no pools allowed in any region (2x2 in rectangular grid)
@@ -120,7 +118,6 @@ class RegionConstructor(Module):
         self._anchor_fields = anchor_fields or {}
         self.dynamic_anchors = anchor_predicate is None
         self.allow_regionless = allow_regionless
-        self.forbid_regionless_pools = forbid_regionless_pools
         self.contiguous_regionless = contiguous_regionless
         self.non_adjacent_regions = non_adjacent_regions
         self.forbid_region_pools = forbid_region_pools
@@ -305,14 +302,6 @@ class RegionConstructor(Module):
         self.when(*conditions).require(Count(A, condition=self.Region(loc=cell, anchor=A)) == 1)
 
         # Optional rules
-
-        # Regionless pools
-        if self.forbid_regionless_pools:
-            self.section("Forbid regionless pools")
-            if isinstance(self.grid, RectangularGrid):
-                self.grid.forbid_2x2_blocks(self.Regionless, segment=self.segment)
-            else:
-                raise ValueError("Don't know how to forbid pools with this grid type")
 
         # Region pools
         if self.forbid_region_pools:
