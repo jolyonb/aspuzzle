@@ -1,0 +1,90 @@
+{
+  "puzzle_type": "Skyscrapers",
+  "grid_type": "RectangularGrid",
+  "grid_params": {
+    "rows": 6,
+    "cols": 6
+  },
+  "top_clues": [
+    null,
+    null,
+    null,
+    2,
+    null,
+    null
+  ],
+  "right_clues": [
+    null,
+    3,
+    null,
+    null,
+    4,
+    null
+  ],
+  "bottom_clues": [
+    null,
+    5,
+    2,
+    null,
+    null,
+    4
+  ],
+  "left_clues": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    4
+  ],
+  "grid": [
+    "...2..",
+    "......",
+    "..1...",
+    "......",
+    "......",
+    "......"
+  ],
+  "solutions": [
+    {
+      "height/2": [
+        "height(loc=cell(row=1, col=1), value=4)",
+        "height(loc=cell(row=1, col=2), value=6)",
+        "height(loc=cell(row=1, col=3), value=3)",
+        "height(loc=cell(row=1, col=4), value=2)",
+        "height(loc=cell(row=1, col=5), value=1)",
+        "height(loc=cell(row=1, col=6), value=5)",
+        "height(loc=cell(row=2, col=1), value=1)",
+        "height(loc=cell(row=2, col=2), value=5)",
+        "height(loc=cell(row=2, col=3), value=2)",
+        "height(loc=cell(row=2, col=4), value=6)",
+        "height(loc=cell(row=2, col=5), value=4)",
+        "height(loc=cell(row=2, col=6), value=3)",
+        "height(loc=cell(row=3, col=1), value=2)",
+        "height(loc=cell(row=3, col=2), value=4)",
+        "height(loc=cell(row=3, col=3), value=1)",
+        "height(loc=cell(row=3, col=4), value=3)",
+        "height(loc=cell(row=3, col=5), value=5)",
+        "height(loc=cell(row=3, col=6), value=6)",
+        "height(loc=cell(row=4, col=1), value=6)",
+        "height(loc=cell(row=4, col=2), value=3)",
+        "height(loc=cell(row=4, col=3), value=5)",
+        "height(loc=cell(row=4, col=4), value=1)",
+        "height(loc=cell(row=4, col=5), value=2)",
+        "height(loc=cell(row=4, col=6), value=4)",
+        "height(loc=cell(row=5, col=1), value=5)",
+        "height(loc=cell(row=5, col=2), value=1)",
+        "height(loc=cell(row=5, col=3), value=6)",
+        "height(loc=cell(row=5, col=4), value=4)",
+        "height(loc=cell(row=5, col=5), value=3)",
+        "height(loc=cell(row=5, col=6), value=2)",
+        "height(loc=cell(row=6, col=1), value=3)",
+        "height(loc=cell(row=6, col=2), value=2)",
+        "height(loc=cell(row=6, col=3), value=4)",
+        "height(loc=cell(row=6, col=4), value=5)",
+        "height(loc=cell(row=6, col=5), value=6)",
+        "height(loc=cell(row=6, col=6), value=1)"
+      ]
+    }
+  ]
+}

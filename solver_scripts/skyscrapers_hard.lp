@@ -4,44 +4,35 @@
 % ===== grid =====
 
 % Define cells in the grid
-cell(R, C) :- R = 1..4, C = 1..4.
+cell(R, C) :- R = 1..6, C = 1..6.
 
 % Define major lines in the grid
-line("e", R, cell(R, C)) :- cell(R, C), R = 1..4.
-line("s", C, cell(R, C)) :- cell(R, C), C = 1..4.
+line("e", R, cell(R, C)) :- cell(R, C), R = 1..6.
+line("s", C, cell(R, C)) :- cell(R, C), C = 1..6.
 
 % Define ordered positions along orthogonal lines in the grid
 line_of_sight("e", R, C, cell(R, C)) :- cell(R, C).
-line_of_sight("w", R, 5 - C, cell(R, C)) :- cell(R, C).
+line_of_sight("w", R, 7 - C, cell(R, C)) :- cell(R, C).
 line_of_sight("s", C, R, cell(R, C)) :- cell(R, C).
-line_of_sight("n", C, 5 - R, cell(R, C)) :- cell(R, C).
+line_of_sight("n", C, 7 - R, cell(R, C)) :- cell(R, C).
 
 
 % ===== Clues =====
 
 % Clue constraints
-clue("s", 1, 2).
-clue("s", 2, 1).
-clue("s", 3, 2).
-clue("s", 4, 3).
-clue("n", 1, 2).
-clue("n", 2, 3).
+clue("s", 4, 2).
+clue("n", 2, 5).
 clue("n", 3, 2).
-clue("n", 4, 1).
-clue("e", 1, 2).
-clue("e", 2, 1).
-clue("e", 3, 2).
-clue("e", 4, 2).
-clue("w", 1, 3).
-clue("w", 2, 4).
-clue("w", 3, 2).
-clue("w", 4, 1).
+clue("n", 6, 4).
+clue("e", 6, 4).
+clue("w", 2, 3).
+clue("w", 5, 4).
 
 
 % ===== symbols =====
 
 % Place symbols in the grid
-{ height(cell(R, C), V) : V = 1..4 } = 1 :- cell(R, C).
+{ height(cell(R, C), V) : V = 1..6 } = 1 :- cell(R, C).
 
 
 % ===== Rules =====
@@ -60,8 +51,14 @@ visible(Dir, Idx, Pos) :- line_of_sight(Dir, Idx, Pos, _), not blocked(Dir, Idx,
 :- clue(Dir, Idx, N), #count{ Pos : visible(Dir, Idx, Pos) } != N.
 
 % Solver helpers: height bounds implied by a clue
-height(cell(R, C), 4) :- clue(Dir, Idx, 1), line_of_sight(Dir, Idx, 1, cell(R, C)).
-:- clue(Dir, Idx, N), line_of_sight(Dir, Idx, Pos, cell(R, C)), height(cell(R, C), H), H > 4 - N + Pos.
+height(cell(R, C), 6) :- clue(Dir, Idx, 1), line_of_sight(Dir, Idx, 1, cell(R, C)).
+:- clue(Dir, Idx, N), line_of_sight(Dir, Idx, Pos, cell(R, C)), height(cell(R, C), H), H > 6 - N + Pos.
+
+
+% ===== Given Heights =====
+
+height(cell(1, 4), 2).
+height(cell(3, 3), 1).
 
 #show.
 #show height/2.
