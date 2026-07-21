@@ -32,6 +32,12 @@ files = ["aspuzzle", "tests", "solveit.py"]
 
 [tool.pyright]
 include = ["aspuzzle", "tests", "solveit.py"]
+# Where the project's packages live. `uv run pyright` finds them without
+# this, being launched from inside the environment already, but an editor
+# plugin or LSP runs its own pyright against whatever interpreter it has —
+# and then every aspalchemy import reads as missing.
+venvPath = "."
+venv = ".venv"
 
 [tool.ruff]
 line-length = 120
