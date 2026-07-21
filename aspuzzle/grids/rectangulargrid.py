@@ -2,7 +2,7 @@ from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any
 
 from aspalchemy import Expression, Field, Predicate, RangePool, Segment, V
-from aspuzzle.grids.base import Grid, GridCell, GridCellData
+from aspuzzle.grids.base import CellOrder, Grid, GridCell, GridCellData
 from aspuzzle.puzzle import Puzzle, cached_predicate
 from aspuzzle.rendering.grids.rectangular_ascii import RectangularAsciiGeometry
 from aspuzzle.rendering.grids.rectangular_svg import RectangularSvgGeometry
@@ -143,6 +143,35 @@ class RectangularGrid(Grid):
         cell = super().cell(suffix)
         assert isinstance(cell, RectangularCell)
         return cell
+
+    @property
+    @cached_predicate
+    def CellOrder(self) -> type[CellOrder]:
+        """
+        Get the CellOrder predicate. Two interval rules construct the row-major
+        successor chain, which is exactly ascending clingo term order for
+        cell(R, C) — required so that chain-based anchor selection picks the
+        same cell a lexicographic minimum would. Written over explicit index
+        ranges rather than joins on cell atoms: cell/2 also holds
+        outside-border cells when the border is in use, and those must never
+        enter the chain (find_anchor_cell's guard turns an off-chain candidate
+        into an UNSAT, so keeping the border out is a correctness requirement,
+        not just tidiness).
+        """
+        CellOrderClone = CellOrder.in_namespace(self.namespace)
+        R, C = V.R, V.C
+
+        self.section("Cell order chain")
+        # Within a row: cell(R, C) -> cell(R, C+1)
+        self.when(R.in_(RangePool(1, self.rows)), C.in_(RangePool(1, self.cols - 1))).derive(
+            CellOrderClone(prev=self.Cell(row=R, col=C), next=self.Cell(row=R, col=C + 1))
+        )
+        # Row wrap: cell(R, last_col) -> cell(R+1, 1)
+        self.when(R.in_(RangePool(1, self.rows - 1))).derive(
+            CellOrderClone(prev=self.Cell(row=R, col=self.cols), next=self.Cell(row=R + 1, col=1))
+        )
+
+        return CellOrderClone
 
     @property
     @cached_predicate

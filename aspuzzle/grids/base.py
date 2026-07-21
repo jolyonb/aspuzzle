@@ -80,6 +80,32 @@ class VertexSharing(Predicate, show=False):
     cell2: Field[GridCell]
 
 
+class CellOrder(Predicate, show=False):
+    """
+    A total order over a grid's cells, given as its immediate-successor
+    relation: cell_order(prev, next) holds when `next` follows `prev` with no
+    cell between them. The atoms form a single linear chain threading every
+    cell exactly once, in ascending clingo term order, built by rules each grid
+    type emits in its CellOrder property.
+
+    Exists so that "the first cell satisfying some condition" — the anchor a
+    connectivity constraint roots its flood-fill at — can be found by an
+    O(cells) sweep along the chain in find_anchor_cell(), instead of the
+    O(cells²) all-pairs "smaller than every other candidate" comparison. Both
+    pick the lexicographically minimum candidate; the chain just gets there
+    without grounding a body literal per pair.
+
+    Invariant every consumer relies on: the chain covers *exactly* the cells a
+    candidate can occupy. A candidate lying off the chain has neither a
+    predecessor nor a successor, so the sweep can never reach it and it would
+    silently become a second anchor — find_anchor_cell() guards against this
+    explicitly (see there).
+    """
+
+    prev: Field[GridCell]
+    next: Field[GridCell]
+
+
 class Grid(Module, ABC):
     """Abstract base class for all grid types in puzzles."""
 
@@ -320,6 +346,20 @@ class Grid(Module, ABC):
         return VertexSharingClone
 
     @property
+    def CellOrder(self) -> type[CellOrder]:
+        """
+        Get the CellOrder predicate: the successor chain over this grid's cells.
+        Concrete grids override this as a cached predicate whose rules produce
+        a single linear chain visiting exactly the interior cells (never an
+        outside border) in ASCENDING clingo term order — the chain-based anchor
+        selection in find_anchor_cell() relies on that order to pick the same
+        cell a lexicographic minimum would. Grids that cannot express their
+        cell ordering leave this unimplemented, and find_anchor_cell falls back
+        to its quadratic encoding.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not define a cell order chain")
+
+    @property
     @abstractmethod
     def Line(self) -> type[Predicate]:
         """Get the Line predicate defining major lines in the grid."""
@@ -389,11 +429,84 @@ class Grid(Module, ABC):
         def candidate(loc: PredicateArg) -> Predicate:
             return condition_predicate(**{cell_field: loc}, **condition_fields)
 
-        # The anchor is the condition cell that compares <= every condition cell
-        segment.when(
-            candidate(Cell),
-            ConditionalLiteral(Cell <= Other, candidate(Other)),
-        ).derive(AnchorPred(**{cell_field: Cell}, **anchor_kwargs))
+        try:
+            cell_order: type[CellOrder] | None = self.CellOrder
+        except NotImplementedError:
+            cell_order = None
+
+        if cell_order is not None:
+            # ----------------------------------------------------------------
+            # Linear encoding of "the first candidate in term order".
+            #
+            # The declarative one-liner (the fallback branch below) reads
+            # perfectly — "the candidate that is <= every candidate" — but it
+            # grounds a conditional literal ranging over every candidate inside
+            # every candidate's own rule: O(candidates²) body literals. On large
+            # grids that dominated whole programs (up to 97% of aspif) while
+            # staying invisible to the per-statement profile, because it is all
+            # one rule with a huge body rather than many rules.
+            #
+            # Instead, walk the grid's cell-order chain and take the first
+            # candidate on it. This grounds O(cells) literals and, because the
+            # chain is ascending term order, elects the *same* lexicographically
+            # minimum candidate — so every model, including this hidden anchor
+            # scaffolding, is unchanged.
+            #
+            # `seen(C)` means "some candidate lies at or before C on the chain":
+            # seeded at each candidate, then swept forward. The first candidate
+            # is then the one whose chain-predecessor is NOT yet seen.
+            # ----------------------------------------------------------------
+            SeenPred = Predicate.define(
+                f"{anchor_name}_seen",
+                {cell_field: GridCell, **dict.fromkeys(anchor_fields)},
+                namespace=self.namespace,
+                show=False,
+            )
+            Prev = V.Prev
+
+            def seen(loc: PredicateArg) -> Predicate:
+                return SeenPred(**{cell_field: loc}, **anchor_kwargs)
+
+            def anchor(loc: PredicateArg) -> Predicate:
+                return AnchorPred(**{cell_field: loc}, **anchor_kwargs)
+
+            # (1) Seed: a candidate is "seen" at its own cell.
+            segment.when(candidate(Cell)).derive(seen(Cell))
+            # (2) Sweep: "seen" propagates forward along the chain.
+            segment.when(seen(Prev), cell_order(prev=Prev, next=Cell)).derive(seen(Cell))
+            # (3) Interior anchor: the first candidate has a chain-predecessor
+            #     that no candidate reached, so its predecessor is not seen.
+            segment.when(candidate(Cell), cell_order(prev=Prev, next=Cell), ~seen(Prev)).derive(anchor(Cell))
+            # (4) Head anchor: rule (3) needs a predecessor, so the head of the
+            #     chain needs its own rule. Requiring `cell_order(prev=Cell)`
+            #     — the head HAS a successor — is the guard: an off-chain cell
+            #     has no successor either, so it can never masquerade as the head.
+            segment.when(candidate(Cell), cell_order(prev=Cell, next=ANY), ~cell_order(prev=ANY, next=Cell)).derive(
+                anchor(Cell)
+            )
+            # (5) Safety net. The whole scheme assumes candidates lie on the
+            #     chain. One that does not (neither a predecessor nor a successor
+            #     of anything — e.g. an outside-border cell fed to a contiguity
+            #     constraint) is unreachable by the sweep and would silently
+            #     become a second anchor, weakening "one connected region" to
+            #     "every component holds an anchor". Forbid it outright, turning
+            #     the misuse into an immediate UNSAT rather than a wrong answer.
+            #     (A one-cell grid has an empty chain and trips this too; no real
+            #     puzzle runs a contiguity constraint on a single cell.)
+            segment.forbid(
+                candidate(Cell),
+                ~cell_order(prev=Cell, next=ANY),
+                ~cell_order(prev=ANY, next=Cell),
+            )
+        else:
+            # Fallback for grids that cannot enumerate their cells into a chain:
+            # the anchor is the candidate that compares <= every candidate. Reads
+            # beautifully, but grounds O(candidates²) body literals — the cost the
+            # chain above exists to avoid, accepted here only when unavoidable.
+            segment.when(
+                candidate(Cell),
+                ConditionalLiteral(Cell <= Other, candidate(Other)),
+            ).derive(AnchorPred(**{cell_field: Cell}, **anchor_kwargs))
 
         return AnchorPred
 

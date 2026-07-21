@@ -26,6 +26,10 @@ orthogonal_directions("n"; "e"; "s"; "w").
 % Orthogonal adjacency definition
 orthogonal(cell(R, C), cell(R + R_vec, C + C_vec)) :- orthogonal_directions(D), direction(D, cell(R_vec, C_vec)), cell(R, C), cell(R + R_vec, C + C_vec).
 
+% Cell order chain
+cell_order(cell(R, C), cell(R, C + 1)) :- R = 1..5, C = 1..4.
+cell_order(cell(R, 5), cell(R + 1, 1)) :- R = 1..4.
+
 
 % ===== Rules =====
 
@@ -72,7 +76,11 @@ value(cell(5, 5), 2).
 % ===== symbols =====
 
 % Find anchor cell for white
-white_anchor(Cell) :- white(Cell), Cell <= Other : white(Other).
+white_anchor_seen(Cell) :- white(Cell).
+white_anchor_seen(Cell) :- white_anchor_seen(Prev), cell_order(Prev, Cell).
+white_anchor(Cell) :- white(Cell), cell_order(Prev, Cell), not white_anchor_seen(Prev).
+white_anchor(Cell) :- white(Cell), cell_order(Cell, _), not cell_order(_, Cell).
+:- white(Cell), not cell_order(Cell, _), not cell_order(_, Cell).
 
 % Contiguity for white
 connected_white(cell(R, C)) :- white_anchor(cell(R, C)).

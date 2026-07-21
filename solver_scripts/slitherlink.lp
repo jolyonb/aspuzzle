@@ -11,6 +11,10 @@ outside_grid(cell(R, C)) :- R = (0; 6), C = 0..6.
 outside_grid(cell(R, C)) :- C = (0; 6), R = 1..5.
 cell(R, C) :- outside_grid(cell(R, C)).
 
+% Cell order chain
+cell_order(cell(R, C), cell(R, C + 1)) :- R = 1..5, C = 1..4.
+cell_order(cell(R, 5), cell(R + 1, 1)) :- R = 1..4.
+
 % Define directions in the grid
 direction("n", cell(-1, 0)).
 direction("ne", cell(-1, 1)).
@@ -48,7 +52,11 @@ clue(cell(5, 2), 2).
 % ===== symbols =====
 
 % Find anchor cell for inside
-inside_anchor(Cell) :- inside(Cell), Cell <= Other : inside(Other).
+inside_anchor_seen(Cell) :- inside(Cell).
+inside_anchor_seen(Cell) :- inside_anchor_seen(Prev), cell_order(Prev, Cell).
+inside_anchor(Cell) :- inside(Cell), cell_order(Prev, Cell), not inside_anchor_seen(Prev).
+inside_anchor(Cell) :- inside(Cell), cell_order(Cell, _), not cell_order(_, Cell).
+:- inside(Cell), not cell_order(Cell, _), not cell_order(_, Cell).
 
 % Contiguity for inside
 connected_inside(cell(R, C)) :- inside_anchor(cell(R, C)).

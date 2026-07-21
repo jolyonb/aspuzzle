@@ -22,6 +22,10 @@ orthogonal_directions("n"; "e"; "s"; "w").
 % Orthogonal adjacency definition
 orthogonal(cell(R, C), cell(R + R_vec, C + C_vec)) :- orthogonal_directions(D), direction(D, cell(R_vec, C_vec)), cell(R, C), cell(R + R_vec, C + C_vec).
 
+% Cell order chain
+cell_order(cell(R, C), cell(R, C + 1)) :- R = 1..7, C = 1..6.
+cell_order(cell(R, 7), cell(R + 1, 1)) :- R = 1..6.
+
 
 % ===== Clues =====
 
@@ -68,7 +72,11 @@ region_size(Anchor, Size) :- anchor(Anchor), Size = #count{ Cell : region(Cell, 
 :- region(C_1, A), orthogonal(C_1, C_2), not region(C_2, A), not regionless(C_2).
 
 % Find anchor cell for regionless
-regionless_anchor(Cell) :- regionless(Cell), Cell <= Other : regionless(Other).
+regionless_anchor_seen(Cell) :- regionless(Cell).
+regionless_anchor_seen(Cell) :- regionless_anchor_seen(Prev), cell_order(Prev, Cell).
+regionless_anchor(Cell) :- regionless(Cell), cell_order(Prev, Cell), not regionless_anchor_seen(Prev).
+regionless_anchor(Cell) :- regionless(Cell), cell_order(Cell, _), not cell_order(_, Cell).
+:- regionless(Cell), not cell_order(Cell, _), not cell_order(_, Cell).
 
 % Contiguity for regionless cells
 connected_regionless(cell(R, C)) :- regionless_anchor(cell(R, C)).
