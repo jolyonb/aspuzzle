@@ -11,10 +11,6 @@ outside_grid(cell(R, C)) :- R = (0; 10), C = 0..10.
 outside_grid(cell(R, C)) :- C = (0; 10), R = 1..9.
 cell(R, C) :- outside_grid(cell(R, C)).
 
-% Cell order chain
-cell_order(cell(R, C), cell(R, C + 1)) :- R = 1..9, C = 1..8.
-cell_order(cell(R, 9), cell(R + 1, 1)) :- R = 1..8.
-
 % Define directions in the grid
 direction("n", cell(-1, 0)).
 direction("ne", cell(-1, 1)).
@@ -63,15 +59,8 @@ number(cell(9, 8), 3).
 
 % ===== symbols =====
 
-% Find anchor cell for cave
-cave_anchor_seen(Cell) :- cave(Cell).
-cave_anchor_seen(Cell) :- cave_anchor_seen(Prev), cell_order(Prev, Cell).
-cave_anchor(Cell) :- cave(Cell), cell_order(Prev, Cell), not cave_anchor_seen(Prev).
-cave_anchor(Cell) :- cave(Cell), cell_order(Cell, _), not cell_order(_, Cell).
-:- cave(Cell), not cell_order(Cell, _), not cell_order(_, Cell).
-
 % Contiguity for cave
-connected_cave(cell(R, C)) :- cave_anchor(cell(R, C)).
+connected_cave(cell(1, 2)) :- cave(cell(1, 2)).
 connected_cave(C_adj) :- connected_cave(C), cave(C_adj), orthogonal(C, C_adj).
 :- cave(C), not connected_cave(C).
 

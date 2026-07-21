@@ -24,6 +24,16 @@ class Cave(Solver):
     supported_symbols = (*range(1, 30), ".")  # Support numbers 1-29 and empty cells
     # TODO: Support for defining grids that have numbers > 9
 
+    def validate_config(self) -> None:
+        """
+        Require at least one clue. Every rule that makes this a puzzle rather
+        than a shape generator keys off Number, so a clueless grid is only
+        asking for connected blobs; Rule 2 also anchors connectivity on the
+        first clue, which must therefore exist.
+        """
+        if not self.int_grid_data:
+            raise ValueError("Cave requires at least one numbered cell")
+
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
         puzzle, grid, _config, _grid_data = self.unpack_data()
@@ -46,8 +56,10 @@ class Cave(Solver):
         puzzle.when(grid.OutsideGrid(C)).derive(symbols["wall"](C))
         do_not_show_outside(symbols["wall"](cell), grid)
 
-        # Rule 2: All cave cells must form a single connected group
-        symbols.make_contiguous("cave")
+        # Rule 2: All cave cells must form a single connected group.
+        # Use the first clue as an anchor (Rule 4 makes every clue a cave cell).
+        first_clue_loc = min(loc for loc, _ in self.int_grid_data)
+        symbols.make_contiguous("cave", anchor_cell=symbols["cave"](loc=grid.Cell(*first_clue_loc)))
 
         # Rule 3: All wall cells must be connected to the edge of the grid
         symbols.make_contiguous("wall", anchor_cell=grid.OutsideGrid(C))
