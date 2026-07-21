@@ -1,7 +1,7 @@
 from typing import Any
 
-from aspalchemy import ANY, Choice, ConditionType, Count, Field, Predicate, Term, V
-from aspuzzle.grids.base import Grid, GridCell
+from aspalchemy import Choice, ConditionType, Count, Field, Predicate, Term, V
+from aspuzzle.grids.base import CellArg, Grid, GridCell
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.puzzle import Module, Puzzle, cached_predicate
 
@@ -29,11 +29,6 @@ class ConnectsTo(Predicate, show=False):
     loc2: Field[GridCell]
 
 
-class RegionSize(Predicate, show=False):
-    anchor: Field[GridCell]
-    size: Field[int]
-
-
 class ConnectedRegionless(Predicate, show=False):
     loc: Field[GridCell]
 
@@ -50,6 +45,17 @@ class RegionConstructor(Module):
     This module provides functionality to create and manage regions within a grid,
     supporting both fixed-anchor approaches (e.g., Nurikabe) and dynamic-anchor
     approaches (e.g., Fillomino).
+
+    There is deliberately no RegionSize predicate, natural as it is to reach
+    for one: materializing sizes means an assignment-form aggregate
+    (Size = #count{...}), which grounds one rule per feasible (anchor, size)
+    pair with the anchor's whole domain in each body — and every join against
+    the result multiplies that again. Instead:
+    - To CONSTRAIN a region's size against a known bound or target, compare
+      region_size() inside require() — one bounded constraint per anchor
+      (see the min/max rules below).
+    - To CONSUME sizes as values, guess the value with a choice rule and pin
+      it with region_size() — see Fillomino's number encoding.
     """
 
     def __init__(
@@ -112,7 +118,6 @@ class RegionConstructor(Module):
         self.grid = grid
         self._anchor_predicate = anchor_predicate
         self._anchor_fields = anchor_fields or {}
-        self._uses_region_size = False
         self.dynamic_anchors = anchor_predicate is None
         self.allow_regionless = allow_regionless
         self.forbid_regionless_pools = forbid_regionless_pools
@@ -162,12 +167,16 @@ class RegionConstructor(Module):
         """Get the ConnectsTo predicate defining connections between cells in a region."""
         return ConnectsTo.in_namespace(self.namespace)
 
-    @property
-    @cached_predicate
-    def RegionSize(self) -> type[RegionSize]:
-        """Get the RegionSize predicate defining the size of each region."""
-        self._uses_region_size = True
-        return RegionSize.in_namespace(self.namespace)
+    def region_size(self, anchor: CellArg) -> Count:
+        """
+        A Count aggregate over the cells of the region anchored at `anchor`,
+        for bounded comparisons inside require(): one ground constraint per
+        anchor, no size values ever materialized. The aggregate binds the reserved
+        variable RegionSizeCell; using that name in the surrounding rule
+        would turn it into a join variable and change the count's meaning.
+        """
+        Cell = V.RegionSizeCell
+        return Count(Cell, condition=self.Region(loc=Cell, anchor=anchor))
 
     def finalize(self) -> None:
         """
@@ -240,6 +249,12 @@ class RegionConstructor(Module):
         domain_conditions: list[Term] = list(self.region_domain or [])
         anchor_cell = self.grid.cell(suffix="anchor")
 
+        if self.dynamic_anchors:
+            # We use domain conditions to demand that Possible(cell, anchor) has anchor <= cell
+            # which substantially decreases the space of possibly dynamic anchors
+            AnchorLoc = V.AnchorLoc
+            domain_conditions += [AnchorLoc == anchor_cell, AnchorLoc <= self.grid.cell()]
+
         Possible: type[PossibleRegion] | None = None
         if domain_conditions:
             Possible = PossibleRegion.in_namespace(self.namespace)
@@ -262,6 +277,7 @@ class RegionConstructor(Module):
         # grounds in one pass after the recursion, with the same models.
         self.when(
             self.grid.Orthogonal(cell1=C, cell2=N),
+            C < N,  # Only need conditions on one side of the symmetric ConnectsTo
             self.Region(loc=C, anchor=A),
             self.Region(loc=N, anchor=A),
         ).require(self.ConnectsTo(loc1=C, loc2=N))
@@ -277,21 +293,7 @@ class RegionConstructor(Module):
             conditions.append(~self.grid.outside_grid())
         self.when(*conditions).require(Count(A, condition=self.Region(loc=cell, anchor=A)) == 1)
 
-        if self.dynamic_anchors:
-            # Anchor must be the lexicographically smallest cell in its region
-            self.when(self.Region(loc=C, anchor=A)).require(C >= A)
-
         # Optional rules
-
-        # Region size rule
-        if self._uses_region_size or self.min_region_size or self.max_region_size:
-            self.section("Region Size Calculation")
-            AnchorCell, Cell, Size = V.Anchor, V.Cell, V.Size
-            # Count cells in each region
-            self.when(
-                self.Anchor(loc=AnchorCell),
-                Size == Count(Cell, condition=self.Region(loc=Cell, anchor=AnchorCell)),
-            ).derive(self.RegionSize(anchor=AnchorCell, size=Size))
 
         # Regionless pools
         if self.forbid_regionless_pools:
@@ -355,13 +357,14 @@ class RegionConstructor(Module):
         # Min/Max region sizes
         if self.min_region_size or self.max_region_size:
             self.section("Min/Max region sizes")
+            AnchorCell = V.Anchor
             if self.min_region_size == self.max_region_size:
-                self.when(self.RegionSize(anchor=ANY, size=N)).require(N == self.min_region_size)
+                self.when(self.Anchor(loc=AnchorCell)).require(self.region_size(AnchorCell) == self.min_region_size)
             else:
                 if self.min_region_size:
-                    self.when(self.RegionSize(anchor=ANY, size=N)).require(N >= self.min_region_size)
+                    self.when(self.Anchor(loc=AnchorCell)).require(self.region_size(AnchorCell) >= self.min_region_size)
                 if self.max_region_size:
-                    self.when(self.RegionSize(anchor=ANY, size=N)).require(N <= self.max_region_size)
+                    self.when(self.Anchor(loc=AnchorCell)).require(self.region_size(AnchorCell) <= self.max_region_size)
 
         # Rectangular regions
         if self.rectangular_regions:

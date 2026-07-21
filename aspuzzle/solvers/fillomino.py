@@ -1,4 +1,6 @@
-from aspalchemy import Field, Predicate, V
+from typing import Any, ClassVar
+
+from aspalchemy import ANY, Choice, Field, Predicate, RangePool, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.regionconstructor import RegionConstructor
 from aspuzzle.rendering import GlyphRule, Layer, RenderSpec, SceneStyle, digit_clues, overflow_clues
@@ -22,12 +24,41 @@ class DifferentRegions(Predicate, show=False):
 
 
 class Fillomino(Solver):
+    """
+    Fillomino solver.
+
+    Config: `max_region_size` caps how large a region may be. Puzzles should
+    state it — every cell offers a number for each size up to the cap, so the
+    default (the whole grid, the only bound sound without further information)
+    makes that choice quadratic in the number of cells. A real Fillomino's
+    largest region is far smaller than its grid.
+    """
+
     solver_name = "Fillomino puzzle solver"
+    default_config: ClassVar[dict[str, Any]] = {"max_region_size": None}
     max_num: int = 0
+
+    def validate_config(self) -> None:
+        """Check max_region_size against the grid and the clues it must admit."""
+        max_region_size = self.config["max_region_size"]
+        if max_region_size is None:
+            return
+        if not isinstance(max_region_size, int) or isinstance(max_region_size, bool) or max_region_size < 1:
+            raise ValueError(f"max_region_size must be a positive integer, got {max_region_size!r}")
+        if max_region_size > self.grid.cell_count:
+            raise ValueError(f"max_region_size {max_region_size} exceeds the {self.grid.cell_count} cells in the grid")
+        for loc, size in self.int_grid_data:
+            if size > max_region_size:
+                raise ValueError(f"Clue {size} at position {loc} exceeds max_region_size {max_region_size}")
 
     def construct_puzzle(self) -> None:
         """Construct the rules of the puzzle."""
-        puzzle, grid, _config, grid_data = self.unpack_data()
+        puzzle, grid, config, grid_data = self.unpack_data()
+
+        # Regions can be no larger than the grid; a puzzle that states its true
+        # maximum offers each cell that many candidate numbers instead of one
+        # per cell in the grid
+        max_region_size = config["max_region_size"] or grid.cell_count
 
         # Define clues from the input grid
         clues = puzzle.add_segment("Clues")
@@ -46,18 +77,33 @@ class Fillomino(Solver):
             allow_regionless=False,
         )
 
-        # Rule 1: Fill each cell with a number corresponding to the size of its region
-        puzzle.section("Region size determines the number in each cell")
+        # Rule 1: Each cell in a region has a number, corresponding to the region's size
+        # Rule 1a: Each cell gets a number
+        # Implementation note: this is much cheaper to ground than all anchors x all cells x all sizes
+        puzzle.section("Each cell holds a number, constant across its region, and corresponding to its region size")
+        cell = grid.cell()
+        # Clue cells
+        puzzle.when(Clue(loc=C, size=S)).derive(Number(loc=C, size=S))
+        # Other cells
         puzzle.when(
-            region_constructor.Region(loc=C, anchor=A),
-            region_constructor.RegionSize(anchor=A, size=S),
-        ).derive(Number(loc=C, size=S))
+            cell,
+            ~Clue(loc=cell, size=ANY),
+        ).choose(Choice(Number(loc=cell, size=N), N.in_(RangePool(1, max_region_size))).exactly(1))
 
-        # Rule 2: Ensure that given clues match the numbers obtained from region sizes
-        puzzle.section("Given clues must match their region sizes")
-        puzzle.when(Clue(loc=C, size=S), Number(loc=C, size=N)).require(N == S)
+        # Rule 1b: Cells in each region have the same number
+        puzzle.when(
+            region_constructor.ConnectsTo(loc1=C, loc2=C_adj),
+            C < C_adj,  # ConnectsTo is symmetric
+            Number(loc=C, size=N),
+        ).require(Number(loc=C_adj, size=N))
 
-        # Rule 3: Ensure that adjacent regions have different sizes
+        # Rule 1c: Each region's number is its size (pinned at the anchor only; 1b then propagates)
+        puzzle.when(
+            region_constructor.Anchor(loc=A),
+            Number(loc=A, size=S),
+        ).require(region_constructor.region_size(A) == S)
+
+        # Rule 2: Ensure that adjacent regions have different sizes
         puzzle.section("Regions with same size cannot touch orthogonally")
         # Splitting off the separate predicate here is important for performance!
         puzzle.when(
@@ -86,20 +132,6 @@ class Fillomino(Solver):
             S != V.S2,
             grid.Orthogonal(cell1=C, cell2=C_adj),
         ).forbid(region_constructor.ConnectsTo(loc1=C, loc2=C_adj))
-
-        # These rules did not help the solver
-
-        # puzzle.section("Size-1 regions cannot connect to other cells")
-        # puzzle.forbid(Clue(loc=C, size=1), region_constructor.ConnectsTo(loc1=C, loc2=ANY))
-
-        # puzzle.section("Clues with different numbers cannot have the same anchor")
-        # puzzle.forbid(
-        #     Clue(loc=C, size=S),
-        #     Clue(loc=C2, size=S2),
-        #     region_constructor.Region(loc=C, anchor=A),
-        #     region_constructor.Region(loc=C2, anchor=A),
-        #     S != S2,
-        # )
 
     def validate_grid_symbols(self) -> None:
         """Validate that the grid contains only supported symbols."""

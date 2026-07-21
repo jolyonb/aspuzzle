@@ -55,9 +55,9 @@ class Nurikabe(Solver):
         )
 
         puzzle.section("Each island must have the correct size")
-        C = V.C
-        puzzle.when(Clue(loc=C, size=V.N), region_constructor.RegionSize(anchor=C, size=V.Size)).require(V.N == V.Size)
+        puzzle.when(Clue(loc=V.C, size=V.N)).require(region_constructor.region_size(V.C) == V.N)
 
+        C = V.C
         if any(size == 1 for loc, size in grid_data):
             puzzle.section("Size-1 islands must be fully surrounded by stream")
             puzzle.when(

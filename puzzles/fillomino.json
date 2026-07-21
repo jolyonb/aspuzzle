@@ -1,6 +1,7 @@
 {
   "puzzle_type": "Fillomino",
   "grid_type": "RectangularGrid",
+  "max_region_size": 6,
   "url": "https://www.nikoli.co.jp/en/puzzles/fillomino/",
   "grid": [
     ".2.4.2.",

@@ -29,7 +29,11 @@ A specialized `Module` for constructing regions in grid-based puzzles:
   - Fixed anchors: predefined cells anchor regions (e.g., Nurikabe numbered cells)
   - Dynamic anchors: flexible anchor placement (e.g., Fillomino)
   - Supports various constraints: contiguous regions, non-adjacent regions, size limits
-  - Provides predicates: `Region`, `Anchor`, `Connected`, `RegionSize`, `Regionless`
+  - Provides predicates: `Region`, `Anchor`, `Connected`, `Regionless`
+  - Region sizes come from the `region_size(anchor)` Count builder, for bounded
+    comparisons inside `require()`. There is deliberately no RegionSize
+    predicate — see the class docstring for why, and for the guess-and-verify
+    pattern that replaces it when sizes are needed as values
   - Handles complex rules like rectangular regions and pool forbidding
 
 ### symbolset.py

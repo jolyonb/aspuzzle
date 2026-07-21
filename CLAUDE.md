@@ -226,6 +226,15 @@ Focus on the profile's top rows:
 - Use intermediate predicates to break complex conditions
 - Restrict region membership with `region_domain=` when anchors are fixed
 - Keep the encoding a tower: each stratum negates only settled strata below
+- When an aggregate's VALUE is needed (not just a bound on it), guess it with
+  a choice rule and pin it with a bounded aggregate, rather than deriving it
+  and joining against the result — the join multiplies the assignment form's
+  already-quadratic grounding. Fillomino's per-cell numbers work this way:
+  guess a number per cell, propagate equality along the region constructor's
+  connection edges, verify one bounded count per anchor
+- Never guess what the input already fixes: exclude clued cells from the
+  choice rule and state their value, so no rejected candidate ever grounds
+  (see Fillomino's clues)
 
 **Step 6: Verify Improvement**
 ```bash

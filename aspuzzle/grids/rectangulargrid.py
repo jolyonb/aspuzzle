@@ -408,6 +408,10 @@ class RectangularGrid(Grid):
             for col in range(1, self.cols + 1):
                 yield self.Cell(row=row, col=col)
 
+    @property
+    def cell_count(self) -> int:
+        return self.rows * self.cols
+
     def ascii_geometry(self, needs: LayoutNeeds, style: SceneStyle) -> RectangularAsciiGeometry:
         return RectangularAsciiGeometry(self, needs, style)
 

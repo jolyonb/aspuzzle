@@ -5,9 +5,11 @@ from typing import TYPE_CHECKING, Any
 from aspalchemy import (
     ANY,
     ConditionalLiteral,
+    DefinedConstant,
     ExplicitPool,
     Expression,
     Field,
+    Pool,
     Predicate,
     PredicateArg,
     Segment,
@@ -42,6 +44,12 @@ class GridCell(Predicate, show=False):
         # fields, and without this they would use the zero-field init
         # synthesized for this (fieldless) base
         super().__init__(*args, **kwargs)
+
+
+# What a Field[GridCell] slot accepts: a grounded cell, or any term standing
+# for one. Narrower than PredicateArg, which admits the ints and strings a
+# cell-valued field rejects.
+type CellArg = GridCell | Variable | Expression | Pool | DefinedConstant
 
 
 # The grid vocabulary, typed; each grid instance clones these into its own
@@ -680,6 +688,17 @@ class Grid(Module, ABC):
     @abstractmethod
     def all_cells(self) -> Iterator[GridCell]:
         """Every in-grid cell as a grounded Cell instance (no outside border)."""
+
+    @property
+    def cell_count(self) -> int:
+        """
+        How many cells the grid holds. Counts all_cells() unless a grid knows
+        the answer from its dimensions, which it should override to say —
+        all_cells() builds a Cell instance per cell, and counting is a common
+        enough bound (a region can be no larger than the grid) to be worth
+        answering without them.
+        """
+        return sum(1 for _ in self.all_cells())
 
     # -- geometry factories consumed by renderers --
 
