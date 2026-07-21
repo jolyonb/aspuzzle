@@ -423,6 +423,7 @@ class RectangularGrid(Grid):
         symbol_predicate: type[Predicate],
         segment: Segment,
         fixed_fields: dict[str, PredicateArg] | None = None,
+        loc_field: str = "loc",
     ) -> None:
         """
         Forbid 2x2 blocks of a specific symbol/predicate in a rectangular grid.
@@ -431,6 +432,8 @@ class RectangularGrid(Grid):
             symbol_predicate: The predicate class representing the symbol to constrain
             segment: Segment to publish these rules to
             fixed_fields: Fixed field values for the predicate (for multi-field predicates)
+            loc_field: The predicate's cell field, for predicates that name it
+                something other than "loc"
 
         Example:
             # Forbid 2x2 blocks of mines
@@ -452,19 +455,63 @@ class RectangularGrid(Grid):
         bottom_right_cell = self.Cell(row=R + 1, col=C + 1)
 
         segment.forbid(
-            symbol_predicate(loc=top_left_cell, **fixed_fields),
-            symbol_predicate(loc=top_right_cell, **fixed_fields),
-            symbol_predicate(loc=bottom_left_cell, **fixed_fields),
-            symbol_predicate(loc=bottom_right_cell, **fixed_fields),
+            symbol_predicate(**{loc_field: top_left_cell}, **fixed_fields),
+            symbol_predicate(**{loc_field: top_right_cell}, **fixed_fields),
+            symbol_predicate(**{loc_field: bottom_left_cell}, **fixed_fields),
+            symbol_predicate(**{loc_field: bottom_right_cell}, **fixed_fields),
             top_left_cell,
             bottom_right_cell,
         )
+
+    def require_rectangular(
+        self,
+        symbol_predicate: type[Predicate],
+        segment: Segment,
+        fixed_fields: dict[str, PredicateArg] | None = None,
+        loc_field: str = "loc",
+    ) -> None:
+        """
+        Force the cells holding a predicate to form rectangles: wherever three
+        corners of a 2x2 hold it, so must the fourth.
+
+        Args:
+            symbol_predicate: The predicate class whose cells must be rectangular
+            segment: Segment to publish these rules to
+            fixed_fields: Fixed field values for the predicate (for multi-field
+                predicates) — pass a variable to shape each value separately,
+                e.g. fixed_fields={"anchor": V.A} for one rectangle per region
+            loc_field: The predicate's cell field, for predicates that name it
+                something other than "loc"
+
+        Stated as four requirements rather than four derivations, which is what
+        lets a caller apply this to a predicate whose domain is restricted:
+        deriving the fourth corner would assert membership its own domain may
+        bar, while requiring it simply rejects the three-corner configuration.
+        """
+        if fixed_fields is None:
+            fixed_fields = {}
+
+        segment.section(f"Rectangular regions of {symbol_predicate.get_name()}")
+
+        R, C = V.R, V.C
+        corners = [(0, 0), (1, 0), (0, 1), (1, 1)]
+
+        def corner_atom(row_offset: int, col_offset: int) -> Predicate:
+            # Offsets of zero are left off the term: cell(R, C) reads better
+            # than cell(R + 0, C + 0) in the program this writes
+            cell = self.Cell(row=R + row_offset if row_offset else R, col=C + col_offset if col_offset else C)
+            return symbol_predicate(**{loc_field: cell}, **fixed_fields)
+
+        for corner in corners:
+            body = [corner_atom(row, col) for row, col in corners if (row, col) != corner]
+            segment.when(*body).require(corner_atom(*corner))
 
     def forbid_checkerboard(
         self,
         symbol_predicate: type[Predicate],
         segment: Segment,
         fixed_fields: dict[str, PredicateArg] | None = None,
+        loc_field: str = "loc",
     ) -> None:
         """
         Forbids a 2x2 block checkerboard pattern of a given predicate in a rectangular grid.
@@ -475,6 +522,8 @@ class RectangularGrid(Grid):
             symbol_predicate: The predicate class representing the symbol to constrain
             segment: Segment to publish these rules to
             fixed_fields: Fixed field values for the predicate (for multi-field predicates)
+            loc_field: The predicate's cell field, for predicates that name it
+                something other than "loc"
         """
         if fixed_fields is None:
             fixed_fields = {}
@@ -487,10 +536,10 @@ class RectangularGrid(Grid):
         bottom_left_cell = self.Cell(row=R + 1, col=C)
         bottom_right_cell = self.Cell(row=R + 1, col=C + 1)
 
-        top_left = symbol_predicate(loc=top_left_cell, **fixed_fields)
-        top_right = symbol_predicate(loc=top_right_cell, **fixed_fields)
-        bottom_right = symbol_predicate(loc=bottom_right_cell, **fixed_fields)
-        bottom_left = symbol_predicate(loc=bottom_left_cell, **fixed_fields)
+        top_left = symbol_predicate(**{loc_field: top_left_cell}, **fixed_fields)
+        top_right = symbol_predicate(**{loc_field: top_right_cell}, **fixed_fields)
+        bottom_right = symbol_predicate(**{loc_field: bottom_right_cell}, **fixed_fields)
+        bottom_left = symbol_predicate(**{loc_field: bottom_left_cell}, **fixed_fields)
 
         # Forbid checkerboard on one diagonal
         segment.forbid(

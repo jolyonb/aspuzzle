@@ -2,7 +2,6 @@ from typing import Any
 
 from aspalchemy import Choice, ConditionType, Count, Field, Predicate, Term, V
 from aspuzzle.grids.base import CellArg, Grid, GridCell
-from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.puzzle import Module, Puzzle, cached_predicate
 
 
@@ -69,10 +68,8 @@ class RegionConstructor(Module):
         allow_regionless: bool = True,
         contiguous_regionless: bool = False,
         non_adjacent_regions: bool = False,
-        forbid_region_pools: bool = False,
         min_region_size: int | None = None,
         max_region_size: int | None = None,
-        rectangular_regions: bool = False,
         region_domain: list[Term] | None = None,
     ):
         """
@@ -90,10 +87,8 @@ class RegionConstructor(Module):
                             If False, all cells must belong to a region
             contiguous_regionless: If True, regionless cells must be contiguous
             non_adjacent_regions: If True, regions cannot be adjacent to each other
-            forbid_region_pools: If True, no pools allowed in any region (2x2 in rectangular grid)
             min_region_size: The global minimum region size allowed
             max_region_size: The global maximum region size allowed
-            rectangular_regions: Whether to force regions to be rectangular (grid-dependent meaning)
             region_domain: Optional extra conditions bounding which (cell, anchor) pairs can
                            belong to the same region, written against the canonical terms
                            grid.cell() (the member cell) and grid.cell(suffix="anchor") (the
@@ -120,10 +115,8 @@ class RegionConstructor(Module):
         self.allow_regionless = allow_regionless
         self.contiguous_regionless = contiguous_regionless
         self.non_adjacent_regions = non_adjacent_regions
-        self.forbid_region_pools = forbid_region_pools
         self.min_region_size = min_region_size
         self.max_region_size = max_region_size
-        self.rectangular_regions = rectangular_regions
         self.region_domain = region_domain
 
     @property
@@ -303,14 +296,6 @@ class RegionConstructor(Module):
 
         # Optional rules
 
-        # Region pools
-        if self.forbid_region_pools:
-            self.section("Forbid region pools")
-            if isinstance(self.grid, RectangularGrid):
-                self.grid.forbid_2x2_blocks(self.Region, segment=self.segment, fixed_fields={"anchor": A})
-            else:
-                raise ValueError("Don't know how to forbid pools with this grid type")
-
         # Non-adjacent regions
         if self.non_adjacent_regions:
             self.section("Regions cannot touch")
@@ -365,33 +350,3 @@ class RegionConstructor(Module):
                     self.when(self.Anchor(loc=AnchorCell)).require(self.region_size(AnchorCell) >= self.min_region_size)
                 if self.max_region_size:
                     self.when(self.Anchor(loc=AnchorCell)).require(self.region_size(AnchorCell) <= self.max_region_size)
-
-        # Rectangular regions
-        if self.rectangular_regions:
-            self.section("Rectangular region constraints")
-
-            if not isinstance(self.grid, RectangularGrid):
-                raise ValueError("Don't know how to force rectangular regions with this grid type")
-
-            # If three corners of a 2x2 are in a region, then the 4th corner
-            # must be as well. Where the membership domain bars that fourth
-            # corner, the three corners are an impossible configuration, so
-            # say so: deriving the barred atom instead would put Region atoms
-            # outside the domain, and every rule reading Region then grounds
-            # against the inflated set.
-            C, R = V.C, V.R
-            corners = [(0, 0), (1, 0), (0, 1), (1, 1)]
-            for corner in corners:
-                head_row, head_col = corner
-                body = [
-                    self.Region(loc=self.grid.Cell(row=R + row, col=C + col), anchor=A)
-                    for row, col in corners
-                    if (row, col) != corner
-                ]
-                head = self.Region(loc=self.grid.Cell(row=R + head_row, col=C + head_col), anchor=A)
-                if Possible is None:
-                    self.when(*body).derive(head)
-                else:
-                    domain = Possible(loc=self.grid.Cell(row=R + head_row, col=C + head_col), anchor=A)
-                    self.when(*body, domain).derive(head)
-                    self.when(*body).require(domain)
