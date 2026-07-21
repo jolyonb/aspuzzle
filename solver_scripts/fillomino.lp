@@ -58,7 +58,7 @@ clue(cell(7, 6), 1).
 connects_to(N, C) :- connects_to(C, N).
 
 % Region Propagation
-possible_region(cell(R, C), cell(R_anchor, C_anchor)) :- cell(R, C), cell(R_anchor, C_anchor), AnchorLoc = cell(R_anchor, C_anchor), AnchorLoc <= cell(R, C).
+possible_region(cell(R, C), cell(R_anchor, C_anchor)) :- cell(R, C), cell(R_anchor, C_anchor), |R - R_anchor| + |C - C_anchor| < 6, AnchorLoc = cell(R_anchor, C_anchor), AnchorLoc <= cell(R, C).
 region(C, C) :- anchor(C).
 region(N, A) :- connects_to(N, C), region(C, A), possible_region(N, A).
 :- orthogonal(C, N), C < N, region(C, A), region(N, A), not connects_to(C, N).

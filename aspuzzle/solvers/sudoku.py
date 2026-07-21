@@ -105,7 +105,13 @@ class Sudoku(Solver):
         symbols.add_range_symbol(name="number", pool=RangePool(1, grid_size), show=True)
         Number = symbols["number"]
 
-        # Rule 2: Each digit can appear only once in each row and column
+        # Rule 2: Each digit can appear only once in each row and column.
+        # Pairwise "at most one" (this) versus a per-line count aggregate: the
+        # aggregate grounds much cheaper (an N^4 term becomes N^2), but the
+        # pairwise binary clauses propagate more strongly and solve faster on
+        # hard instances. Kept pairwise deliberately — for 9x9 the ground size
+        # is trivial either way, and the harder the variant, the more the
+        # stronger propagation pays.
         puzzle.section("Each digit appears at most once in each row and column")
         puzzle.when(
             Number(loc=Cell[1], value=N),

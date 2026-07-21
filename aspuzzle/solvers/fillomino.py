@@ -1,6 +1,6 @@
 from typing import Any, ClassVar
 
-from aspalchemy import ANY, Choice, Field, Predicate, RangePool, V
+from aspalchemy import ANY, Choice, Field, Predicate, RangePool, Term, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.regionconstructor import RegionConstructor
 from aspuzzle.rendering import GlyphRule, Layer, RenderSpec, SceneStyle, digit_clues, overflow_clues
@@ -70,11 +70,20 @@ class Fillomino(Solver):
         A, C, C_adj, N, S = V.A, V.C, V.C_adj, V.N, V.S
 
         # Create the region constructor to construct polyominoes
+        cell_term, anchor_term = grid.cell(), grid.cell(suffix="anchor")
+        region_domain: list[Term] | None = None
+        if (
+            config["max_region_size"] is not None
+            and (distance := grid.distance_bound(cell_term, anchor_term)) is not None
+        ):
+            # We can specify a rule on how far away a cell can be from its anchor
+            region_domain = [distance < max_region_size]
         region_constructor = RegionConstructor(
             puzzle=puzzle,
             grid=grid,
             anchor_predicate=None,
             allow_regionless=False,
+            region_domain=region_domain,
         )
 
         # Rule 1: Each cell in a region has a number, corresponding to the region's size
