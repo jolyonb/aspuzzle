@@ -10,6 +10,12 @@ The objective is to shade some cells of the grid to create walls around a cave a
 4. All numbered cells must be part of the cave (unshaded).
 5. Each number indicates the total count of cave cells that can be seen from that cell horizontally and vertically, including the cell itself. "Seeing" means being in a direct line of sight, not blocked by any walls.
 
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/cave.svg" width="320"> | <img src="../puzzles/svg/cave_solution.svg" width="320"> |
+
 ## Variations
 
 * Cave puzzles can be played on non-rectangular grids.

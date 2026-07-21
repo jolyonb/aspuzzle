@@ -6,6 +6,12 @@ Hitori (Japanese for "alone" or "one person") is a logic puzzle played on a grid
 2. Shaded (black) cells cannot be adjacent horizontally or vertically to each other.
 3. All unshaded (white) cells must be connected horizontally or vertically (they must form a single contiguous group).
 
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/hitori.svg" width="320"> | <img src="../puzzles/svg/hitori_solution.svg" width="320"> |
+
 ## Variations
 
 * This can also be played on a non-rectangular grid.

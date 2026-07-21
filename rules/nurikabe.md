@@ -11,6 +11,12 @@ The objective is to fill in cells according to the following rules:
 5. All black cells must be connected horizontally or vertically to form a single "stream" or "wall".
 6. Black cells cannot form a 2×2 square or larger anywhere on the grid.
 
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/nurikabe.svg" width="320"> | <img src="../puzzles/svg/nurikabe_solution.svg" width="320"> |
+
 ## Variations
 
 * Nurikabe can be played on non-rectangular grids.

@@ -1,4 +1,4 @@
-# Tent Rules
+# Tents Rules
 
 Tent puzzles (also called tent and tree puzzles) consist of a grid that contains some trees, with numeric clues for columns and rows.
 
@@ -9,6 +9,12 @@ The idea is to place tents and empty spaces (typically green for grass!) in the 
 * Each tent must be tied to an adjacent tent (trees and tents are one-to-one).
 * Tents must be tied to a single tree only.
 * Tents may not be placed next to each other (including diagonally).
+
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/tents.svg" width="320"> | <img src="../puzzles/svg/tents_solution.svg" width="320"> |
 
 ## Variations
 

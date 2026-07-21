@@ -9,6 +9,12 @@ The objective is to divide the entire grid into blocks (polyominoes) according t
 3. Each block must contain exactly as many cells as the number in that block. For example, a block containing the number 3 must consist of exactly 3 cells.
 4. Blocks of the same size cannot share an edge (they cannot touch horizontally or vertically, but may touch diagonally).
 
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/fillomino.svg" width="320"> | <img src="../puzzles/svg/fillomino_solution.svg" width="320"> |
+
 ## Variations
 
 * Some variations may have blocks that can wrap around the edges of the grid.

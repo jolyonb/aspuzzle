@@ -6,6 +6,12 @@ The aim is to place a number of stars equal to the star rating in each row, colu
  
 * Stars cannot be placed adjacent to each other (including diagonally).
 
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/starbattle.svg" width="320"> | <img src="../puzzles/svg/starbattle_solution.svg" width="320"> |
+
 ## Variations
 
 * A "shapeless" variation is still played on a square grid, but has no regions defined. Instead, some cells are blacked out and cannot have a star placed on them. The goal is to place the star rating number of stars on each row and column, still subject to the adjacency constraint.

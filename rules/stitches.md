@@ -9,6 +9,12 @@ The aim is to place stitches in adjacent cells such that:
 * Different stitches cannot share a hole.
 * The clues outside the grid indicate the number of holes on that row/column.
 
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/stitches.svg" width="320"> | <img src="../puzzles/svg/stitches_solution.svg" width="320"> |
+
 ## Variations
 
 * Stitches puzzles work equally well on non-rectangular grids.

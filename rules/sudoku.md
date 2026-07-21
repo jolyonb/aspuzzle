@@ -11,6 +11,12 @@ The puzzle presents as a partially completed grid, which for a well-posed puzzle
 3. Each column must contain all digits from 1-9 exactly once
 4. Each 3×3 box must contain all digits from 1-9 exactly once
 
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/sudoku.svg" width="320"> | <img src="../puzzles/svg/sudoku_solution.svg" width="320"> |
+
 ## Variations
 
 * There are a huge number of variations for sudoku puzzles!

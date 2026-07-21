@@ -13,6 +13,12 @@ Each number represents the height of a building, and when looking into the grid 
 5. A building is visible if no taller building stands in front of it in the line of sight.
 6. Buildings of the same height as an obstructing building are still blocked from view.
 
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/skyscrapers.svg" width="320"> | <img src="../puzzles/svg/skyscrapers_solution.svg" width="320"> |
+
 ## Variations
 
 * Some puzzles may have fewer clues around the edges, requiring logical deduction to solve.

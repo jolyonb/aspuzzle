@@ -4,6 +4,12 @@ Slitherlink puzzles (also called fences, loop the loop, or loop puzzles) consist
 
 The puzzle is to draw vertical/horizontal lines between dots to create a single loop across the grid that doesn't cross or branch. The numbers indicate how many loop segments are on the edge of that square.
 
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/slitherlink.svg" width="320"> | <img src="../puzzles/svg/slitherlink_solution.svg" width="320"> |
+
 ## Variations
 
 * Sometimes there are sheep (or similar animals) in the grid; these are intended to be included inside the fenced region. It's also possible to have wolves (or similar threats) that need to be excluded from the fenced region.

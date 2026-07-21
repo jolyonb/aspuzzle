@@ -6,6 +6,12 @@ Galaxies (also known as Tentai Show, Tentaisho, Spiral Galaxies, or Sym-a-Pix) i
 2. Each region must have rotational symmetry around its center. This means if you rotate the region 180° around its circle, you get the exact same shape in the exact same position.
 3. The entire grid must be filled with regions.
 
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/galaxies.svg" width="320"> | <img src="../puzzles/svg/galaxies_solution.svg" width="320"> |
+
 ## Variations
 
 * The grid doesn't have to be rectangular; puzzles on irregular grids exist.

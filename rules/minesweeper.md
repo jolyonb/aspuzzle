@@ -6,6 +6,12 @@ The aim is to identify which cells contain mines, by satsifying the following co
 
 * Each number indicates how many mines are adjacent to it (including diagonally).
 
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/minesweeper.svg" width="320"> | <img src="../puzzles/svg/minesweeper_solution.svg" width="320"> |
+
 ## Variations
 
 * Some minesweeper puzzles specify the total number of mines in the grid; typically, this extra knowledge is required to uniquely solve the grid.

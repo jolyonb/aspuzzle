@@ -12,6 +12,12 @@ The objective is to connect pairs of identical numbers with non-intersecting pat
 6. Paths cannot branch - each non-endpoint cell must have exactly two path connections (forming a continuous line), while endpoint cells have exactly one path connection.
 7. Paths cannot touch themselves orthogonally.
 
+## Example
+
+| Puzzle | Solution |
+| :---: | :---: |
+| <img src="../puzzles/svg/numberlink.svg" width="320"> | <img src="../puzzles/svg/numberlink_solution.svg" width="320"> |
+
 ## Variations
 
 * Some variations allow paths to be drawn on triangular or hexagonal grids.
