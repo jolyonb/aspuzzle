@@ -16,7 +16,10 @@ The central module containing the core framework classes:
   - Provides organization and domain-specific logic for puzzle components
   - Each module has its own namespace in the ASP program
   - Auto-registers with puzzle and provides scoped methods (`fact()`, `when()`, `forbid()`)
-  - `finalize()` method called before rendering for any last-minute rule generation
+  - `finalize()` method called before rendering for rules that depend on what the
+    module gathered during building. Modules finalize in registration order, so a
+    finalize() reads only its OWN state: see Module.finalize for why, and for what
+    to do when a fact about another module is genuinely needed
 
 - **`@cached_predicate`** - Decorator for caching predicate definitions
   - Ensures predicate initialization logic executes only on first access

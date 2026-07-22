@@ -25,9 +25,11 @@ if TYPE_CHECKING:
 class RenderGrid(Protocol):
     # -- cells --
     @property
-    def Cell(self) -> type[GridCell]:
-        """The grid's cell class, for constructing grounded cells from
-        parsed coordinates (grid.Cell(*coords))."""
+    def cell_class(self) -> type[GridCell]:
+        """The grid's cell class, for constructing grounded cells from parsed
+        coordinates (grid.cell_class(*coords)). The pure one: the renderer must
+        never reach for the predicate that defines the cell domain, or drawing
+        a picture emits rules and stamps them with a rendering line."""
         ...
 
     # -- direction and line vocabulary --

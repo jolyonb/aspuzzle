@@ -203,7 +203,7 @@ class Galaxies(Solver[RectangularGrid]):
             # (shared vertex).
             marks: list[SceneElement] = []
             for (r1, c1), (r2, c2), _region in centers:
-                cell = grid.Cell(r1, c1)
+                cell = grid.cell_class(r1, c1)  # pure: a render must not define the cell domain
                 dr, dc = r2 - r1, c2 - c1
                 if (dr, dc) == (0, 0):
                     marks.append(CellMark(cell, ring=True, layer=Layer.ANNOTATION))

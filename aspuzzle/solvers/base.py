@@ -18,6 +18,8 @@ class Solver[G: Grid = Grid](ABC):
     default_config: ClassVar[dict[str, Any]] = {}
     solver_name: str = "Puzzle solver"
     supported_grid_types: tuple[type[Grid], ...] = (Grid,)  # Support all grids by default
+    # Whether this solver's rules need a boundary of cells outside the grid
+    outside_border: ClassVar[bool] = False
     supported_symbols: tuple[
         str | int, ...
     ] = ()  # Symbols allowed in the grid definition; solvers may override per instance
@@ -133,7 +135,7 @@ class Solver[G: Grid = Grid](ABC):
         # cast, not assert: G is not available at runtime, and the
         # supported_grid_types check above has already rejected every grid
         # kind this solver cannot take
-        self.grid = cast(G, grid_class.from_config(self.puzzle, self.config))
+        self.grid = cast(G, grid_class.from_config(self.puzzle, self.config, outside_border=self.outside_border))
 
     @property
     def grid_data(self) -> list[GridCellData]:

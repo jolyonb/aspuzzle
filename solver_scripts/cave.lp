@@ -4,12 +4,11 @@
 % ===== grid =====
 
 % Define cells in the grid
-cell(R, C) :- R = 1..9, C = 1..9.
+cell(R, C) :- R = 0..10, C = 0..10.
 
 % Define outside border cells
 outside_grid(cell(R, C)) :- R = (0; 10), C = 0..10.
 outside_grid(cell(R, C)) :- C = (0; 10), R = 1..9.
-cell(R, C) :- outside_grid(cell(R, C)).
 
 % Define directions in the grid
 direction("n", cell(-1, 0)).

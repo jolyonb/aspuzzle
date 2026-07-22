@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from aspalchemy import (
     ANY,
@@ -122,10 +122,11 @@ class Grid(Module, ABC):
         puzzle: Puzzle,
         name: str = "grid",
         primary_namespace: bool = True,
+        outside_border: bool = False,
     ):
         """Initialize a base grid module."""
         super().__init__(puzzle, name, primary_namespace)
-        self._has_outside_border: bool = False
+        self._has_outside_border: Final[bool] = outside_border
         # Topology memos: grid geometry is immutable after construction, and
         # rendering calls these per scene element, so results are cached
         self._coords_cache: dict[GridCell, tuple[int, ...]] = {}
@@ -150,8 +151,15 @@ class Grid(Module, ABC):
         config: dict[str, Any],
         name: str = "grid",
         primary_namespace: bool = True,
+        outside_border: bool = False,
     ) -> Grid:
-        """Create a grid from configuration."""
+        """
+        Create a grid from configuration.
+
+        config describes the puzzle — its size, its clues. outside_border says
+        whether the solver's rules reach beyond the board, which is a property
+        of the puzzle type.
+        """
         pass
 
     @abstractmethod
@@ -169,6 +177,21 @@ class Grid(Module, ABC):
             List of (loc, value) tuples for non-empty cells
         """
         pass
+
+    @property
+    @abstractmethod
+    def cell_class(self) -> type[GridCell]:
+        """
+        The grid's cell predicate CLASS, defining nothing: pure, and safe to
+        touch in any phase.
+
+        Use this for pure-Python topology — all_cells, cell_at, neighbor, and
+        everything the rendering layer builds on them. Use `Cell` when writing
+        ASP rules: that one defines the cell domain as a side effect of the
+        first access, so reaching for it from a renderer makes drawing a
+        picture emit rules, and stamps them with the renderer's source line
+        instead of the solver's.
+        """
 
     @property
     @abstractmethod

@@ -167,10 +167,8 @@ class SymbolSet(Module):
         conditions: list[Predicate | DefaultNegation] = [cell]
         conditions.extend(~excl for excl in self._excluded_cells)
 
-        # Add grid outside border to exclusions if it exists
+        # Add grid outside border to exclusions if it exists.
         if self.grid.has_outside_border:
-            # This is safe to do because we're in the finalize method, which is
-            # called after all rules that might create the outside border have been defined.
             conditions.append(~self.grid.outside_grid())
 
         self.section("Place symbols in the grid")

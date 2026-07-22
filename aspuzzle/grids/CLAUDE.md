@@ -9,8 +9,12 @@ Abstract base class and utilities for all grid types:
 
 - **`Grid`** - Abstract base class defining the grid interface
   - Inherits from `Module`, so grids are puzzle modules with their own segments
-  - Defines abstract properties: `cell_fields`, `direction_vectors`, `line_direction_names`
+  - Defines abstract properties: `cell_class`, `cell_fields`, `direction_vectors`, `line_direction_names`
   - Provides cached predicates: `Cell`, `Direction`, `Orthogonal`, `VertexSharing`, `Line`
+  - `cell_class` vs `Cell`: `cell_class` is the cell predicate CLASS and emits nothing,
+    so pure-Python topology and everything rendering-side builds cells with it. `Cell`
+    defines the cell domain the first time it is touched, which is a rule — reach for it
+    only when writing ASP
   - Abstract methods: `parse_grid()`, `add_vector_to_cell()`, `neighbor()`, `ascii_geometry()`
   - `find_anchor_cell()` utility for finding lexicographically minimum cells
 
@@ -43,7 +47,11 @@ Concrete implementation for rectangular grids with rows and columns:
 - **Constraint Utilities:**
   - `forbid_2x2_blocks()` - Prevents 2x2 blocks of a symbol
   - `forbid_checkerboard()` - Prevents disconnecting checkerboard patterns
-  - Outside border support with `OutsideGrid` predicate
+  - Outside border support with the `OutsideGrid` predicate, for solvers that set
+    `outside_border = True`. The border is a property of the grid, fixed at
+    construction: `Cell` defines the ring along with the rest of the board, and
+    `OutsideGrid` only says which cells it is (and raises if the solver never asked
+    for one)
 
 ## Rendering
 

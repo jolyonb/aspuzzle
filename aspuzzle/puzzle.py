@@ -333,6 +333,20 @@ class Module(StatementSpeaker):
     Modules provide organization and domain-specific logic for different
     components of a puzzle. Each module has its own namespace in the ASP
     program, and its statement verbs speak on its own segment.
+
+    Emit your rules as soon as your inputs are complete, and no sooner:
+
+    - in `__init__`, when they are complete there. RegionConstructor is
+      configured entirely by its constructor arguments, and its rules are one
+      block every user of it wants.
+    - lazily from a `@cached_predicate`, when a predicate is optional. A grid
+      offers eleven, and a puzzle with no line clues should not pay for `Line`
+      in the ground program.
+    - from `finalize()`, when they depend on what the solver adds after
+      construction. SymbolSet cannot write its placement choice until the
+      solver has stopped adding symbols. See `finalize` for the contract that
+      comes with the hook — it is the one that makes module ordering matter,
+      so reach for it last.
     """
 
     def __init__(self, puzzle: Puzzle, name: str, primary_namespace: bool = False):
@@ -391,7 +405,22 @@ class Module(StatementSpeaker):
 
     def finalize(self) -> None:
         """
-        Called just before rendering in case the module needs to add any rules based on an internal state.
+        Emit rules that depend on state this module gathered while the puzzle
+        was being built.
+
+        Read only your own state here. Modules finalize in registration order,
+        so a value read from another module is read at a moment that depends on
+        the order the solver happened to register them — and a value that
+        changes during the pass is seen by the modules that finalize after it
+        and missed by the ones before, giving a program that is quietly wrong
+        rather than broken.
+
+        Nothing enforces this: a module holds a reference to its grid and can
+        reach wherever it likes. When a fact about another module is genuinely
+        needed, make it immutable before the pass instead of reading it during
+        one — grid.has_outside_border is a constructor argument for exactly
+        this reason, and RegionConstructor needs no finalize() at all because
+        of it.
         """
         pass
 

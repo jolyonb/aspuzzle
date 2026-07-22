@@ -21,6 +21,7 @@ class CanSee(Predicate, show=False):
 
 class Cave(Solver):
     solver_name = "Cave/Bag/Corral puzzle solver"
+    outside_border = True  # the rules reach beyond the board
     supported_symbols = (*range(1, 30), ".")  # Support numbers 1-29 and empty cells
     # TODO: Support for defining grids that have numbers > 9
 

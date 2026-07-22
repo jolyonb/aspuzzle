@@ -66,7 +66,7 @@ def color_regions[T, C](
     adjacency: dict[T, set[T]] = {region_id: set() for region_id in ids}
     for region_id in ids:
         for coords in regions[region_id]:
-            cell = grid.Cell(*coords)
+            cell = grid.cell_class(*coords)
             for direction in grid.orthogonal_direction_names:
                 neighbor = grid.neighbor(cell, direction)
                 if neighbor is None:

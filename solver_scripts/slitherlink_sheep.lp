@@ -4,12 +4,11 @@
 % ===== grid =====
 
 % Define cells in the grid
-cell(R, C) :- R = 1..10, C = 1..10.
+cell(R, C) :- R = 0..11, C = 0..11.
 
 % Define outside border cells
 outside_grid(cell(R, C)) :- R = (0; 11), C = 0..11.
 outside_grid(cell(R, C)) :- C = (0; 11), R = 1..10.
-cell(R, C) :- outside_grid(cell(R, C)).
 
 % Cell order chain
 cell_order(cell(R, C), cell(R, C + 1)) :- R = 1..10, C = 1..9.

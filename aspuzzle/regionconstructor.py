@@ -119,6 +119,9 @@ class RegionConstructor(Module):
         self.max_region_size = max_region_size
         self.region_domain = region_domain
 
+        # Emit all rules - no further details are needed
+        self._construct_rules()
+
     @property
     @cached_predicate
     def Regionless(self) -> type[Regionless]:
@@ -167,13 +170,6 @@ class RegionConstructor(Module):
         """
         Cell = V.RegionSizeCell
         return Count(Cell, condition=self.Region(loc=Cell, anchor=anchor))
-
-    def finalize(self) -> None:
-        """
-        Called just before rendering in case the module needs to add any rules based on an internal state.
-        """
-        # We need access to grid.has_outside_border, which we can only do in finalize
-        self._construct_rules()
 
     def _construct_rules(self) -> None:
         """Generate all rules for region construction."""

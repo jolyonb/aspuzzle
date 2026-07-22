@@ -185,7 +185,7 @@ Glyph variants vs the complementary-pair idiom (§3.5 rule 4): variants are for 
 
 ### 3.3 Locations — cell, edge, vertex, outside
 
-Cells stay what they are: `GridCell` predicate instances — the typed, hashable value objects solvers already hold from solution atoms and `grid.Cell(*loc)`. No parallel `CellRef` type. Edges and vertices are new canonicalized value types:
+Cells stay what they are: `GridCell` predicate instances — the typed, hashable value objects solvers already hold from solution atoms and `grid.cell_class(*loc)`. No parallel `CellRef` type. Edges and vertices are new canonicalized value types:
 
 ```python
 # aspuzzle/rendering/scene.py

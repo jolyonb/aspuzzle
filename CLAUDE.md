@@ -114,13 +114,16 @@ regions = RegionConstructor(..., contiguous_regionless=True)
 
 ### Adding New Grid Types
 1. **Inherit from Grid**: Implement abstract methods in `aspuzzle/grids/`
-2. **Define coordinate system**: `cell_fields`, `direction_vectors`
+2. **Define coordinate system**: `cell_class`, `cell_fields`, `direction_vectors`
 3. **Implement adjacency and layout**: `add_vector_to_cell()`, `neighbor()`, `ascii_geometry()`
 
 ### Adding New Modules
 1. **Inherit from Module**: Add to `aspuzzle/`
 2. **Use cached predicates**: Define predicates with `@cached_predicate`
-3. **Implement finalize()**: Add rules in `finalize()` method
+3. **Emit rules in `__init__`**, and only use `finalize()` for rules that depend on
+   state the module gathers while the puzzle is built (SymbolSet's placement choice
+   waits for the solver to finish adding symbols). A finalize() reads only its own
+   module's state — see `Module.finalize`
 
 ### Complex Framework Extensions
 For advanced modifications (non-rectangular grids, novel module types):

@@ -355,7 +355,7 @@ class RegionFillRule(RuleBase):
             for coords in sorted(regions[region_id]):
                 scene.add(
                     CellFill(
-                        scene.grid.Cell(*coords),
+                        scene.grid.cell_class(*coords),
                         colors[region_id],
                         layer=self.layer,
                         backends=self.backends,
@@ -645,7 +645,7 @@ def _apply_clues(spec: RenderSpec, scene: Scene, grid_data: Sequence[GridCellDat
         style = spec.clues.get(value)
         if style is None:
             continue
-        cell = scene.grid.Cell(*coords)
+        cell = scene.grid.cell_class(*coords)
         if style.glyph is not None:
             scene.add(
                 CellGlyph(

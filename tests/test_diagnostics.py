@@ -20,6 +20,7 @@ PLUMBING_MARKERS = (
     "aspuzzle/regionconstructor.py",
     "aspuzzle/grids/",
     "aspuzzle/solvers/base.py",
+    "aspuzzle/rendering/",
 )
 
 
@@ -53,3 +54,31 @@ def test_grounding_profile_attributes_to_solver_code(name: str, solver_file: str
 def test_ground_is_cached() -> None:
     solver = build("sudoku_4x4")
     assert solver.ground() is solver.ground()
+
+
+@pytest.mark.parametrize("puzzle_file", sorted(PUZZLES_DIR.glob("*.json")), ids=lambda p: p.name)
+def test_a_preview_does_not_alter_the_program(puzzle_file: Path) -> None:
+    """Drawing a picture must emit nothing.
+
+    The CLI previews before constructing (solveit.py --no-preview turns it
+    off), and a render walks the grid's cells and reads a solver's own
+    get_render_spec callbacks. Reaching for a rule-defining predicate from
+    either would emit its rules from the rendering code, stamped with a
+    rendering line — which is what grid.cell_class exists to prevent.
+
+    Asserted as "the program is unchanged" rather than "no filename matches a
+    plumbing marker": a leak from a solver's own render callback is invisible
+    to a per-file whitelist, and that is exactly where the last one hid.
+    """
+    config = json.loads(puzzle_file.read_text())
+
+    previewed = Solver.from_config(config)
+    previewed.render_puzzle()  # the preview, before any rule is emitted
+    previewed.construct_puzzle()
+
+    plain = Solver.from_config(config)
+    plain.construct_puzzle()
+
+    # annotate=True so the comparison covers where each rule was authored,
+    # not just what it says
+    assert previewed.puzzle.render(annotate=True) == plain.puzzle.render(annotate=True)

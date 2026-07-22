@@ -47,9 +47,10 @@ class RectangularGrid(Grid):
         cols: int,
         name: str = "grid",
         primary_namespace: bool = True,
+        outside_border: bool = False,
     ):
         """Initialize a grid module with specified dimensions."""
-        super().__init__(puzzle, name, primary_namespace)
+        super().__init__(puzzle, name, primary_namespace, outside_border=outside_border)
 
         assert isinstance(rows, int)
         assert isinstance(cols, int)
@@ -60,7 +61,12 @@ class RectangularGrid(Grid):
     def with_new_puzzle(self, puzzle: Puzzle) -> RectangularGrid:
         """Return a copy of this Grid with a new puzzle."""
         return type(self)(
-            puzzle=puzzle, rows=self.rows, cols=self.cols, name=self._name, primary_namespace=self._namespace == ""
+            puzzle=puzzle,
+            rows=self.rows,
+            cols=self.cols,
+            name=self._name,
+            primary_namespace=self._namespace == "",
+            outside_border=self.has_outside_border,
         )
 
     @property
@@ -125,16 +131,34 @@ class RectangularGrid(Grid):
         raise ValueError(f"Unknown direction: {direction}")
 
     @property
+    def cell_class(self) -> type[RectangularCell]:
+        """The cell predicate class, defining nothing (see Grid.cell_class)."""
+        return RectangularCell.in_namespace(self.namespace)
+
+    @property
     @cached_predicate
     def Cell(self) -> type[RectangularCell]:
-        """Get the Cell predicate for this grid."""
-        Cell = RectangularCell.in_namespace(self.namespace)
+        """Get the Cell predicate for this grid, defining the cell domain."""
+        Cell = self.cell_class
 
         R, C = V.R, V.C
+        cell = Cell(R, C)
 
-        # Define grid cells
+        border = self.has_outside_border
+        rows = RangePool(0, self.rows + 1) if border else RangePool(1, self.rows)
+        cols = RangePool(0, self.cols + 1) if border else RangePool(1, self.cols)
+
         self.section("Define cells in the grid")
-        self.when(R.in_(RangePool(1, self.rows)), C.in_(RangePool(1, self.cols))).derive(Cell(R, C))
+        self.when(R.in_(rows), C.in_(cols)).derive(cell)
+
+        if border:
+            Outside = OutsideGrid.in_namespace(self.namespace)
+
+            # Top and bottom rows, then the left and right columns without
+            # double-counting the corners
+            self.section("Define outside border cells")
+            self.when(R.in_([0, self.rows + 1]), C.in_(RangePool(0, self.cols + 1))).derive(Outside(loc=cell))
+            self.when(C.in_([0, self.cols + 1]), R.in_(RangePool(1, self.rows))).derive(Outside(loc=cell))
 
         return Cell
 
@@ -177,24 +201,15 @@ class RectangularGrid(Grid):
     @cached_predicate
     def OutsideGrid(self) -> type[OutsideGrid]:
         """Get the OutsideGrid predicate identifying cells in the outside border."""
-        Outside = OutsideGrid.in_namespace(self.namespace)
+        if not self.has_outside_border:
+            raise ValueError(
+                f"Grid '{self.name}' has no outside border: set outside_border on the solver "
+                f"(Solver.outside_border) if its rules need to talk about cells beyond the board."
+            )
 
-        R, C = V.R, V.C
-        cell = self.Cell(R, C)
-
-        self.section("Define outside border cells")
-
-        # Top and bottom rows
-        self.when(R.in_([0, self.rows + 1]), C.in_(RangePool(0, self.cols + 1))).derive(Outside(loc=cell))
-        # Left and right columns (but not double counting the corners)
-        self.when(C.in_([0, self.cols + 1]), R.in_(RangePool(1, self.rows))).derive(Outside(loc=cell))
-        # Create cell locations in the outside border
-        self.when(Outside(loc=cell)).derive(cell)
-
-        # We've included the outside border
-        self._has_outside_border = True
-
-        return Outside
+        # Make sure that cells have been emitted
+        _ = self.Cell
+        return OutsideGrid.in_namespace(self.namespace)
 
     @property
     @cached_predicate
@@ -253,6 +268,7 @@ class RectangularGrid(Grid):
         config: dict[str, Any],
         name: str = "grid",
         primary_namespace: bool = True,
+        outside_border: bool = False,
     ) -> RectangularGrid:
         """Create a rectangular grid from configuration."""
         # Get explicit grid parameters if provided
@@ -282,6 +298,7 @@ class RectangularGrid(Grid):
             cols=cols,
             name=name,
             primary_namespace=primary_namespace,
+            outside_border=outside_border,
         )
 
     def parse_grid(
@@ -406,7 +423,7 @@ class RectangularGrid(Grid):
         """Every in-grid cell, row-major."""
         for row in range(1, self.rows + 1):
             for col in range(1, self.cols + 1):
-                yield self.Cell(row=row, col=col)
+                yield self.cell_class(row=row, col=col)
 
     @property
     def cell_count(self) -> int:

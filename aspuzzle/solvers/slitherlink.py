@@ -31,6 +31,7 @@ class Wolf(Predicate, show=False):
 
 class Slitherlink(Solver):
     solver_name = "Slitherlink puzzle solver"
+    outside_border = True  # the rules reach beyond the board
     supported_symbols = (*list(range(4)), ".", "S", "W")
 
     def construct_puzzle(self) -> None:
