@@ -23,7 +23,7 @@ from aspuzzle.rendering import (
     VertexMark,
 )
 from aspuzzle.rendering import PaletteColor as Color
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 
 
 class Center(Predicate, show=False):

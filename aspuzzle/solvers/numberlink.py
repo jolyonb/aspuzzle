@@ -2,7 +2,7 @@ from aspalchemy import ANY, Choice, Count, Field, Predicate, PredicateArg, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.rendering import PaletteColor as Color
 from aspuzzle.rendering import PathRule, RenderSpec, SceneStyle, symbol_clues, symbol_colorer
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 
 
 class Symbol(Predicate, show=False):

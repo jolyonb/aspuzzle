@@ -12,14 +12,14 @@ from pathlib import Path
 
 import pytest
 
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 
 PLUMBING_MARKERS = (
     "aspuzzle/puzzle.py",
     "aspuzzle/symbolset.py",
     "aspuzzle/regionconstructor.py",
     "aspuzzle/grids/",
-    "aspuzzle/solvers/base.py",
+    "aspuzzle/solver.py",
     "aspuzzle/rendering/",
 )
 

@@ -5,7 +5,7 @@ from aspuzzle.grids.base import GridCell
 from aspuzzle.regionconstructor import RegionConstructor
 from aspuzzle.rendering import GlyphRule, Layer, RenderSpec, SceneStyle, digit_clues
 from aspuzzle.rendering import PaletteColor as Color
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 
 
 class Clue(Predicate, show=False):

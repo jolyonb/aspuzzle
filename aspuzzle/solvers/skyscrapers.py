@@ -13,7 +13,7 @@ from aspuzzle.rendering import (
     digit_clues,
 )
 from aspuzzle.rendering import PaletteColor as Color
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 from aspuzzle.symbolset import SymbolSet
 
 

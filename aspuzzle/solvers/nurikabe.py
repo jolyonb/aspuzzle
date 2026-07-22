@@ -4,7 +4,7 @@ from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.regionconstructor import RegionConstructor
 from aspuzzle.rendering import FillRule, RenderSpec, SceneStyle, digit_clues
 from aspuzzle.rendering import PaletteColor as Color
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 
 
 class Clue(Predicate, show=False):

@@ -2,7 +2,7 @@ from aspalchemy import ANY, Choice, Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.rendering import SVG_ONLY, CellStyle, Glyph, GlyphRule, LinkRule, RenderSpec
 from aspuzzle.rendering import PaletteColor as Color
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 
 
 class Tree(Predicate, show=False):

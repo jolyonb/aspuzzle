@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 from aspuzzle.solvers.tents import Tent
 
 REPO_ROOT = Path(__file__).parent.parent

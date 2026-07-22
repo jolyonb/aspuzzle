@@ -4,8 +4,8 @@ This module contains concrete puzzle solver implementations built on the aspuzzl
 
 ## Core Solver Framework
 
-### base.py
-Abstract base class for all puzzle solvers:
+### ../solver.py
+Abstract base class for all puzzle solvers (one level up, beside the framework it belongs to):
 
 - **`Solver`** - Abstract base class for puzzle implementations
   - **Factory Method**: `from_config()` - Dynamically loads solver classes based on puzzle_type

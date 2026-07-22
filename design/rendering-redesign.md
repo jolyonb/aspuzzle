@@ -213,7 +213,7 @@ Outside-the-grid clue positions need no dataclass: they are addressed by the gri
 Rendering must not require grounding a program, so grids gain a small Python-side geometric vocabulary. These live directly on `Grid` (grids are plain objects already instantiable without grounding — no separate Topology companion class):
 
 ```python
-# additions to aspuzzle/grids/base.py :: Grid
+# additions to aspuzzle/grids/solver.py :: Grid
 class Grid(Module, ABC):
     # -- concrete-coordinate helpers used only by rendering --
     def cell_coords(self, cell: GridCell) -> tuple[int, ...]:
@@ -687,7 +687,7 @@ def build_scene(grid: Grid, spec: RenderSpec, grid_data: Sequence[GridCellData],
     only constructor. build_scene never inspects element visibility — the
     Scene holds everything; backends filter at query time."""
 
-# aspuzzle/solvers/base.py
+# aspuzzle/solvers/solver.py
 class Solver(ABC):
     def get_render_spec(self) -> RenderSpec:
         """Declarative rendering description. Default: bare grid."""

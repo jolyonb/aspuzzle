@@ -5,13 +5,12 @@ from aspalchemy import register_skip_package
 # annotated renders, grounding errors and profiles — name solver code, not
 # framework internals. The solvers package is deliberately NOT registered
 # wholesale: aspuzzle/solvers/*.py are authored puzzle definitions whose lines
-# are exactly what diagnostics should point at; only the shared base is
-# plumbing.
+# are exactly what diagnostics should point at.
 for _plumbing in (
     "aspuzzle.puzzle",
     "aspuzzle.symbolset",
     "aspuzzle.regionconstructor",
     "aspuzzle.grids",
-    "aspuzzle.solvers.base",
+    "aspuzzle.solver",
 ):
     register_skip_package(_plumbing)

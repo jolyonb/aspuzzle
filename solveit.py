@@ -4,7 +4,7 @@ import json
 import pathlib
 
 from aspalchemy import GroundingError, Predicate
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 
 
 def solve(

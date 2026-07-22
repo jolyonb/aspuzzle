@@ -5,7 +5,7 @@ from aspuzzle.grids.base import GridCell
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.rendering import GlyphRule, Lattice, RegionBorderRule, RenderSpec, SceneStyle, digit_clues
 from aspuzzle.rendering import PaletteColor as Color
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 from aspuzzle.symbolset import SymbolSet
 
 

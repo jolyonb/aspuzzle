@@ -4,7 +4,7 @@ from aspalchemy import ANY, Count, Field, Predicate, V
 from aspuzzle.grids.base import GridCell
 from aspuzzle.rendering import Glyph, GlyphRule, RenderSpec, filled_clue
 from aspuzzle.rendering import PaletteColor as Color
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 from aspuzzle.symbolset import SymbolSet
 
 

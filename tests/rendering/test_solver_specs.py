@@ -38,7 +38,7 @@ from aspuzzle.rendering import (
     RegionFillRule,
     VertexMark,
 )
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 from aspuzzle.solvers.fillomino import Number
 from aspuzzle.solvers.galaxies import Galaxies, Galaxy
 from aspuzzle.solvers.numberlink import CellDirections, EndpointDirection

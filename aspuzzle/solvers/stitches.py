@@ -15,7 +15,7 @@ from aspuzzle.rendering import (
     SceneStyle,
 )
 from aspuzzle.rendering import PaletteColor as Color
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 
 
 class Region(Predicate, show=False):

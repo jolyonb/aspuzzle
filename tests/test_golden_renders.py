@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from aspalchemy import Predicate
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 from tests.test_puzzles import get_puzzle_files
 
 GOLDEN_ROOT = Path(__file__).parent / "goldens"

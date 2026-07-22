@@ -3,7 +3,7 @@ from aspuzzle.grids.base import GridCell, do_not_show_outside
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.rendering import FillRule, RenderSpec, SceneStyle, digit_clues, overflow_clues
 from aspuzzle.rendering import PaletteColor as Color
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 from aspuzzle.symbolset import SymbolSet
 
 

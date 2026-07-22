@@ -14,7 +14,7 @@ import pytest
 
 from aspuzzle.grids.rectangulargrid import RectangularGrid
 from aspuzzle.puzzle import Puzzle
-from aspuzzle.solvers.base import Solver
+from aspuzzle.solver import Solver
 from aspuzzle.symbolset import SymbolSet
 
 PUZZLES_DIR = Path(__file__).parent.parent / "puzzles"
