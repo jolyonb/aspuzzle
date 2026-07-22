@@ -1308,7 +1308,7 @@ Two seams were adjusted to satisfy the criterion: (1) **region coloring must be 
 
 ---
 
-## 10. Migration plan
+## 10. Migration plan (executed; shipped July 2026 — see §13 for what remains)
 
 1. **Land the model**: `aspuzzle/rendering/` (color/glyph/scene/spec + ASCII canvas/theme/renderer) and `RectangularAsciiGeometry` (compact + expanded/lanes) alongside the old path; add `Grid.neighbor/corner_names/corner_across/edge/vertex/all_cells/cell_coords/ascii_geometry`. Land the §9 unit-test suites for scene, canvas/renderer, and rectangular geometry in the same PR (acceptance criterion), including the neighbor-vs-ASP conformance test (ground a small grid, diff `Orthogonal` atoms against `neighbor()`) and the backend-filtering tests (SVG-only edge ⇒ compact layout; hidden label ⇒ no margin).
 2. **Golden capture**: record every solver's current `render_puzzle` output (colored and plain) for all `puzzles/*.json` — *both* the preview (`solution=None`) and solved renders, since both flow through the new pipeline. Compact-mode solvers must match byte-for-byte; Sudoku's boxed output may differ only in reviewed junction chars; the new label margins, Slitherlink loop, and uniform >9 letters are intentional, reviewed deltas. Goldens are per-backend from the start (ASCII now; SVG goldens join when it lands). Solution *validation* compares predicate atoms, not rendered text — it cannot break.
@@ -1415,3 +1415,38 @@ All three proposals converged on the same skeleton — typed scene between solve
 - **Raising on unknown rule predicates** (P3): a predicate absent from a model is legitimate (no mines placed); silent-empty is kept, with typos caught by field validation and goldens.
 - **`Chroma.DEFAULT` member** (P3): `color=None` already means "inherit/terminal default"; a sentinel enum member would duplicate it.
 - **Deprecation shims / dual-path compatibility**: single-author repo, ~15 in-tree call sites; the old dicts are precisely what is being eliminated.
+
+---
+
+## 13. Follow-on work: entry points
+
+The migration of §10 shipped in twelve steps through July 2026 (scene model,
+grid topology, ASCII backend, expanded layout, spec layer, all fifteen solvers,
+deletion of the old path, signature-keyed solution dicts), and the SVG backend
+with it. What remains is recorded here, moved from the migration plan when that
+document became history.
+
+**Common-core rework (landed July 2026, after the SVG milestone):** one
+`ScenePainter` engine walks scenes for every backend (`painter.py`);
+`AsciiPainter`/`SvgPainter` are paint-op leaves; `AsciiGeometry` slimmed
+to layout + character vocabulary (total over in-grid inputs, painter-owned
+`JunctionState`, geometry `finish()`); geometries form the hierarchy
+`GeometryBase` (topology-only behavior: substrate enumeration, line
+limits) → `RectangularGeometryBase` (lattice model, stated once) →
+backend leaves. **The hex on-ramp is now:** (1) grid topology —
+`corner_names`, `corner_across`, `neighbor`, `all_cells`/`cell_at`,
+`parse_grid`, direction vectors; (2) `HexGeometryBase` — the hex lattice
+model; (3) `HexAsciiGeometry` — lane layout + char tables implementing the
+slim `AsciiGeometry` protocol; (4) `HexSvgGeometry` — point conversions
+implementing `SvgGeometry`; (5) the two factory methods on the grid class;
+(6) one entry in `ALL_GRID_FACTORIES` to inherit the topology and
+conformance suites (plus per-grid kitchen-sink goldens). No renderer changes;
+the painter side picks up exactly one recorded piece of work at the same
+time — the `finish()` re-seam (design §11), moving the ASCII finishing
+loops behind protocol primitives. The §5.4/§5.6 hex-ASCII notes and the
+grid-class config-resolution decision recorded in §11 still apply.
+
+- **Hexagonal grid (the next grid; triangular is deferred):** new `aspuzzle/grids/hexgrid.py` — subclass `Grid`, implement the existing ASP abstract surface with axial coordinates (uniform vector per direction, so the base `Direction`/`Orthogonal` machinery works unchanged) plus the Step 3 topology methods (`neighbor`, `corner_names`, `corner_across`) and `ascii_geometry()` returning a new `HexAsciiGeometry` (in `aspuzzle/rendering/grids/hex_ascii.py`; design §5.4). Orientation is a pair of concrete sibling subclasses under the abstract base (`HexGrid` → `FlatTopHexGrid`/`PointyTopHexGrid`), each overriding the direction/corner vocabulary and geometry factory — design §5.6; the framework is orientation-blind. One pre-flight decision recorded in the design's §11: the config loader derives module names from class names, so orientation subclasses sharing `hexgrid.py` need the registry decision first. The conformance suite (topology, ASP-skew diff, and the kitchen-sink golden in `tests/rendering/test_conformance_scene.py`) is fully parametrized over `ALL_GRID_FACTORIES` — a new grid registers its factory and inherits the lot.
+- **Triangular grid (deferred — design §5.5):** breaks the base machinery's one-direction-one-vector assumption (an up-triangle's northern cell exists but is not edge-adjacent), so it needs parity-conditioned overrides of the adjacency predicates and its own `Line`/`LineOfSight` design pass before any rendering work. On the rendering side its known change is widening the topology signatures (`corner_names`, `corner_across`, edge directions) to per-cell — deliberately NOT built ahead of time; nothing should be built for triangular until that exploration happens. Register the factory in `ALL_GRID_FACTORIES` and the geometry in the conformance scene — the shared suites do the rest. **Zero renderer changes, zero solver changes**; proof: run Slitherlink or Minesweeper on a hex instance.
+- **SVG backend (chosen as the next milestone, July 2026):** `aspuzzle/rendering/svg/{renderer,theme}.py` (`SvgRenderer`, `SvgTheme`) against the protocol frozen in Step 4; `svg_geometry()` overrides per grid (~30 lines each); one `--svg out.svg` flag in `solveit.py` calling `SvgRenderer().render(solver.build_scene(sol))` — previews included for free; `tests/goldens/svg/**` joins the golden harness. **Zero solver edits**, enforced by the Step 4 import-boundary tests. Both recorded decisions settled at implementation — see the design's §6 settled-decisions record (pre-filter via `cell_at`, now on `RenderGrid`; `bounds` folded by the renderer from drawn points; plus the substrate-interpretation bools `hairline`/`vertex_dots`/`heavy_frame` on `SceneStyle`). **Per-atom path/link colorers ride along**: widen `PathRule.color`/`LinkRule` to accept `Colorer`, with Numberlink pair-coloring as the showcase — which also needs a solver-side shown predicate carrying the pair identity (`propagated_symbol` is hidden today). *Done with the milestone:* `symbol_colorer` (clue-matched ordering), `CellDirections.sym`, and `EndpointDirection` stubs into the clue cells; expected solutions regenerated — see the design's §7.3 amendment.
+- **Sheet backend (design §6.1, for mystery-hunt spreadsheet paste):** `aspuzzle/rendering/sheet/{geometry,renderer}.py` (`SheetGeometry` protocol, `SheetRenderer` — TSV, one grid cell per sheet cell, `OutsideLabel`s in margin cells, fills/edges/colors documented no-ops); `sheet_geometry()` per grid (rectangular: identity + margins); `--tsv` flag in `solveit.py`; `tests/goldens/tsv/**`. Smallest of the three follow-ons — it needs only the Step 2 scene and a trivial geometry, so it can land **any time after Step 2**. The `SheetGeometry` contract is frozen in `aspuzzle/rendering/sheet/geometry.py` with the `sheet_geometry` slot on `Grid`/`RenderGrid` (default-raise), matching the SVG discipline; TSV structural-character policy and the `style.empty` override are recorded in the design's §6.1 (early landing is a nice end-to-end proof of the multi-backend seam before SVG exists). `Backend.SHEET` is in the enum from Step 2 either way, and the Step 2 filtering tests cover a `SHEET_ONLY` element alongside the ASCII/SVG cases.
